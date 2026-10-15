@@ -424,7 +424,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (90 tests) runs in a few seconds.
+The test suite (142 tests) runs in under half a minute.
 
 **Card.** Node 24, in `frontend/`:
 
@@ -432,7 +432,7 @@ The test suite (90 tests) runs in a few seconds.
 cd frontend
 npm ci
 npm run dev      # demo page with a fake subscription, no Home Assistant needed
-npm run check    # typecheck, lint, format check, tests (68), build
+npm run check    # typecheck, lint, format check, tests (92), build
 ```
 
 With the demo running, `python frontend/docs/screenshots.py` retakes the README screenshots from it.
