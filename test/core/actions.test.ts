@@ -62,6 +62,21 @@ describe('actionList', () => {
     expect(list.shopping.reduce((n, l) => n + l.count, 0)).toBe(3);
   });
 
+  it('treats a missing or false rechargeable flag as "replace"', () => {
+    const config = {
+      ...DEFAULT_CONFIG,
+      device_settings: [
+        { device_id: DEV.zhaTemp, rechargeable: false },
+        { device_id: DEV.z2mMotion }, // key absent, as the editor writes after unticking
+      ],
+    };
+    const list = actionList(devices, config);
+    expect(list.charge).toEqual([]);
+    expect(list.replace.map((a) => a.device.deviceId)).toEqual(
+      expect.arrayContaining([DEV.zhaTemp, DEV.z2mMotion]),
+    );
+  });
+
   it('skips charging and snoozed devices', () => {
     const snoozed = analyseDevices(hass, DEFAULT_CONFIG, {
       now: FIXED_NOW,

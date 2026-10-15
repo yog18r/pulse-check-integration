@@ -80,6 +80,12 @@ describe('EditorForm', () => {
       battery_count: 2,
       rechargeable: true,
     });
+
+    // Unticking drops the key rather than writing `rechargeable: false`;
+    // the card reads a missing key as "replace", so this is a full switch-off.
+    await user.click(screen.getByLabelText('Rechargeable'));
+    expect(latest().device_settings?.[0]).not.toHaveProperty('rechargeable');
+    expect(screen.getByLabelText('Rechargeable')).not.toBeChecked();
   });
 
   it('areas and integrations are ticked by default; unticking writes an exclusion', async () => {

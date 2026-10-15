@@ -50,6 +50,18 @@ describe('readBattery', () => {
     expect(readBattery(hass.states['sensor.front_door_lock_battery_level']!)).toBeUndefined();
   });
 
+  it('rule 1 falls through to the attribute when the battery sensor state is not numeric', () => {
+    const odd = makeState('sensor.odd_battery', 'unknown', now, {
+      attributes: { device_class: 'battery', battery_level: 55 },
+    });
+    expect(readBattery(odd)).toEqual({
+      level: 55,
+      isLow: false,
+      source: 'attribute',
+      entityId: 'sensor.odd_battery',
+    });
+  });
+
   it('rule 2: reads a binary low-battery sensor', () => {
     const r = readBattery(hass.states['binary_sensor.hallway_smoke_alarm_battery_low']!);
     expect(r).toEqual({

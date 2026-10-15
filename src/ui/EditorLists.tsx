@@ -85,7 +85,8 @@ export function IntegrationThresholdRows({
           <input
             type="number"
             aria-label="Hours"
-            min={0}
+            min={0.01}
+            step="any"
             value={hours}
             onChange={(e) => {
               update(index, platform, Number(e.target.value));
@@ -369,7 +370,8 @@ export function DeviceSettingsRows({ value, hass, onChange }: DeviceRowsProps) {
               <input
                 type="number"
                 aria-label="Quiet hours"
-                min={0}
+                min={0.01}
+                step="any"
                 placeholder="hours"
                 value={row.quiet_threshold_hours ?? ''}
                 onChange={(e) => {

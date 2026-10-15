@@ -151,7 +151,8 @@ export function EditorForm({ config, onChange, hass }: Props) {
           <span>Quiet after (hours)</span>
           <input
             type="number"
-            min={0}
+            min={0.01}
+            step="any"
             value={config.quiet_threshold_hours ?? ''}
             placeholder="24"
             onChange={(e) => {

@@ -46,13 +46,16 @@ export function readBattery(state: HassEntityState): BatteryReading | undefined 
   // Rule 1: numeric battery sensor
   if (domain === 'sensor' && deviceClass === 'battery') {
     const level = parseNumeric(state.state);
-    if (level === undefined) return undefined; // unavailable / unknown
-    return {
-      level: clampPercent(level),
-      isLow: false,
-      source: 'sensor',
-      entityId: state.entity_id,
-    };
+    if (level !== undefined) {
+      return {
+        level: clampPercent(level),
+        isLow: false,
+        source: 'sensor',
+        entityId: state.entity_id,
+      };
+    }
+    // Unavailable or unknown: fall through, in case the integration also
+    // puts the level in a battery_level attribute (rule 3).
   }
 
   // Rule 2: binary low-battery sensor. "on" means the battery IS low.
