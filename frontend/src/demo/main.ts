@@ -26,7 +26,7 @@ const CONFIGS: Record<Scenario, unknown> = {
   actions: {
     type: 'custom:pulse-check-card',
     title: 'Battery Jobs',
-    battery_sort: 'replace_soon',
+    sort: 'replace_soon',
     show_tabs: ['batteries', 'actions'],
     default_tab: 'actions',
   } satisfies CardConfig,
@@ -69,6 +69,73 @@ function healthy(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * The fixture is the tests' frozen spec, so it leaves battery types
+ * unconfigured. The demo dresses it the way a lived-in install looks:
+ * battery types and counts in the device settings, one rechargeable tracker
+ * running low, and the action list the integration would build from that,
+ * so the Actions tab reads "Replace 2 × AAA in …" and "Charge …".
+ */
+const DEMO_SETTINGS: Record<string, Record<string, unknown>> = {
+  dev_z2m_motion: { battery_type: 'AAA', battery_count: 2 },
+  dev_smoke_alarm: { battery_type: '9V', battery_count: 1 },
+  'entity:sensor.remote_battery_template': { battery_type: 'AA', battery_count: 2 },
+  dev_zha_temp: { battery_type: 'CR2450', battery_count: 1 },
+  dev_legacy_tracker: {
+    battery_type: 'Built-in rechargeable',
+    battery_count: 1,
+    rechargeable: true,
+  },
+};
+const TRACKER_LEVEL = 23;
+
+function dressed(raw: Record<string, unknown>): Record<string, unknown> {
+  const devices = (raw.devices as Record<string, unknown>[]).map((d) => {
+    if (d.deviceId !== 'dev_legacy_tracker') return d;
+    const battery = d.battery as Record<string, unknown>;
+    return { ...d, severity: 'warning', battery: { ...battery, level: TRACKER_LEVEL } };
+  });
+  const byId = new Map(devices.map((d) => [String(d.deviceId), d]));
+  const replace: Record<string, unknown>[] = [];
+  const charge: Record<string, unknown>[] = [];
+  const shopping = new Map<string, { batteryType: string; count: number; devices: number }>();
+  for (const [deviceId, settings] of Object.entries(DEMO_SETTINGS)) {
+    const device = byId.get(deviceId);
+    if (!device) continue;
+    const name = String(device.name);
+    const batteryType = String(settings.battery_type);
+    const count = Number(settings.battery_count);
+    const base = { deviceId, name, severity: device.severity, batteryType, count };
+    if (settings.rechargeable === true) {
+      charge.push({ ...base, kind: 'charge', label: `Charge ${name}` });
+      continue;
+    }
+    const what = count > 1 ? `${String(count)} × ${batteryType}` : batteryType;
+    replace.push({ ...base, kind: 'replace', label: `Replace ${what} in ${name}` });
+    const line = shopping.get(batteryType) ?? { batteryType, count: 0, devices: 0 };
+    line.count += count;
+    line.devices += 1;
+    shopping.set(batteryType, line);
+  }
+  const summary = raw.summary as { attention: number; warning: number; lowBatteries: number };
+  return {
+    ...raw,
+    devices,
+    device_settings: DEMO_SETTINGS,
+    actions: {
+      replace,
+      charge,
+      shopping: [...shopping.values()].sort((a, b) => b.count - a.count),
+    },
+    summary: {
+      ...summary,
+      attention: summary.attention + 1,
+      warning: summary.warning + 1,
+      lowBatteries: summary.lowBatteries + 1,
+    },
+  };
+}
+
+/**
  * A fake subscription: sends the snapshot now and again whenever a service
  * call changes it (snooze, mark replaced), the way the integration does.
  * Several subscribers at once (the card and the editor's settings panel)
@@ -78,7 +145,7 @@ function fakeConnection(scenario: Scenario): {
   connection: HassConnection;
   mutate: (fn: (s: Record<string, unknown>) => void) => void;
 } {
-  let current = shifted(payload, Date.now() - COMPUTED_AT);
+  let current = dressed(shifted(payload, Date.now() - COMPUTED_AT));
   if (scenario === 'healthy') current = healthy(current);
   const subscribers = new Set<(message: unknown) => void>();
   const connection: HassConnection = {
@@ -136,7 +203,16 @@ function fakeCallWS(message: Record<string, unknown>): Promise<unknown> {
     const daysAgo = days - i;
     return { time: now - daysAgo * DAY, level: level + daysAgo * rate };
   });
-  const estimate = rate > 0 ? { ratePerDay: rate, daysLeft: level / rate, samples: days } : null;
+  const estimate =
+    rate > 0
+      ? {
+          daysLeft: level / rate,
+          basis: 'trend over current cycle',
+          confidence: 'high',
+          kind: 'replace',
+          ratePerDay: rate,
+        }
+      : null;
   return new Promise((resolve) =>
     setTimeout(() => {
       resolve({ entity_id: entityId, days, points, estimate });
@@ -284,8 +360,20 @@ document.addEventListener('hass-more-info', (event) => {
   toast(`HA would open more-info for ${detail.entityId}`);
 });
 
-if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+/**
+ * Deep links: `?scenario=actions&theme=dark` picks the starting state, and
+ * `&shot` hides everything but the card. The README screenshots are taken
+ * that way (see docs/screenshots.py).
+ */
+const params = new URLSearchParams(location.search);
+const startScenario = params.get('scenario');
+if (startScenario !== null && startScenario in CONFIGS) scenarioSelect.value = startScenario;
+const theme = params.get('theme');
+if (theme === 'dark' || theme === 'light') {
+  document.body.dataset.theme = theme;
+} else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
   document.body.dataset.theme = 'dark';
 }
+if (params.has('shot')) document.body.classList.add('shot');
 
 mount(scenarioSelect.value as Scenario);
