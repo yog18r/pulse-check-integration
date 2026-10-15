@@ -1,0 +1,911 @@
+{
+  "states": {
+    "binary_sensor.front_door_contact": {
+      "entity_id": "binary_sensor.front_door_contact",
+      "state": "off",
+      "attributes": {
+        "friendly_name": "binary_sensor.front_door_contact",
+        "device_class": "door"
+      },
+      "last_changed": "2026-10-15T09:48:00.000Z",
+      "last_updated": "2026-10-15T09:48:00.000Z",
+      "last_reported": "2026-10-15T09:48:00.000Z"
+    },
+    "sensor.front_door_battery": {
+      "entity_id": "sensor.front_door_battery",
+      "state": "87",
+      "attributes": {
+        "friendly_name": "sensor.front_door_battery",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-15T07:00:00.000Z",
+      "last_updated": "2026-10-15T07:00:00.000Z",
+      "last_reported": "2026-10-15T07:00:00.000Z"
+    },
+    "sensor.front_door_linkquality": {
+      "entity_id": "sensor.front_door_linkquality",
+      "state": "120",
+      "attributes": {
+        "friendly_name": "sensor.front_door_linkquality",
+        "unit_of_measurement": "lqi"
+      },
+      "last_changed": "2026-10-15T09:48:00.000Z",
+      "last_updated": "2026-10-15T09:48:00.000Z",
+      "last_reported": "2026-10-15T09:48:00.000Z"
+    },
+    "sensor.front_door_last_seen": {
+      "entity_id": "sensor.front_door_last_seen",
+      "state": "2026-10-15T09:48:00.000Z",
+      "attributes": {
+        "friendly_name": "sensor.front_door_last_seen",
+        "device_class": "timestamp"
+      },
+      "last_changed": "2026-10-15T09:48:00.000Z",
+      "last_updated": "2026-10-15T09:48:00.000Z",
+      "last_reported": "2026-10-15T09:48:00.000Z"
+    },
+    "binary_sensor.living_room_motion_occupancy": {
+      "entity_id": "binary_sensor.living_room_motion_occupancy",
+      "state": "off",
+      "attributes": {
+        "friendly_name": "binary_sensor.living_room_motion_occupancy",
+        "device_class": "occupancy"
+      },
+      "last_changed": "2026-10-15T09:20:00.000Z",
+      "last_updated": "2026-10-15T09:20:00.000Z",
+      "last_reported": "2026-10-15T09:20:00.000Z"
+    },
+    "sensor.living_room_motion_battery": {
+      "entity_id": "sensor.living_room_motion_battery",
+      "state": "12",
+      "attributes": {
+        "friendly_name": "sensor.living_room_motion_battery",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-15T09:00:00.000Z",
+      "last_updated": "2026-10-15T09:00:00.000Z",
+      "last_reported": "2026-10-15T09:00:00.000Z"
+    },
+    "sensor.living_room_motion_linkquality": {
+      "entity_id": "sensor.living_room_motion_linkquality",
+      "state": "45",
+      "attributes": {
+        "friendly_name": "sensor.living_room_motion_linkquality",
+        "unit_of_measurement": "lqi"
+      },
+      "last_changed": "2026-10-15T09:20:00.000Z",
+      "last_updated": "2026-10-15T09:20:00.000Z",
+      "last_reported": "2026-10-15T09:20:00.000Z"
+    },
+    "sensor.bedroom_climate_temperature": {
+      "entity_id": "sensor.bedroom_climate_temperature",
+      "state": "19.4",
+      "attributes": {
+        "friendly_name": "sensor.bedroom_climate_temperature",
+        "device_class": "temperature",
+        "unit_of_measurement": "°C"
+      },
+      "last_changed": "2026-10-14T04:00:00.000Z",
+      "last_updated": "2026-10-14T04:00:00.000Z",
+      "last_reported": "2026-10-14T04:00:00.000Z"
+    },
+    "sensor.bedroom_climate_humidity": {
+      "entity_id": "sensor.bedroom_climate_humidity",
+      "state": "58",
+      "attributes": {
+        "friendly_name": "sensor.bedroom_climate_humidity",
+        "device_class": "humidity",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-14T03:00:00.000Z",
+      "last_updated": "2026-10-14T03:00:00.000Z",
+      "last_reported": "2026-10-14T03:00:00.000Z"
+    },
+    "sensor.bedroom_climate_battery": {
+      "entity_id": "sensor.bedroom_climate_battery",
+      "state": "28",
+      "attributes": {
+        "friendly_name": "sensor.bedroom_climate_battery",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-14T02:00:00.000Z",
+      "last_updated": "2026-10-14T02:00:00.000Z",
+      "last_reported": "2026-10-14T02:00:00.000Z"
+    },
+    "sensor.bedroom_climate_lqi": {
+      "entity_id": "sensor.bedroom_climate_lqi",
+      "state": "88",
+      "attributes": {
+        "friendly_name": "sensor.bedroom_climate_lqi"
+      },
+      "last_changed": "2026-10-14T04:00:00.000Z",
+      "last_updated": "2026-10-14T04:00:00.000Z",
+      "last_reported": "2026-10-14T04:00:00.000Z"
+    },
+    "sensor.bedroom_climate_rssi": {
+      "entity_id": "sensor.bedroom_climate_rssi",
+      "state": "-71",
+      "attributes": {
+        "friendly_name": "sensor.bedroom_climate_rssi",
+        "unit_of_measurement": "dBm"
+      },
+      "last_changed": "2026-10-14T04:00:00.000Z",
+      "last_updated": "2026-10-14T04:00:00.000Z",
+      "last_reported": "2026-10-14T04:00:00.000Z"
+    },
+    "button.bedroom_climate_identify": {
+      "entity_id": "button.bedroom_climate_identify",
+      "state": "2026-10-15T09:00:00.000Z",
+      "attributes": {
+        "friendly_name": "button.bedroom_climate_identify"
+      },
+      "last_changed": "2026-10-15T09:00:00.000Z",
+      "last_updated": "2026-10-15T09:00:00.000Z",
+      "last_reported": "2026-10-15T09:00:00.000Z"
+    },
+    "binary_sensor.garage_multisensor_motion": {
+      "entity_id": "binary_sensor.garage_multisensor_motion",
+      "state": "off",
+      "attributes": {
+        "friendly_name": "binary_sensor.garage_multisensor_motion",
+        "device_class": "motion"
+      },
+      "last_changed": "2026-10-13T18:00:00.000Z",
+      "last_updated": "2026-10-13T18:00:00.000Z",
+      "last_reported": "2026-10-13T18:00:00.000Z"
+    },
+    "sensor.garage_multisensor_temperature": {
+      "entity_id": "sensor.garage_multisensor_temperature",
+      "state": "14.0",
+      "attributes": {
+        "friendly_name": "sensor.garage_multisensor_temperature",
+        "device_class": "temperature",
+        "unit_of_measurement": "°C"
+      },
+      "last_changed": "2026-10-13T18:00:00.000Z",
+      "last_updated": "2026-10-13T18:00:00.000Z",
+      "last_reported": "2026-10-13T18:00:00.000Z"
+    },
+    "sensor.garage_multisensor_battery_level": {
+      "entity_id": "sensor.garage_multisensor_battery_level",
+      "state": "55",
+      "attributes": {
+        "friendly_name": "sensor.garage_multisensor_battery_level",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-13T18:00:00.000Z",
+      "last_updated": "2026-10-13T18:00:00.000Z",
+      "last_reported": "2026-10-13T18:00:00.000Z"
+    },
+    "sensor.garage_multisensor_node_status": {
+      "entity_id": "sensor.garage_multisensor_node_status",
+      "state": "asleep",
+      "attributes": {
+        "friendly_name": "sensor.garage_multisensor_node_status"
+      },
+      "last_changed": "2026-10-13T18:00:00.000Z",
+      "last_updated": "2026-10-13T18:00:00.000Z",
+      "last_reported": "2026-10-13T18:00:00.000Z"
+    },
+    "lock.front_door_lock": {
+      "entity_id": "lock.front_door_lock",
+      "state": "unavailable",
+      "attributes": {
+        "friendly_name": "lock.front_door_lock"
+      },
+      "last_changed": "2026-10-15T04:00:00.000Z",
+      "last_updated": "2026-10-15T04:00:00.000Z",
+      "last_reported": "2026-10-15T04:00:00.000Z"
+    },
+    "sensor.front_door_lock_battery_level": {
+      "entity_id": "sensor.front_door_lock_battery_level",
+      "state": "unavailable",
+      "attributes": {
+        "friendly_name": "sensor.front_door_lock_battery_level",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-15T04:00:00.000Z",
+      "last_updated": "2026-10-15T04:00:00.000Z",
+      "last_reported": "2026-10-15T04:00:00.000Z"
+    },
+    "sensor.front_door_lock_node_status": {
+      "entity_id": "sensor.front_door_lock_node_status",
+      "state": "dead",
+      "attributes": {
+        "friendly_name": "sensor.front_door_lock_node_status"
+      },
+      "last_changed": "2026-10-15T04:00:00.000Z",
+      "last_updated": "2026-10-15T04:00:00.000Z",
+      "last_reported": "2026-10-15T04:00:00.000Z"
+    },
+    "sensor.plant_monitor_soil_moisture": {
+      "entity_id": "sensor.plant_monitor_soil_moisture",
+      "state": "41",
+      "attributes": {
+        "friendly_name": "sensor.plant_monitor_soil_moisture",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-15T09:58:00.000Z",
+      "last_updated": "2026-10-15T09:58:00.000Z",
+      "last_reported": "2026-10-15T09:58:00.000Z"
+    },
+    "sensor.plant_monitor_wifi_signal": {
+      "entity_id": "sensor.plant_monitor_wifi_signal",
+      "state": "-58",
+      "attributes": {
+        "friendly_name": "sensor.plant_monitor_wifi_signal",
+        "device_class": "signal_strength",
+        "unit_of_measurement": "dBm"
+      },
+      "last_changed": "2026-10-15T09:58:00.000Z",
+      "last_updated": "2026-10-15T09:58:00.000Z",
+      "last_reported": "2026-10-15T09:58:00.000Z"
+    },
+    "sensor.kitchen_ht_temperature": {
+      "entity_id": "sensor.kitchen_ht_temperature",
+      "state": "21.7",
+      "attributes": {
+        "friendly_name": "sensor.kitchen_ht_temperature",
+        "device_class": "temperature",
+        "unit_of_measurement": "°C"
+      },
+      "last_changed": "2026-10-15T08:00:00.000Z",
+      "last_updated": "2026-10-15T08:00:00.000Z",
+      "last_reported": "2026-10-15T08:00:00.000Z"
+    },
+    "sensor.kitchen_ht_battery": {
+      "entity_id": "sensor.kitchen_ht_battery",
+      "state": "92",
+      "attributes": {
+        "friendly_name": "sensor.kitchen_ht_battery",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-15T08:00:00.000Z",
+      "last_updated": "2026-10-15T08:00:00.000Z",
+      "last_reported": "2026-10-15T08:00:00.000Z"
+    },
+    "switch.office_plug": {
+      "entity_id": "switch.office_plug",
+      "state": "on",
+      "attributes": {
+        "friendly_name": "switch.office_plug"
+      },
+      "last_changed": "2026-10-12T10:00:00.000Z",
+      "last_updated": "2026-10-12T10:00:00.000Z",
+      "last_reported": "2026-10-12T10:00:00.000Z"
+    },
+    "sensor.office_plug_power": {
+      "entity_id": "sensor.office_plug_power",
+      "state": "4.2",
+      "attributes": {
+        "friendly_name": "sensor.office_plug_power",
+        "device_class": "power",
+        "unit_of_measurement": "W"
+      },
+      "last_changed": "2026-10-12T10:00:00.000Z",
+      "last_updated": "2026-10-12T10:00:00.000Z",
+      "last_reported": "2026-10-12T10:00:00.000Z"
+    },
+    "binary_sensor.window_sensor_opening": {
+      "entity_id": "binary_sensor.window_sensor_opening",
+      "state": "off",
+      "attributes": {
+        "friendly_name": "binary_sensor.window_sensor_opening",
+        "device_class": "opening"
+      },
+      "last_changed": "2026-10-15T05:00:00.000Z",
+      "last_updated": "2026-10-15T05:00:00.000Z",
+      "last_reported": "2026-10-15T05:00:00.000Z"
+    },
+    "sensor.window_sensor_battery": {
+      "entity_id": "sensor.window_sensor_battery",
+      "state": "40",
+      "attributes": {
+        "friendly_name": "sensor.window_sensor_battery",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-15T05:00:00.000Z",
+      "last_updated": "2026-10-15T05:00:00.000Z",
+      "last_reported": "2026-10-15T05:00:00.000Z"
+    },
+    "sensor.pixel_9_battery_level": {
+      "entity_id": "sensor.pixel_9_battery_level",
+      "state": "71",
+      "attributes": {
+        "friendly_name": "sensor.pixel_9_battery_level",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-15T09:52:00.000Z",
+      "last_updated": "2026-10-15T09:52:00.000Z",
+      "last_reported": "2026-10-15T09:52:00.000Z"
+    },
+    "sensor.pixel_9_battery_state": {
+      "entity_id": "sensor.pixel_9_battery_state",
+      "state": "discharging",
+      "attributes": {
+        "friendly_name": "sensor.pixel_9_battery_state"
+      },
+      "last_changed": "2026-10-15T09:52:00.000Z",
+      "last_updated": "2026-10-15T09:52:00.000Z",
+      "last_reported": "2026-10-15T09:52:00.000Z"
+    },
+    "device_tracker.pixel_9": {
+      "entity_id": "device_tracker.pixel_9",
+      "state": "home",
+      "attributes": {
+        "friendly_name": "device_tracker.pixel_9",
+        "source_type": "gps",
+        "battery_level": 71
+      },
+      "last_changed": "2026-10-15T09:52:00.000Z",
+      "last_updated": "2026-10-15T09:52:00.000Z",
+      "last_reported": "2026-10-15T09:52:00.000Z"
+    },
+    "binary_sensor.hallway_smoke_alarm_smoke": {
+      "entity_id": "binary_sensor.hallway_smoke_alarm_smoke",
+      "state": "off",
+      "attributes": {
+        "friendly_name": "binary_sensor.hallway_smoke_alarm_smoke",
+        "device_class": "smoke"
+      },
+      "last_changed": "2026-10-15T00:00:00.000Z",
+      "last_updated": "2026-10-15T00:00:00.000Z",
+      "last_reported": "2026-10-15T00:00:00.000Z"
+    },
+    "binary_sensor.hallway_smoke_alarm_battery_low": {
+      "entity_id": "binary_sensor.hallway_smoke_alarm_battery_low",
+      "state": "on",
+      "attributes": {
+        "friendly_name": "binary_sensor.hallway_smoke_alarm_battery_low",
+        "device_class": "battery"
+      },
+      "last_changed": "2026-10-15T00:00:00.000Z",
+      "last_updated": "2026-10-15T00:00:00.000Z",
+      "last_reported": "2026-10-15T00:00:00.000Z"
+    },
+    "device_tracker.dog_collar": {
+      "entity_id": "device_tracker.dog_collar",
+      "state": "home",
+      "attributes": {
+        "friendly_name": "device_tracker.dog_collar",
+        "source_type": "gps",
+        "battery_level": 44
+      },
+      "last_changed": "2026-10-15T09:00:00.000Z",
+      "last_updated": "2026-10-15T09:00:00.000Z",
+      "last_reported": "2026-10-15T09:00:00.000Z"
+    },
+    "sun.sun": {
+      "entity_id": "sun.sun",
+      "state": "above_horizon",
+      "attributes": {
+        "friendly_name": "sun.sun",
+        "elevation": 42.1
+      },
+      "last_changed": "2026-10-15T09:59:00.000Z",
+      "last_updated": "2026-10-15T09:59:00.000Z",
+      "last_reported": "2026-10-15T09:59:00.000Z"
+    },
+    "sensor.old_sensor_battery": {
+      "entity_id": "sensor.old_sensor_battery",
+      "state": "3",
+      "attributes": {
+        "friendly_name": "sensor.old_sensor_battery",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-07T02:00:00.000Z",
+      "last_updated": "2026-10-07T02:00:00.000Z",
+      "last_reported": "2026-10-07T02:00:00.000Z"
+    },
+    "sensor.remote_battery_template": {
+      "entity_id": "sensor.remote_battery_template",
+      "state": "9",
+      "attributes": {
+        "friendly_name": "TV Remote Battery",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-15T06:00:00.000Z",
+      "last_updated": "2026-10-15T06:00:00.000Z",
+      "last_reported": "2026-10-15T06:00:00.000Z"
+    },
+    "vacuum.mr_roboto": {
+      "entity_id": "vacuum.mr_roboto",
+      "state": "docked",
+      "attributes": {
+        "friendly_name": "vacuum.mr_roboto",
+        "battery_level": 18
+      },
+      "last_changed": "2026-10-15T09:57:00.000Z",
+      "last_updated": "2026-10-15T09:57:00.000Z",
+      "last_reported": "2026-10-15T09:57:00.000Z"
+    },
+    "sensor.mr_roboto_battery": {
+      "entity_id": "sensor.mr_roboto_battery",
+      "state": "18",
+      "attributes": {
+        "friendly_name": "sensor.mr_roboto_battery",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-15T09:57:00.000Z",
+      "last_updated": "2026-10-15T09:57:00.000Z",
+      "last_reported": "2026-10-15T09:57:00.000Z"
+    },
+    "light.garage_lights": {
+      "entity_id": "light.garage_lights",
+      "state": "off",
+      "attributes": {
+        "friendly_name": "light.garage_lights"
+      },
+      "last_changed": "2026-10-13T08:00:00.000Z",
+      "last_updated": "2026-10-13T08:00:00.000Z",
+      "last_reported": "2026-10-13T08:00:00.000Z"
+    },
+    "sensor.garage_lights_linkquality": {
+      "entity_id": "sensor.garage_lights_linkquality",
+      "state": "150",
+      "attributes": {
+        "friendly_name": "sensor.garage_lights_linkquality",
+        "unit_of_measurement": "lqi"
+      },
+      "last_changed": "2026-10-13T08:00:00.000Z",
+      "last_updated": "2026-10-13T08:00:00.000Z",
+      "last_reported": "2026-10-13T08:00:00.000Z"
+    },
+    "sensor.inverter_min_soc": {
+      "entity_id": "sensor.inverter_min_soc",
+      "state": "10",
+      "attributes": {
+        "friendly_name": "Inverter Min SoC",
+        "device_class": "battery",
+        "unit_of_measurement": "%"
+      },
+      "last_changed": "2026-10-14T04:00:00.000Z",
+      "last_updated": "2026-10-14T04:00:00.000Z",
+      "last_reported": "2026-10-14T04:00:00.000Z"
+    },
+    "sensor.random_template": {
+      "entity_id": "sensor.random_template",
+      "state": "42",
+      "attributes": {
+        "friendly_name": "sensor.random_template"
+      },
+      "last_changed": "2026-09-24T14:00:00.000Z",
+      "last_updated": "2026-09-24T14:00:00.000Z",
+      "last_reported": "2026-09-24T14:00:00.000Z"
+    }
+  },
+  "entities": {
+    "binary_sensor.front_door_contact": {
+      "entity_id": "binary_sensor.front_door_contact",
+      "platform": "mqtt",
+      "device_id": "dev_z2m_door"
+    },
+    "sensor.front_door_battery": {
+      "entity_id": "sensor.front_door_battery",
+      "platform": "mqtt",
+      "entity_category": "diagnostic",
+      "device_id": "dev_z2m_door"
+    },
+    "sensor.front_door_linkquality": {
+      "entity_id": "sensor.front_door_linkquality",
+      "platform": "mqtt",
+      "entity_category": "diagnostic",
+      "device_id": "dev_z2m_door"
+    },
+    "sensor.front_door_last_seen": {
+      "entity_id": "sensor.front_door_last_seen",
+      "platform": "mqtt",
+      "entity_category": "diagnostic",
+      "device_id": "dev_z2m_door"
+    },
+    "binary_sensor.living_room_motion_occupancy": {
+      "entity_id": "binary_sensor.living_room_motion_occupancy",
+      "platform": "mqtt",
+      "device_id": "dev_z2m_motion"
+    },
+    "sensor.living_room_motion_battery": {
+      "entity_id": "sensor.living_room_motion_battery",
+      "platform": "mqtt",
+      "entity_category": "diagnostic",
+      "device_id": "dev_z2m_motion"
+    },
+    "sensor.living_room_motion_linkquality": {
+      "entity_id": "sensor.living_room_motion_linkquality",
+      "platform": "mqtt",
+      "entity_category": "diagnostic",
+      "device_id": "dev_z2m_motion"
+    },
+    "sensor.bedroom_climate_temperature": {
+      "entity_id": "sensor.bedroom_climate_temperature",
+      "platform": "zha",
+      "device_id": "dev_zha_temp"
+    },
+    "sensor.bedroom_climate_humidity": {
+      "entity_id": "sensor.bedroom_climate_humidity",
+      "platform": "zha",
+      "device_id": "dev_zha_temp"
+    },
+    "sensor.bedroom_climate_battery": {
+      "entity_id": "sensor.bedroom_climate_battery",
+      "platform": "zha",
+      "entity_category": "diagnostic",
+      "device_id": "dev_zha_temp"
+    },
+    "sensor.bedroom_climate_lqi": {
+      "entity_id": "sensor.bedroom_climate_lqi",
+      "platform": "zha",
+      "entity_category": "diagnostic",
+      "device_id": "dev_zha_temp"
+    },
+    "sensor.bedroom_climate_rssi": {
+      "entity_id": "sensor.bedroom_climate_rssi",
+      "platform": "zha",
+      "entity_category": "diagnostic",
+      "device_id": "dev_zha_temp"
+    },
+    "button.bedroom_climate_identify": {
+      "entity_id": "button.bedroom_climate_identify",
+      "platform": "zha",
+      "entity_category": "config",
+      "device_id": "dev_zha_temp"
+    },
+    "binary_sensor.garage_multisensor_motion": {
+      "entity_id": "binary_sensor.garage_multisensor_motion",
+      "platform": "zwave_js",
+      "device_id": "dev_zwave_multi"
+    },
+    "sensor.garage_multisensor_temperature": {
+      "entity_id": "sensor.garage_multisensor_temperature",
+      "platform": "zwave_js",
+      "device_id": "dev_zwave_multi"
+    },
+    "sensor.garage_multisensor_battery_level": {
+      "entity_id": "sensor.garage_multisensor_battery_level",
+      "platform": "zwave_js",
+      "entity_category": "diagnostic",
+      "device_id": "dev_zwave_multi"
+    },
+    "sensor.garage_multisensor_node_status": {
+      "entity_id": "sensor.garage_multisensor_node_status",
+      "platform": "zwave_js",
+      "entity_category": "diagnostic",
+      "device_id": "dev_zwave_multi"
+    },
+    "lock.front_door_lock": {
+      "entity_id": "lock.front_door_lock",
+      "platform": "zwave_js",
+      "device_id": "dev_zwave_lock"
+    },
+    "sensor.front_door_lock_battery_level": {
+      "entity_id": "sensor.front_door_lock_battery_level",
+      "platform": "zwave_js",
+      "entity_category": "diagnostic",
+      "device_id": "dev_zwave_lock"
+    },
+    "sensor.front_door_lock_node_status": {
+      "entity_id": "sensor.front_door_lock_node_status",
+      "platform": "zwave_js",
+      "entity_category": "diagnostic",
+      "device_id": "dev_zwave_lock"
+    },
+    "sensor.plant_monitor_soil_moisture": {
+      "entity_id": "sensor.plant_monitor_soil_moisture",
+      "platform": "esphome",
+      "device_id": "dev_esphome_plant"
+    },
+    "sensor.plant_monitor_wifi_signal": {
+      "entity_id": "sensor.plant_monitor_wifi_signal",
+      "platform": "esphome",
+      "entity_category": "diagnostic",
+      "device_id": "dev_esphome_plant"
+    },
+    "sensor.kitchen_ht_temperature": {
+      "entity_id": "sensor.kitchen_ht_temperature",
+      "platform": "shelly",
+      "device_id": "dev_shelly_ht"
+    },
+    "sensor.kitchen_ht_battery": {
+      "entity_id": "sensor.kitchen_ht_battery",
+      "platform": "shelly",
+      "entity_category": "diagnostic",
+      "device_id": "dev_shelly_ht"
+    },
+    "switch.office_plug": {
+      "entity_id": "switch.office_plug",
+      "platform": "shelly",
+      "device_id": "dev_shelly_plug"
+    },
+    "sensor.office_plug_power": {
+      "entity_id": "sensor.office_plug_power",
+      "platform": "shelly",
+      "device_id": "dev_shelly_plug"
+    },
+    "binary_sensor.window_sensor_opening": {
+      "entity_id": "binary_sensor.window_sensor_opening",
+      "platform": "matter",
+      "device_id": "dev_matter_contact"
+    },
+    "sensor.window_sensor_battery": {
+      "entity_id": "sensor.window_sensor_battery",
+      "platform": "matter",
+      "entity_category": "diagnostic",
+      "device_id": "dev_matter_contact"
+    },
+    "sensor.pixel_9_battery_level": {
+      "entity_id": "sensor.pixel_9_battery_level",
+      "platform": "mobile_app",
+      "device_id": "dev_phone"
+    },
+    "sensor.pixel_9_battery_state": {
+      "entity_id": "sensor.pixel_9_battery_state",
+      "platform": "mobile_app",
+      "device_id": "dev_phone"
+    },
+    "device_tracker.pixel_9": {
+      "entity_id": "device_tracker.pixel_9",
+      "platform": "mobile_app",
+      "device_id": "dev_phone"
+    },
+    "binary_sensor.hallway_smoke_alarm_smoke": {
+      "entity_id": "binary_sensor.hallway_smoke_alarm_smoke",
+      "platform": "zha",
+      "device_id": "dev_smoke_alarm"
+    },
+    "binary_sensor.hallway_smoke_alarm_battery_low": {
+      "entity_id": "binary_sensor.hallway_smoke_alarm_battery_low",
+      "platform": "zha",
+      "entity_category": "diagnostic",
+      "device_id": "dev_smoke_alarm"
+    },
+    "device_tracker.dog_collar": {
+      "entity_id": "device_tracker.dog_collar",
+      "platform": "tractive",
+      "device_id": "dev_legacy_tracker"
+    },
+    "sun.sun": {
+      "entity_id": "sun.sun",
+      "platform": "sun",
+      "device_id": "dev_sun"
+    },
+    "sensor.old_sensor_battery": {
+      "entity_id": "sensor.old_sensor_battery",
+      "platform": "zha",
+      "entity_category": "diagnostic",
+      "device_id": "dev_disabled"
+    },
+    "sensor.remote_battery_template": {
+      "entity_id": "sensor.remote_battery_template",
+      "platform": "template"
+    },
+    "vacuum.mr_roboto": {
+      "entity_id": "vacuum.mr_roboto",
+      "platform": "ecovacs",
+      "device_id": "dev_vacuum"
+    },
+    "sensor.mr_roboto_battery": {
+      "entity_id": "sensor.mr_roboto_battery",
+      "platform": "ecovacs",
+      "entity_category": "diagnostic",
+      "device_id": "dev_vacuum"
+    },
+    "light.garage_lights": {
+      "entity_id": "light.garage_lights",
+      "platform": "mqtt",
+      "device_id": "dev_mqtt_light"
+    },
+    "sensor.garage_lights_linkquality": {
+      "entity_id": "sensor.garage_lights_linkquality",
+      "platform": "mqtt",
+      "entity_category": "diagnostic",
+      "device_id": "dev_mqtt_light"
+    },
+    "sensor.inverter_min_soc": {
+      "entity_id": "sensor.inverter_min_soc",
+      "platform": "foxess",
+      "entity_category": "config"
+    },
+    "sensor.random_template": {
+      "entity_id": "sensor.random_template",
+      "platform": "template"
+    }
+  },
+  "devices": {
+    "dev_z2m_door": {
+      "id": "dev_z2m_door",
+      "name": "Front Door Sensor",
+      "name_by_user": null,
+      "manufacturer": "Aqara",
+      "model": "MCCGQ11LM",
+      "area_id": "hallway",
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_z2m_motion": {
+      "id": "dev_z2m_motion",
+      "name": "Living Room Motion",
+      "name_by_user": null,
+      "manufacturer": "Philips",
+      "model": "SML001",
+      "area_id": "living_room",
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_zha_temp": {
+      "id": "dev_zha_temp",
+      "name": "Bedroom Climate",
+      "name_by_user": "Bedroom Temp & Humidity",
+      "manufacturer": "SONOFF",
+      "model": "SNZB-02",
+      "area_id": "bedroom",
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_zwave_multi": {
+      "id": "dev_zwave_multi",
+      "name": "Garage Multisensor",
+      "name_by_user": null,
+      "manufacturer": "Aeotec",
+      "model": "ZWA039",
+      "area_id": "garage",
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_zwave_lock": {
+      "id": "dev_zwave_lock",
+      "name": "Front Door Lock",
+      "name_by_user": null,
+      "manufacturer": "Yale",
+      "model": "YRD256",
+      "area_id": "hallway",
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_esphome_plant": {
+      "id": "dev_esphome_plant",
+      "name": "Plant Monitor",
+      "name_by_user": null,
+      "manufacturer": "espressif",
+      "model": "esp32dev",
+      "area_id": "office",
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_shelly_ht": {
+      "id": "dev_shelly_ht",
+      "name": "Kitchen H&T",
+      "name_by_user": null,
+      "manufacturer": "Shelly",
+      "model": "SHHT-1",
+      "area_id": "kitchen",
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_shelly_plug": {
+      "id": "dev_shelly_plug",
+      "name": "Office Plug",
+      "name_by_user": null,
+      "manufacturer": "Shelly",
+      "model": "SHPLG-S",
+      "area_id": "office",
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_matter_contact": {
+      "id": "dev_matter_contact",
+      "name": "Window Sensor",
+      "name_by_user": null,
+      "manufacturer": "Eve",
+      "model": "Eve Door & Window",
+      "area_id": "bedroom",
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_phone": {
+      "id": "dev_phone",
+      "name": "Pixel 9",
+      "name_by_user": null,
+      "manufacturer": "Google",
+      "model": "Pixel 9",
+      "area_id": null,
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_smoke_alarm": {
+      "id": "dev_smoke_alarm",
+      "name": "Hallway Smoke Alarm",
+      "name_by_user": null,
+      "manufacturer": "Heiman",
+      "model": "HS1SA",
+      "area_id": "hallway",
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_legacy_tracker": {
+      "id": "dev_legacy_tracker",
+      "name": "Dog Collar Tracker",
+      "name_by_user": null,
+      "manufacturer": "Tractive",
+      "model": null,
+      "area_id": null,
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_sun": {
+      "id": "dev_sun",
+      "name": "Sun",
+      "name_by_user": null,
+      "manufacturer": null,
+      "model": null,
+      "area_id": null,
+      "entry_type": "service",
+      "disabled_by": null
+    },
+    "dev_disabled": {
+      "id": "dev_disabled",
+      "name": "Old Sensor",
+      "name_by_user": null,
+      "manufacturer": null,
+      "model": null,
+      "area_id": "garage",
+      "entry_type": null,
+      "disabled_by": "user"
+    },
+    "dev_vacuum": {
+      "id": "dev_vacuum",
+      "name": "Mr Roboto",
+      "name_by_user": null,
+      "manufacturer": "Ecovacs",
+      "model": "DEEBOT",
+      "area_id": "living_room",
+      "entry_type": null,
+      "disabled_by": null
+    },
+    "dev_mqtt_light": {
+      "id": "dev_mqtt_light",
+      "name": "Garage Lights",
+      "name_by_user": null,
+      "manufacturer": "IKEA",
+      "model": "LED1836G9",
+      "area_id": "garage",
+      "entry_type": null,
+      "disabled_by": null
+    }
+  },
+  "areas": {
+    "living_room": {
+      "area_id": "living_room",
+      "name": "Living Room"
+    },
+    "kitchen": {
+      "area_id": "kitchen",
+      "name": "Kitchen"
+    },
+    "bedroom": {
+      "area_id": "bedroom",
+      "name": "Bedroom"
+    },
+    "garage": {
+      "area_id": "garage",
+      "name": "Garage"
+    },
+    "office": {
+      "area_id": "office",
+      "name": "Office"
+    },
+    "hallway": {
+      "area_id": "hallway",
+      "name": "Hallway"
+    }
+  }
+}
