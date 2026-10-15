@@ -170,6 +170,21 @@ async def _refresh(call: ServiceCall) -> None:
     await coordinator.async_refresh_history()
 
 
+async def async_set_maintenance(coordinator: PulseCheckCoordinator, hours: float) -> None:
+    """Start (or move the end of) a maintenance window `hours` from now; 0 ends it.
+
+    Shared by the service and the switch. The recompute that follows lets
+    the notifier reschedule its end-of-window timer, or send the summary
+    when the window has just been ended.
+    """
+    now = dt_util.utcnow()
+    if hours > 0:
+        coordinator.store.start_maintenance(now, now + timedelta(hours=hours))
+    elif not coordinator.store.end_maintenance(now):
+        return
+    await coordinator.async_refresh()
+
+
 async def _maintenance_mode(call: ServiceCall) -> None:
     # Hours from now, the options' default when left out; 0 ends it now.
     coordinator = _coordinator(call.hass)
@@ -177,12 +192,7 @@ async def _maintenance_mode(call: ServiceCall) -> None:
         ATTR_HOURS,
         coordinator.config_entry.options.get(CONF_MAINTENANCE_HOURS, DEFAULT_MAINTENANCE_HOURS),
     )
-    now = dt_util.utcnow()
-    if hours > 0:
-        coordinator.store.start_maintenance(now, now + timedelta(hours=float(hours)))
-    elif not coordinator.store.end_maintenance(now):
-        return
-    await coordinator.async_refresh()
+    await async_set_maintenance(coordinator, float(hours))
 
 
 @callback

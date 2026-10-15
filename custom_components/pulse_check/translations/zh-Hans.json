@@ -248,14 +248,6 @@
     "binary_sensor": {
       "problem": {
         "name": "问题"
-      },
-      "maintenance_mode": {
-        "name": "维护模式",
-        "state_attributes": {
-          "until": {
-            "name": "直到"
-          }
-        }
       }
     },
     "sensor": {
@@ -282,6 +274,16 @@
       },
       "device_last_replaced": {
         "name": "电池上次更换"
+      }
+    },
+    "switch": {
+      "maintenance_mode": {
+        "name": "维护模式",
+        "state_attributes": {
+          "until": {
+            "name": "直到"
+          }
+        }
       }
     }
   }

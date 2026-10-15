@@ -1,0 +1,9 @@
+{
+  "entity": {
+    "switch": {
+      "maintenance_mode": {
+        "default": "mdi:wrench"
+      }
+    }
+  }
+}

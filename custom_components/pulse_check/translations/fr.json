@@ -248,14 +248,6 @@
     "binary_sensor": {
       "problem": {
         "name": "Problème"
-      },
-      "maintenance_mode": {
-        "name": "Mode maintenance",
-        "state_attributes": {
-          "until": {
-            "name": "Jusqu'à"
-          }
-        }
       }
     },
     "sensor": {
@@ -282,6 +274,16 @@
       },
       "device_last_replaced": {
         "name": "Dernier remplacement de la batterie"
+      }
+    },
+    "switch": {
+      "maintenance_mode": {
+        "name": "Mode maintenance",
+        "state_attributes": {
+          "until": {
+            "name": "Jusqu'à"
+          }
+        }
       }
     }
   }

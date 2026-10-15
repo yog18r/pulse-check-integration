@@ -197,7 +197,7 @@ The visual editor also has a **Per-device settings** panel: display name, area, 
 | `sensor.pulse_check_quiet` | Devices not heard from within their threshold | |
 | `sensor.pulse_check_next_to_run_out` | Name of the battery device with the fewest days left (`unknown` until there is enough history) | `days_left`, `device_id`, `entity_id`, `level` |
 | `binary_sensor.pulse_check_problem` | On when anything needs attention | |
-| `binary_sensor.pulse_check_maintenance_mode` | On while maintenance mode holds notifications back | `until`: when it ends |
+| `switch.pulse_check_maintenance_mode` | On while maintenance mode holds notifications back. Turn it on to start a window of the default length, off to end it now | `until`: when it ends |
 
 Snoozed devices count in nothing. With the per-device option on, every battery device also gets `sensor.<device>_battery_days_left` and `sensor.<device>_battery_last_replaced` (diagnostic), the latter with the device's cycle statistics as attributes.
 
@@ -274,7 +274,7 @@ The buttons follow the companion app's [actionable notifications](https://compan
 
 ### Maintenance mode
 
-Some jobs knock many devices over at once on purpose: moving to a new Zigbee coordinator, re-pairing a Z-Wave network, rewiring a rack. Call `pulse_check.maintenance_mode` with the number of `hours` the work should take (or leave it out for the default in the options) and Pulse Check holds every message back until then: no instant notifications, no reminders, no digests. Everything else carries on. Problems are still tracked, the event below still fires (with `maintenance: true`), the card shows a line in its header, and `binary_sensor.pulse_check_maintenance_mode` is on with the end time in its `until` attribute. Calling it again moves the end; `hours: 0` ends it now. The window is stored, so a restart in the middle of the work keeps it, and one that ends while Home Assistant is off ends at the next start.
+Some jobs knock many devices over at once on purpose: moving to a new Zigbee coordinator, re-pairing a Z-Wave network, rewiring a rack. Turn on `switch.pulse_check_maintenance_mode` (on the Pulse Check device page, or a dashboard) for a window of the default length from the options, or call `pulse_check.maintenance_mode` with the number of `hours` the work should take, and Pulse Check holds every message back until then: no instant notifications, no reminders, no digests. Everything else carries on. Problems are still tracked, the event below still fires (with `maintenance: true`), the card shows a line in its header, and the switch is on with the end time in its `until` attribute. Calling the service again moves the end; turning the switch off or calling it with `hours: 0` ends it now. The window is stored, so a restart in the middle of the work keeps it, and one that ends while Home Assistant is off ends at the next start.
 
 When it ends nothing is replayed. Pulse Check compares what is wrong now with what was already wrong when the window began and sends one message listing the problems that appeared during it and are still there, such as a sensor that never re-paired. Only devices on the instant policy are listed; daily and weekly ones appear in their next digest as usual, and a digest whose time fell inside the window is skipped, not caught up. Reminders for older problems resume where they left off. If nothing new is wrong, nothing is sent.
 

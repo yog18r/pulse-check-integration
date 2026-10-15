@@ -111,7 +111,7 @@ past cycles like for like, or on a sudden 20-point drop.
   statistics.
 - **Entities**: attention count with a summary attribute; low, critical,
   offline and quiet counts; next to run out; a problem binary sensor;
-  a maintenance mode binary sensor; optional per-device diagnostic sensors. Nothing time-stamped goes on an
+  a maintenance mode switch; optional per-device diagnostic sensors. Nothing time-stamped goes on an
   entity, so an unchanged result writes no recorder row.
 - **Notifications**: once per transition (enters warning, enters critical,
   goes offline, goes quiet), never per update. Per-device policy `instant`,
@@ -216,7 +216,10 @@ change (`sensor.garden_soil_moisture` in the fixture).
 **Maintenance mode.** Planned work (a coordinator migration) would send a
 burst of offline and quiet alerts that are expected and useless.
 
-- `pulse_check.maintenance_mode` with `hours` (options default, 0 ends it).
+- `pulse_check.maintenance_mode` with `hours` (options default, 0 ends it),
+  and `switch.pulse_check_maintenance_mode` for the same from the device
+  page: on starts a default-length window, off ends it. (0.2.0 had a
+  read-only binary sensor; 0.2.1 replaced it and removes the old entry.)
   The store keeps `started_at`, `until` and the issues already confirmed
   per device at the start; calling it again moves only `until`.
 - Inside the window only *messages* stop. Transitions are still recorded

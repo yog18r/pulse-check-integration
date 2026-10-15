@@ -7,6 +7,7 @@ from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import async_capture_events
 
 from custom_components.pulse_check.const import (
@@ -31,7 +32,7 @@ from tests.test_notify import (
     _tick,
 )
 
-SENSOR = "binary_sensor.pulse_check_maintenance_mode"
+SWITCH = "switch.pulse_check_maintenance_mode"
 SUMMARY = "Maintenance mode is over. New since it began:"
 
 
@@ -42,7 +43,7 @@ async def _maintenance(hass: HomeAssistant, hours: float | None = None) -> None:
 
 
 def _sensor(hass: HomeAssistant) -> tuple[str, dict[str, Any]]:
-    state = hass.states.get(SENSOR)
+    state = hass.states.get(SWITCH)
     assert state is not None
     return state.state, dict(state.attributes)
 
@@ -261,3 +262,66 @@ async def test_digests_and_reminders_wait(
     # The next day's digest goes out as usual.
     await _tick(hass, freezer, _local(16, 9) - _local(15, 17, 30))
     assert len(_digests(calls, "daily")) == 1
+
+
+async def _switch(hass: HomeAssistant, service: str) -> None:
+    await hass.services.async_call("switch", service, {"entity_id": SWITCH}, blocking=True)
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+
+async def test_the_switch_starts_a_default_window_and_ends_it(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """On: the options' length from now. Off: ends it now, with the summary."""
+    _, _, calls = await _set_up(
+        hass, fixture_snapshot, freezer, fixed_now, {**OPTIONS, CONF_MAINTENANCE_HOURS: 3}
+    )
+    await _ready(hass, freezer)
+
+    await _switch(hass, "turn_on")
+    state, attributes = _sensor(hass)
+    assert state == "on"
+    assert attributes["until"] == "2026-10-15T13:05:01.000Z"
+
+    hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
+    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    assert calls == []
+
+    await _switch(hass, "turn_off")
+    assert _sensor(hass)[0] == "off"
+    assert _messages(calls) == [f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)"]
+
+
+async def test_the_switch_follows_the_service_and_the_clock(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    await _ready(hass, freezer)
+    await _maintenance(hass, 1)
+    assert _sensor(hass)[0] == "on"
+    await _tick(hass, freezer, timedelta(hours=1))
+    assert _sensor(hass)[0] == "off"
+
+
+async def test_the_old_binary_sensor_is_removed(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """0.2.0 made a binary sensor for maintenance mode; 0.2.1 cleans it up."""
+    entry, _, _ = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    registry = er.async_get(hass)
+    old = registry.async_get_or_create(
+        "binary_sensor", DOMAIN, f"{entry.entry_id}_maintenance_mode", config_entry=entry
+    )
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert registry.async_get(old.entity_id) is None
+    assert hass.states.get(SWITCH) is not None

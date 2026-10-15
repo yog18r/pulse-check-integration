@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .card import async_remove_card_resource, async_setup_card
@@ -39,7 +39,7 @@ from .websocket import async_setup_websocket
 if TYPE_CHECKING:
     from homeassistant.helpers.typing import ConfigType
 
-PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR, Platform.SWITCH]
 
 # Pulse Check is set up from the UI only; there is no YAML configuration.
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -56,6 +56,21 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
+@callback
+def _remove_maintenance_binary_sensor(hass: HomeAssistant, entry: PulseCheckConfigEntry) -> None:
+    """0.2.0 had maintenance mode as a binary sensor; it is a switch since 0.2.1.
+
+    Without this the old entity would linger in the registry as
+    "no longer provided" next to the new switch.
+    """
+    registry = er.async_get(hass)
+    old = registry.async_get_entity_id(
+        "binary_sensor", DOMAIN, f"{entry.entry_id}_maintenance_mode"
+    )
+    if old is not None:
+        registry.async_remove(old)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -> bool:
     """Set up Pulse Check from a config entry."""
     coordinator = PulseCheckCoordinator(hass, entry)
@@ -67,6 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -
     # The websocket commands find the current coordinator here, so a reload
     # (which is how saved options take effect) swaps it under them.
     hass.data[DOMAIN] = coordinator
+    _remove_maintenance_binary_sensor(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Notifications react to every recompute from here on.
