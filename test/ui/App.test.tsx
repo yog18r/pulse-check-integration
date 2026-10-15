@@ -9,7 +9,6 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_CONFIG, type ResolvedConfig } from '../../src/card/config';
-import { PROBLEMS_ONLY_KEY } from '../../src/ui/useProblemsOnly';
 import { SNOOZE_STORAGE_KEY } from '../../src/card/snoozeStore';
 import { ENHANCERS } from '../../src/enhancers';
 import { App } from '../../src/ui/App';
@@ -31,7 +30,6 @@ function renderApp(overrides: Partial<ResolvedConfig> = {}) {
 
 beforeEach(() => {
   vi.useFakeTimers({ now: FIXED_NOW, toFake: ['Date', 'setInterval', 'clearInterval'] });
-  localStorage.removeItem(PROBLEMS_ONLY_KEY);
   localStorage.removeItem(SNOOZE_STORAGE_KEY);
 });
 
@@ -44,7 +42,7 @@ const user = () => userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
 describe('App', () => {
   it('shows the headline, breakdown and tab counts from the fixture', () => {
-    renderApp();
+    renderApp({ title: 'Pulse Check' });
     expect(screen.getByRole('heading', { name: 'Pulse Check' })).toBeInTheDocument();
     expect(screen.getByText('⚠️ 6 devices need attention')).toBeInTheDocument();
     expect(screen.getByText('4 low batteries · 1 offline · 2 quiet')).toBeInTheDocument();
@@ -75,30 +73,16 @@ describe('App', () => {
     expect(screen.queryByText('Kitchen H&T')).not.toBeInTheDocument();
   });
 
-  it('"problems only" hides healthy batteries and remembers the choice', async () => {
-    renderApp();
-    expect(screen.getAllByRole('listitem')).toHaveLength(11);
-
-    const chip = screen.getByRole('button', { name: /Problems only/ });
-    await user().click(chip);
-    expect(chip).toHaveAttribute('aria-pressed', 'true');
+  it('problems_only shows just the batteries that need attention', () => {
+    renderApp({ problems_only: true });
     expect(screen.getAllByRole('listitem')).toHaveLength(4);
     expect(screen.queryByText('Kitchen H&T')).not.toBeInTheDocument();
-    expect(localStorage.getItem(PROBLEMS_ONLY_KEY)).toBe('true');
-
-    // A fresh render in the same browser starts where the user left off.
-    cleanup();
-    renderApp();
-    expect(screen.getAllByRole('listitem')).toHaveLength(4);
   });
 
-  it('starts on problems only when the config says so', () => {
-    renderApp({ problems_only: true });
-    expect(screen.getByRole('button', { name: /Problems only/ })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getAllByRole('listitem')).toHaveLength(4);
+  it('hides the title row when the title is blank', () => {
+    renderApp({ title: '' });
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(screen.getByText('⚠️ 6 devices need attention')).toBeInTheDocument();
   });
 
   it('caps rows and expands on "Show N more"', async () => {

@@ -4,6 +4,7 @@ import { ConfigError, DEFAULT_CONFIG, resolveConfig } from '../../src/card/confi
 describe('resolveConfig', () => {
   it('applies every default for an empty config', () => {
     expect(resolveConfig({ type: 'custom:pulse-check-card' })).toEqual(DEFAULT_CONFIG);
+    expect(DEFAULT_CONFIG.title).toBe(''); // no title row unless the user sets one
   });
 
   it('keeps valid user values', () => {

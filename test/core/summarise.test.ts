@@ -47,7 +47,7 @@ describe('headline and breakdown', () => {
   };
 
   it('celebrates when nothing needs attention', () => {
-    expect(headline({ ...base, attention: 0 })).toMatch(/🎉/);
+    expect(headline({ ...base, attention: 0 })).toBe('✅ All devices OK');
     expect(breakdown({ ...base, attention: 0 })).toBe('');
   });
 

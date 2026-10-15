@@ -116,7 +116,7 @@ export interface ResolvedConfig {
 }
 
 export const DEFAULT_CONFIG: ResolvedConfig = {
-  title: 'Pulse Check',
+  title: '',
   battery_warning: 30,
   battery_critical: 15,
   quiet_threshold_hours: 24,
@@ -207,6 +207,7 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     throw new ConfigError('Card config must be a YAML mapping (key: value pairs).');
   }
 
+  // Blank or absent means "no title row" rather than a default name.
   const title = raw.title === undefined ? DEFAULT_CONFIG.title : raw.title;
   if (typeof title !== 'string') throw new ConfigError('"title" must be text.');
 

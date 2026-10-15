@@ -50,9 +50,9 @@ export function summarise(devices: DeviceHealth[], config: ResolvedConfig): Summ
   return summary;
 }
 
-/** Playful but clear. Reads well in a screen reader too. */
+/** Short and plain. Reads well in a screen reader too. */
 export function headline(summary: Summary): string {
-  if (summary.attention === 0) return '🎉 All devices are feeling great';
+  if (summary.attention === 0) return '✅ All devices OK';
   if (summary.attention === 1) return '⚠️ 1 device needs attention';
   return `⚠️ ${String(summary.attention)} devices need attention`;
 }

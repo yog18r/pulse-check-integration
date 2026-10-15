@@ -102,7 +102,7 @@ export function EditorForm({ config, onChange, hass }: Props) {
         <input
           type="text"
           value={config.title ?? ''}
-          placeholder="Pulse Check"
+          placeholder="No title"
           onChange={(e) => {
             set('title', e.target.value || undefined);
           }}
@@ -266,7 +266,7 @@ export function EditorForm({ config, onChange, hass }: Props) {
                   set('problems_only', e.target.checked ? true : undefined);
                 }}
               />
-              Start on problems only
+              Batteries tab: problems only
             </label>
             <label className="inline">
               <span>over</span>

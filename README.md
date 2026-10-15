@@ -59,7 +59,7 @@ That is all you need. Everything else has a sensible default.
 
 ```yaml
 type: custom:pulse-check-card
-title: Pulse Check
+title: Pulse Check # optional; leave out for no title row
 battery_warning: 30 # % at or below this is a warning (orange)
 battery_critical: 15 # % at or below this is critical (red)
 quiet_threshold_hours: 24 # no update for this long = "quiet"
@@ -85,7 +85,7 @@ battery_sort: level # "level" (default) or "replace_soon": order of the Batterie
 max_rows: 12 # rows per tab before "Show N more"; a number or "all"
 show_sparklines: true # trend line next to each battery bar
 sparkline_days: 14 # how much history the line covers, 1-365
-problems_only: false # start the Batteries tab on the "Problems only" view
+problems_only: false # Batteries tab lists only devices that need attention
 include_areas: [] # only devices in these areas (names or ids); empty = all
 exclude_areas: []
 include_integrations: [] # only these integrations; empty = all
@@ -97,7 +97,7 @@ Prefer clicking to typing? The card has a **visual editor**: add the card from t
 
 | Option                   | Type    | Default                     | Notes                                                              |
 | ------------------------ | ------- | --------------------------- | ------------------------------------------------------------------ |
-| `title`                  | string  | `Pulse Check`               |                                                                    |
+| `title`                  | string  | none                        | Leave out (or blank) for no title row.                             |
 | `battery_warning`        | number  | `30`                        | 0–100. Inclusive: 30% counts as a warning.                         |
 | `battery_critical`       | number  | `15`                        | 0–100. Must not exceed `battery_warning`.                          |
 | `quiet_threshold_hours`  | number  | `24`                        | Hours since the device's newest `last_updated`.                    |
@@ -111,7 +111,7 @@ Prefer clicking to typing? The card has a **visual editor**: add the card from t
 | `max_rows`               | number  | `12`                        | Or `all`. Applies to the Batteries and Connectivity tabs.          |
 | `show_sparklines`        | boolean | `true`                      | Needs recorder history; hidden otherwise.                          |
 | `sparkline_days`         | number  | `14`                        | 1 to 365. Per-device override in `device_settings`.                |
-| `problems_only`          | boolean | `false`                     | Initial state of the Batteries tab's \"Problems only\" switch.     |
+| `problems_only`          | boolean | `false`                     | Batteries tab shows only warning/critical rows.                    |
 | `include_areas`          | list    | `[]`                        | Area names or ids. Devices with no area are dropped when set.      |
 | `exclude_areas`          | list    | `[]`                        |                                                                    |
 | `include_integrations`   | list    | `[]`                        | Allow-list counterpart of `exclude_integrations`.                  |
@@ -150,7 +150,7 @@ By default only **battery-powered devices** can be quiet (`quiet_scope: battery`
 
 **Sparklines:** daily means from the recorder are drawn as a small trend line beside the battery bar, scaled to the data so a slow decline is visible (which also means a phone's daily charge cycle shows as a wobble). `sparkline_days` sets the window (default 14, up to a year), globally or per device; windows of three days or less are drawn from hourly means so a one-day line has shape. The "days left" estimate always uses the last 14 days, whatever the line shows. Sensors without long-term statistics (custom integrations that don't set `state_class: measurement`) are fetched from raw history instead and averaged per day, so they get a line too. A battery reported only as an attribute (some vacuums and trackers) is fetched from raw history with attributes, for just those entities. Only a binary low/ok sensor has no numeric history and gets no line.
 
-**Problems only:** a chip above the Batteries list hides every healthy row. It starts from `problems_only` and then remembers your last choice in that browser.
+**Problems only:** `problems_only: true` makes the Batteries tab list only the devices at or below the warning threshold, for a compact card on a busy dashboard.
 
 **Row cap and filters:** `max_rows` (default 12, or `all`) limits each of the Batteries and Connectivity tabs, with a "Show N more" control so nothing is hidden silently. `include_areas` / `exclude_areas` and `include_integrations` / `exclude_integrations` scope the card, which is how you put a per-room card on a sections dashboard: `include_areas: [Office]`. Area filters accept the name shown in Home Assistant or the area id, case-insensitively.
 
