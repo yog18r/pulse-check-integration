@@ -2,11 +2,18 @@
 
 A [Home Assistant](https://www.home-assistant.io/) integration that watches every device's **battery** and **connectivity** across all your integrations, and tells you what to do about it.
 
-It is complete on its own: entities, notifications, services and a blueprint, nothing else required. The optional [Pulse Check Card](https://github.com/yog18r/pulse-check-card) is a dashboard view of the same data, fed over a websocket subscription; it requires this integration.
+It brings entities, notifications, services, a blueprint and a **dashboard card**. One install provides all of them: the integration serves the card itself and adds it to your dashboards, so it simply appears in the card picker.
+
+<p align="center">
+  <img src="frontend/docs/screenshot-batteries.jpg" alt="Batteries tab in a dark theme: devices sorted lowest battery first with coloured bars" width="420" />
+  <img src="frontend/docs/screenshot-connectivity.jpg" alt="Connectivity tab in a light theme: one offline lock and three quiet devices" width="420" />
+</p>
+
+<p align="center"><em>The card, rendered from its demo page with mock data. Dark and light themes.</em></p>
 
 [![CI](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml)
 
-> **Status: feature complete, lightly tested.** All five phases of the [plan](PLAN.md) are built: detection rules, entities, options, notifications, services, replacement tracking and the card's integration mode. It has run on one real instance. Expect rough edges; issues are welcome. See [Roadmap](#roadmap).
+> **Status: feature complete, lightly tested.** All five phases of the [plan](PLAN.md) are built: detection rules, entities, options, notifications, services, replacement tracking and the card. It has run on one real instance. Expect rough edges; issues are welcome. See [Roadmap](#roadmap).
 
 ---
 
@@ -35,13 +42,46 @@ Add `https://github.com/yog18r/pulse-check-integration` as a custom repository i
 
 ### Option 2: manual
 
-Copy the `custom_components/pulse_check` folder into your Home Assistant `config/custom_components/` folder and restart. If you copy from a checkout you have run tests in, delete any `__pycache__` folders first; some file-manager add-ons refuse to upload `.pyc` files. The release zip never contains them.
+Download `pulse_check.zip` from the [latest release](https://github.com/yog18r/pulse-check-integration/releases/latest), unzip it into `config/custom_components/pulse_check/` and restart. The zip already contains the card.
+
+Copying `custom_components/pulse_check` from a checkout of this repository works too, but build the card into it first (it is not committed):
+
+```bash
+cd frontend
+npm ci
+npm run build
+```
+
+That writes `custom_components/pulse_check/frontend/pulse-check-card.js`. Delete any `__pycache__` folders before copying; some file-manager add-ons refuse to upload `.pyc` files. The release zip never contains them.
 
 ### Then
 
 Go to **Settings → Devices & services → Add integration** and search for **Pulse Check**. There is nothing to fill in. One instance watches the whole house.
 
+Refresh the browser, edit a dashboard, **Add card**, and pick **Pulse Check Card**, or add it in YAML:
+
+```yaml
+type: custom:pulse-check-card
+```
+
 Requires Home Assistant 2026.9 or newer.
+
+### How the card gets onto your dashboards
+
+A *dashboard resource* (Settings → Dashboards → ⋮ → Resources) is a script every dashboard loads. On each start the integration serves its card at `/pulse_check/pulse-check-card.js` and makes sure there is exactly one resource for it, of type *JavaScript module*, with the integration's version on the end (`?v=0.1.0`). After an update the version changes, the resource is updated with it, and browsers fetch the new card instead of a cached old one. Removing the integration removes the resource.
+
+If your resources are defined in YAML (`lovelace: resource_mode: yaml`), an integration must not edit them, so Pulse Check logs the line to add instead:
+
+```yaml
+lovelace:
+  resources:
+    - url: /pulse_check/pulse-check-card.js?v=0.1.0
+      type: module
+```
+
+### Upgrading from the separate card
+
+The card used to be its own repository, installed into `config/www/`. After installing this version, delete the old `/local/pulse-check-card.js` resource (Settings → Dashboards → ⋮ → Resources) and the file `config/www/pulse-check-card.js`, then hard-refresh the browser. Cards already on your dashboards keep working; their type is unchanged.
 
 ## Options
 
@@ -91,6 +131,51 @@ A device's own `notify_policy` (set with the `set_device_settings` service) over
 | --- | --- | --- |
 | Per-device battery sensors | off | Adds "Battery days left" and "Battery last replaced" diagnostic sensors to every battery device's own page |
 
+## The card
+
+- **🔋 Batteries**: every battery-powered device, lowest first (or soonest to run out), with a coloured bar, a trend sparkline, "~12d left", and a note when a battery is draining much faster than it used to
+- **📡 Connectivity**: anything offline or not heard from within its threshold
+- **🛠️ Actions** (optional tab): "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", a to-buy total, and a **Done** button that records the replacement
+- **Snooze** a device for 1, 7 or 30 days. Snoozes live in the integration, so every dashboard, phone and notification agrees
+- **Group by** area, integration or device type. Tap a row to open the device in Home Assistant
+
+The card shows what the integration computed; it analyses nothing itself. What counts as low, how long a device may stay quiet, which devices are ignored and which notifications go out are the integration's options (above). The card's own options are about presentation only, and the visual editor covers all of them:
+
+```yaml
+type: custom:pulse-check-card
+title: Device Health # leave out for no title row
+show_tabs: [batteries, connectivity, actions]
+default_tab: batteries
+max_rows: 12 # or "all"
+sort: level # level, name or replace_soon
+group_by: none # none, area, integration or device_type
+areas: [] # view filters: names or ids; empty means all
+integrations: []
+device_types: []
+problems_only: false # Batteries tab shows only warning/critical rows
+show_sparklines: true
+sparkline_days: 14 # 1 to 365
+```
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `title` | none | Leave out (or blank) for no title row |
+| `show_tabs` | `[batteries, connectivity]` | Any of `batteries`, `connectivity`, `actions` |
+| `default_tab` | `batteries` | Must be in `show_tabs` |
+| `max_rows` | `12` | Or `all`. A "show more" control reveals the rest |
+| `sort` | `level` | Inside each severity band: `level` (lowest first), `name`, or `replace_soon` (devices with an estimate first, fewest days left first, then the rest by level). `battery_sort` still works |
+| `group_by` | `none` | `none`, `area`, `integration` or `device_type` |
+| `areas`, `integrations`, `device_types` | `[]` | Show only these. Device types: `lock`, `cover`, `vacuum`, `phone`, `media`, `remote`, `climate`, `motion`, `contact`, `light`, `switch`, `other` |
+| `problems_only` | `false` | Batteries tab shows only warning and critical rows |
+| `show_sparklines` | `true` | Trend lines from recorder history, read by the integration |
+| `sparkline_days` | `14` | 1 to 365. A device's own sparkline window overrides it |
+
+The integration's filters decide what is monitored at all; a card's `areas`, `integrations` and `device_types` only decide what *that* card shows, so one integration can feed a hallway card, a locks-only card and a whole-house card. The header counts follow the card's filters.
+
+The visual editor also has a **Per-device settings** panel: display name, area, battery type and count, rechargeable, quiet threshold, notification policy and sparkline window for any device. Each change is saved at once through `pulse_check.set_device_settings`, not into the card's YAML, so it applies to every card and to notifications.
+
+Keys from the card's older standalone versions (`battery_warning`, `device_settings`, `exclude_*`, `quiet_*` and so on) are ignored: those settings live in the integration now.
+
 ## Entities
 
 | Entity | State | Attributes |
@@ -107,7 +192,7 @@ Snoozed devices count in nothing. With the per-device option on, every battery d
 
 ## Websocket API
 
-The card, or anything else on Home Assistant's websocket, can subscribe to the computed data instead of polling entities. Keeping the device list off the sensor's attributes keeps the state machine and the recorder free of a large, frequently changing payload.
+This is the contract between the integration and the card. The card, or anything else on Home Assistant's websocket, can subscribe to the computed data instead of polling entities. Keeping the device list off the sensor's attributes keeps the state machine and the recorder free of a large, frequently changing payload.
 
 **`pulse_check/subscribe`** sends one event immediately and another after every recompute (about ten seconds after a relevant state change, and at least every five minutes):
 
@@ -244,6 +329,13 @@ Rows are also flagged as `unusual` when the current cycle drains more than twice
 
 ## Architecture
 
+One repository, two halves that meet at the websocket API above:
+
+- **`custom_components/pulse_check/`**, the integration in Python, does all the work: detection, history, notifications, storage, services.
+- **`frontend/`**, the card in TypeScript and React, built with Vite into one JavaScript file inside the integration folder. It renders the `pulse_check/subscribe` snapshot, fetches sparklines with `pulse_check/history` and calls the `pulse_check.*` services. See [frontend/README.md](frontend/README.md).
+
+The card used to be a separate repository; it moved here with its history so a single HACS install delivers both, and so the two can never be installed at mismatched versions. `manifest.json` holds the one version number; the card's build reads it from there.
+
 ```
 custom_components/pulse_check/
 ├── core/             pure Python, no Home Assistant imports
@@ -257,6 +349,8 @@ custom_components/pulse_check/
 │   ├── drain.py      drain-rate estimation (used from phase 2)
 │   └── enhancers/    Z-Wave JS, Zigbee2MQTT, ZHA
 ├── websocket.py      pulse_check/subscribe and pulse_check/history for the card
+├── card.py           serves the card and keeps its dashboard resource current
+├── frontend/         the built card, pulse-check-card.js (not in git; built from /frontend)
 ├── coordinator.py    when to recompute; builds the snapshot from HA
 ├── history.py        battery history from the recorder, for days-left
 ├── notify.py         transitions, policies, reminders, digests, the event
@@ -279,7 +373,7 @@ custom_components/pulse_check/
 
 ## Development
 
-Python 3.14 (what Home Assistant 2026.10 requires). On Windows, Home Assistant's test harness imports Unix-only modules, so run the tests under WSL; ruff and mypy run anywhere.
+**Integration.** Python 3.14 (what Home Assistant 2026.10 requires). On Windows, Home Assistant's test harness imports Unix-only modules, so run the tests under WSL; ruff and mypy run anywhere.
 
 ```bash
 python -m venv .venv
@@ -289,9 +383,20 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (62 tests) runs in a few seconds. CI runs ruff, mypy, pytest, [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest/) and the HACS validation action on every push.
+The test suite (90 tests) runs in a few seconds.
 
-To try a development build on a live instance, copy `custom_components/pulse_check` into `/config/custom_components/` and restart Home Assistant.
+**Card.** Node 24, in `frontend/`:
+
+```bash
+cd frontend
+npm ci
+npm run dev      # demo page with a fake subscription, no Home Assistant needed
+npm run check    # typecheck, lint, format check, tests (68), build
+```
+
+CI runs ruff, mypy, pytest, the card's checks and build, [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest/) (on the integration with the built card inside) and the HACS validation action on every push. Pushing a `v*` tag that matches `manifest.json` builds the card and publishes `pulse_check.zip` as a release.
+
+To try a development build on a live instance, run `npm run build` in `frontend/`, delete any `__pycache__` folders, copy `custom_components/pulse_check` into `/config/custom_components/`, restart Home Assistant and refresh the browser. The card is served without long-lived cache headers, so a rebuilt card with the same version is picked up on a normal reload.
 
 ## Roadmap
 
@@ -300,6 +405,7 @@ To try a development build on a live instance, copy `custom_components/pulse_che
 3. ~~Notifications and storage: per-device settings and services, snooze, notifications on transitions with per-device policies (instant, daily, weekly, none), reminders, digests, a `pulse_check_transition` event and a blueprint~~
 4. ~~Replacement tracking: mark replaced or charged, auto-detect, cycle statistics, remaining days, "unusual behaviour" flags, per-device diagnostic sensors~~
 5. ~~The card becomes a renderer of this integration's data over a websocket subscription, with `group_by` and a per-device settings editor~~
+6. ~~One repository: the card ships inside the integration and registers itself~~
 
 Ideas for later: a UI for per-device settings (today they are set through the service), catching up missed digests after a restart, and watching entities that have no registry entry.
 
