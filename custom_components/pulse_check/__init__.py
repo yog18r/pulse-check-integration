@@ -4,7 +4,8 @@ Home Assistant concepts, briefly:
 
 - A *config entry* is one configured instance of an integration, created
   through the UI (see `config_flow.py`) and stored by Home Assistant. It
-  is passed to `async_setup_entry` on every start.
+  is passed to `async_setup_entry` on every start. Its `options` hold the
+  user's settings from the Configure dialog.
 - A *coordinator* (see `coordinator.py`) owns the data and decides when to
   refresh it. Entities subscribe to it instead of computing anything
   themselves.
@@ -21,7 +22,7 @@ from homeassistant.core import HomeAssistant
 
 from .coordinator import PulseCheckCoordinator
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 # The coordinator is attached to the entry as `runtime_data`, which is how
 # Home Assistant recommends sharing per-entry objects with the platforms.
@@ -35,6 +36,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # Battery history is slower (database reads), so it loads in the
+    # background after the entities exist and refreshes them when done.
+    entry.async_create_background_task(
+        hass, coordinator.async_refresh_history(), "pulse_check history"
+    )
     return True
 
 
