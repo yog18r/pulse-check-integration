@@ -33,7 +33,9 @@ default for that severity (critical -> instant, warning -> weekly).
 
 Every confirmed transition also fires a `pulse_check_transition` event on
 Home Assistant's event bus, whatever the policy, for people who prefer
-their own automations (see the blueprint in `blueprints/`).
+their own automations (see the blueprint in `blueprints/`). Instant
+messages and reminders to a companion-app phone carry buttons (mark
+replaced, snooze) that act on the device; see `notify_actions.py`.
 
 Digests go out at a fixed time. The store remembers when each kind was
 last judged (sent, or found to have nothing to say), so a slot missed
@@ -90,6 +92,17 @@ from .const import (
 )
 from .core.models import as_utc, to_iso
 from .core.thresholds import battery_severity
+from .notify_actions import (
+    EVENT_NOTIFICATION_ACTION,
+    MARK_CHARGED,
+    MARK_REPLACED,
+    REMIND_LATER,
+    SNOOZE_DAY,
+    async_handle_action,
+    is_mobile_app_target,
+    is_our_action,
+    notification_actions,
+)
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -100,6 +113,13 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 TITLE = "Pulse Check"
+
+ACTION_TITLES = {
+    MARK_REPLACED: "Mark replaced",
+    MARK_CHARGED: "Mark charged",
+    REMIND_LATER: "Remind me later",
+    SNOOZE_DAY: "Snooze 1 day",
+}
 
 type IssueKey = Literal["offline", "quiet", "battery_critical", "battery_warning"]
 type Policy = Literal["instant", "daily", "weekly", "none"]
@@ -274,6 +294,11 @@ class Notifier:
         self._start_digest_record()
         self._schedule_maintenance_end()
         self.entry.async_on_unload(self._cancel_maintenance_timer)
+        self.entry.async_on_unload(
+            self.hass.bus.async_listen(
+                EVENT_NOTIFICATION_ACTION, self._handle_action, event_filter=is_our_action
+            )
+        )
 
         if self.hass.state is CoreState.running:
             self._mark_started()
@@ -322,6 +347,13 @@ class Notifier:
         self._schedule_maintenance_end()
         self.entry.async_create_background_task(
             self.hass, self.async_process(), "pulse_check notifications"
+        )
+
+    @callback
+    def _handle_action(self, event: Event[Any]) -> None:
+        """A button on one of our phone notifications was pressed."""
+        self.entry.async_create_background_task(
+            self.hass, async_handle_action(self.hass, event), "pulse_check notification action"
         )
 
     @callback
@@ -465,7 +497,7 @@ class Notifier:
         # In maintenance mode `notified_at` stays empty: the summary at the
         # end of the window picks the issue up from there.
         if policy == "instant" and not self.store.in_maintenance(now):
-            await self._send(issue.message)
+            await self._send(issue.message, self._actions(device, issue, reminders_sent=0))
             record["notified_at"] = to_iso(now)
 
     async def _maybe_remind(
@@ -483,10 +515,31 @@ class Notifier:
         if as_utc(now) - last_at < self.reminder_interval:
             return False
         days = (as_utc(now) - _at(record["since"])).days
-        await self._send(f"Still unresolved after {days} days. {issue.message}")
+        reminders = record.get("reminders", 0) + 1
+        await self._send(
+            f"Still unresolved after {days} days. {issue.message}",
+            self._actions(device, issue, reminders_sent=reminders),
+        )
         record["notified_at"] = to_iso(now)
-        record["reminders"] = record.get("reminders", 0) + 1
+        record["reminders"] = reminders
         return True
+
+    def _actions(
+        self, device: DeviceHealth, issue: Issue, reminders_sent: int
+    ) -> list[dict[str, str]]:
+        """Companion-app buttons for a message about one issue.
+
+        "Remind me later" is offered only when a reminder will really
+        follow: reminders are on and this message is not the last one.
+        """
+        settings = self.store.device_settings.get(device.device_id, {})
+        return notification_actions(
+            issue.key,
+            device.device_id,
+            rechargeable=bool(settings.get("rechargeable")),
+            another_reminder=reminders_sent < self.reminder_max,
+            titles=ACTION_TITLES,
+        )
 
     @callback
     def _fire(
@@ -603,15 +656,20 @@ class Notifier:
 
     # -- sending -------------------------------------------------------------
 
-    async def _send(self, message: str) -> None:
-        """Deliver to every target: a legacy `notify.<name>` service or a notify entity."""
+    async def _send(self, message: str, actions: list[dict[str, str]] | None = None) -> None:
+        """Deliver to every target: a legacy `notify.<name>` service or a notify entity.
+
+        `actions` become buttons for companion-app targets only; every
+        other target gets the title and message alone, as it always has.
+        """
         for target in self.targets:
             domain, _, name = target.partition(".")
             try:
                 if domain == "notify" and self.hass.services.has_service("notify", name):
-                    await self.hass.services.async_call(
-                        "notify", name, {"title": TITLE, "message": message}, blocking=True
-                    )
+                    data: dict[str, Any] = {"title": TITLE, "message": message}
+                    if actions and is_mobile_app_target(target):
+                        data["data"] = {"actions": actions}
+                    await self.hass.services.async_call("notify", name, data, blocking=True)
                 elif domain == "notify" and self.hass.states.get(target) is not None:
                     await self.hass.services.async_call(
                         "notify",
