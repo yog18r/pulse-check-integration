@@ -10,9 +10,10 @@
  *    re-renders, so the timer callback always reads fresh values.
  */
 import { useEffect, useRef, useState } from 'react';
-import { type BatteryEntity, loadDrains } from '../card/statistics';
-import type { DrainMap } from '../core/sort';
+import { type BatteryEntity, type BatteryHistory, loadDrains } from '../card/statistics';
 import type { HassLike } from '../core/types';
+
+export type DrainMap = ReadonlyMap<string, BatteryHistory>;
 
 export const REFRESH_MS = 6 * 60 * 60 * 1000;
 

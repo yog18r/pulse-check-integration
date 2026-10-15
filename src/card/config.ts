@@ -61,6 +61,14 @@ export interface CardConfig {
   exclude_entities?: string[];
   quiet_scope?: QuietScope;
   battery_sort?: BatterySort;
+  /** Rows shown per tab before a "show more" control. A number, or "all". */
+  max_rows?: number | 'all';
+  /** Draw the 14-day trend next to each battery bar when history exists. */
+  show_sparklines?: boolean;
+  /** Allow-lists. Area names or ids; integration platforms. */
+  include_areas?: string[];
+  exclude_areas?: string[];
+  include_integrations?: string[];
   show_tabs?: TabId[];
   default_tab?: TabId;
 }
@@ -78,6 +86,11 @@ export interface ResolvedConfig {
   exclude_entities: string[];
   quiet_scope: QuietScope;
   battery_sort: BatterySort;
+  max_rows: number | 'all';
+  show_sparklines: boolean;
+  include_areas: string[];
+  exclude_areas: string[];
+  include_integrations: string[];
   show_tabs: TabId[];
   default_tab: TabId;
 }
@@ -94,6 +107,11 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
   exclude_entities: [],
   quiet_scope: 'battery',
   battery_sort: 'level',
+  max_rows: 12,
+  show_sparklines: true,
+  include_areas: [],
+  exclude_areas: [],
+  include_integrations: [],
   show_tabs: ['batteries', 'connectivity'],
   default_tab: 'batteries',
 };
@@ -268,6 +286,44 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     battery_sort = rawSort as BatterySort;
   }
 
+  // max_rows: a positive whole number, or "all"
+  let max_rows: number | 'all' = DEFAULT_CONFIG.max_rows;
+  const rawMax = raw.max_rows;
+  if (rawMax !== undefined) {
+    if (rawMax === 'all') {
+      max_rows = 'all';
+    } else if (typeof rawMax === 'number' && Number.isInteger(rawMax) && rawMax >= 1) {
+      max_rows = rawMax;
+    } else {
+      throw new ConfigError('"max_rows" must be a whole number of at least 1, or "all".');
+    }
+  }
+
+  // show_sparklines
+  let show_sparklines = DEFAULT_CONFIG.show_sparklines;
+  if (raw.show_sparklines !== undefined) {
+    if (typeof raw.show_sparklines !== 'boolean') {
+      throw new ConfigError('"show_sparklines" must be true or false.');
+    }
+    show_sparklines = raw.show_sparklines;
+  }
+
+  const include_areas = stringArrayOrDefault(
+    raw.include_areas,
+    'include_areas',
+    DEFAULT_CONFIG.include_areas,
+  );
+  const exclude_areas = stringArrayOrDefault(
+    raw.exclude_areas,
+    'exclude_areas',
+    DEFAULT_CONFIG.exclude_areas,
+  );
+  const include_integrations = stringArrayOrDefault(
+    raw.include_integrations,
+    'include_integrations',
+    DEFAULT_CONFIG.include_integrations,
+  );
+
   // show_tabs
   let show_tabs: TabId[] = DEFAULT_CONFIG.show_tabs;
   const rawTabs = raw.show_tabs;
@@ -307,6 +363,11 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     exclude_entities,
     quiet_scope,
     battery_sort,
+    max_rows,
+    show_sparklines,
+    include_areas,
+    exclude_areas,
+    include_integrations,
     show_tabs,
     default_tab,
   };

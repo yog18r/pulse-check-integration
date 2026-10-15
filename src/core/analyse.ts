@@ -38,8 +38,32 @@ export interface AnalyseOptions {
   snoozes?: ReadonlyMap<string, Date>;
 }
 
-function isExcluded(group: DeviceGroup, integration: string, config: ResolvedConfig): boolean {
-  if (config.exclude_integrations.includes(integration)) return true;
+/** Case-insensitive membership test for user-typed lists. */
+function listHas(list: string[], ...values: (string | undefined)[]): boolean {
+  const wanted = new Set(list.map((v) => v.trim().toLowerCase()));
+  return values.some((v) => v !== undefined && wanted.has(v.trim().toLowerCase()));
+}
+
+function isExcluded(
+  group: DeviceGroup,
+  integration: string,
+  config: ResolvedConfig,
+  hass: HassLike,
+): boolean {
+  // Integration allow/deny lists.
+  if (config.include_integrations.length > 0 && !listHas(config.include_integrations, integration))
+    return true;
+  if (listHas(config.exclude_integrations, integration)) return true;
+
+  // Area allow/deny lists, matching the area's id or its display name.
+  if (config.include_areas.length > 0 || config.exclude_areas.length > 0) {
+    const areaId = group.device?.area_id ?? group.entities.find((e) => e.area_id)?.area_id;
+    const name = areaId ? hass.areas[areaId]?.name : undefined;
+    if (config.include_areas.length > 0 && !listHas(config.include_areas, areaId, name))
+      return true;
+    if (listHas(config.exclude_areas, areaId, name)) return true;
+  }
+
   if (config.exclude_devices.includes(group.deviceId)) return true;
   // Allow excluding an orphan by its bare entity id too.
   if (!group.device) {
@@ -85,7 +109,7 @@ export function analyseDevices(
 
   for (const rawGroup of collectDeviceGroups(hass)) {
     const integration = dominantIntegration(rawGroup.entities);
-    if (isExcluded(rawGroup, integration, config)) continue;
+    if (isExcluded(rawGroup, integration, config, hass)) continue;
 
     const group = withoutExcludedEntities(rawGroup, config);
     if (!group) continue;

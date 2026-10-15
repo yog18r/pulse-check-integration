@@ -155,6 +155,30 @@ describe('analyseDevices', () => {
     expect(ids).not.toContain('lock.front_door_lock'); // offline, not quiet
   });
 
+  it('include_integrations is an allow-list', () => {
+    const { byId, list } = run({ include_integrations: ['zha', 'MQTT'] }); // case-insensitive
+    expect(byId.has(DEV.zhaTemp)).toBe(true);
+    expect(byId.has(DEV.z2mDoor)).toBe(true);
+    expect(byId.has(DEV.zwaveLock)).toBe(false);
+    expect(byId.has(DEV.phone)).toBe(false);
+    expect(list.every((d) => ['zha', 'mqtt'].includes(d.integration))).toBe(true);
+  });
+
+  it('area filters match ids or names, and devices without an area are dropped by an include list', () => {
+    const inc = run({ include_areas: ['bedroom', 'Garage'] });
+    expect(inc.byId.has(DEV.zhaTemp)).toBe(true); // Bedroom
+    expect(inc.byId.has(DEV.matterContact)).toBe(true); // Bedroom
+    expect(inc.byId.has(DEV.zwaveMulti)).toBe(true); // Garage
+    expect(inc.byId.has(DEV.z2mDoor)).toBe(false); // Hallway
+    expect(inc.byId.has(DEV.phone)).toBe(false); // no area
+    expect(inc.byId.has(ORPHAN_PREFIX + 'sensor.remote_battery_template')).toBe(false);
+
+    const exc = run({ exclude_areas: ['Hallway'] });
+    expect(exc.byId.has(DEV.z2mDoor)).toBe(false);
+    expect(exc.byId.has(DEV.zwaveLock)).toBe(false);
+    expect(exc.byId.has(DEV.phone)).toBe(true); // no area: unaffected by exclude
+  });
+
   it('honours per-integration quiet thresholds', () => {
     const { byId } = run({ integration_thresholds: { zwave_js: 48 } });
     expect(byId.get(DEV.zwaveMulti)?.isQuiet).toBe(false); // 40h < 48h

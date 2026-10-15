@@ -11,7 +11,8 @@
  * flows back down as the new value. One-way data flow, no hidden state.
  */
 import type { HassLike } from '../core/types';
-import { DeviceOverrideRows, IntegrationThresholdRows } from './EditorLists';
+import { listIntegrations } from '../core/registryOptions';
+import { CheckboxGroup, DeviceOverrideRows, IntegrationThresholdRows } from './EditorLists';
 import {
   BATTERY_SORTS,
   DEFAULT_CONFIG,
@@ -71,6 +72,17 @@ export function EditorForm({ config, onChange, hass }: Props) {
   }
 
   const shownTabs: TabId[] = config.show_tabs ?? ['batteries', 'connectivity'];
+
+  // Pickers for the filters. Without hass (never in HA) the lists are empty
+  // and YAML-typed values still show as checked "?" entries.
+  const areaOptions = hass
+    ? Object.values(hass.areas)
+        .map((a) => ({ id: a.area_id, label: a.name }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    : [];
+  const integrationOptions = hass
+    ? listIntegrations(hass).map((o) => ({ id: o.id, label: o.id }))
+    : [];
 
   function toggleTab(tab: TabId, on: boolean) {
     const next = TAB_IDS.filter((t) => (t === tab ? on : shownTabs.includes(t)));
@@ -208,17 +220,85 @@ export function EditorForm({ config, onChange, hass }: Props) {
         </select>
       </label>
 
-      <label className="field">
-        <span>Exclude integrations</span>
-        <input
-          type="text"
-          value={(config.exclude_integrations ?? []).join(', ')}
-          placeholder="mobile_app, music_assistant"
-          onChange={(e) => {
-            set('exclude_integrations', parseList(e.target.value));
-          }}
-        />
-      </label>
+      <div className="grid2">
+        <label className="field">
+          <span>Rows per tab</span>
+          <input
+            type="number"
+            min={1}
+            value={typeof config.max_rows === 'number' ? config.max_rows : ''}
+            placeholder="12"
+            disabled={config.max_rows === 'all'}
+            onChange={(e) => {
+              const n = parseNumber(e.target.value);
+              set('max_rows', n !== undefined && n >= 1 ? Math.floor(n) : undefined);
+            }}
+          />
+        </label>
+        <div className="field">
+          <span>&nbsp;</span>
+          <div className="checks">
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={config.max_rows === 'all'}
+                onChange={(e) => {
+                  set('max_rows', e.target.checked ? 'all' : undefined);
+                }}
+              />
+              Show all rows
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={config.show_sparklines ?? true}
+                onChange={(e) => {
+                  set('show_sparklines', e.target.checked ? undefined : false);
+                }}
+              />
+              Trend sparklines
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <CheckboxGroup
+        legend="Only these areas"
+        hint="Leave all unticked to show every area."
+        options={areaOptions}
+        value={config.include_areas ?? []}
+        onChange={(v) => {
+          set('include_areas', v);
+        }}
+      />
+
+      <CheckboxGroup
+        legend="Hide these areas"
+        options={areaOptions}
+        value={config.exclude_areas ?? []}
+        onChange={(v) => {
+          set('exclude_areas', v);
+        }}
+      />
+
+      <CheckboxGroup
+        legend="Only these integrations"
+        hint="Leave all unticked to show every integration."
+        options={integrationOptions}
+        value={config.include_integrations ?? []}
+        onChange={(v) => {
+          set('include_integrations', v);
+        }}
+      />
+
+      <CheckboxGroup
+        legend="Hide these integrations"
+        options={integrationOptions}
+        value={config.exclude_integrations ?? []}
+        onChange={(v) => {
+          set('exclude_integrations', v);
+        }}
+      />
 
       <label className="field">
         <span>Exclude devices (ids)</span>

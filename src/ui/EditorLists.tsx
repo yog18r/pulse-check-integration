@@ -251,3 +251,72 @@ export function DeviceOverrideRows({ value, hass, onChange }: DeviceRowsProps) {
     </fieldset>
   );
 }
+
+/* ------------------------------------------------------------------------ */
+/* Checkbox groups (areas, integrations)                                    */
+/* ------------------------------------------------------------------------ */
+
+export interface CheckOption {
+  id: string;
+  label: string;
+}
+
+interface CheckboxGroupProps {
+  legend: string;
+  hint?: string;
+  options: CheckOption[];
+  /** Currently selected ids (or names; matching is case-insensitive). */
+  value: string[];
+  onChange: (value: string[] | undefined) => void;
+}
+
+/**
+ * A list of checkboxes backed by a string[] config value. Values the user
+ * typed in YAML that aren't among the options are kept as extra checked
+ * entries, so switching to the visual editor never silently drops them.
+ */
+export function CheckboxGroup({ legend, hint, options, value, onChange }: CheckboxGroupProps) {
+  const lower = (s: string) => s.trim().toLowerCase();
+  const selected = new Set(value.map(lower));
+  const known = new Set(options.map((o) => lower(o.id)).concat(options.map((o) => lower(o.label))));
+  const extras = value.filter((v) => !known.has(lower(v)));
+
+  function toggle(id: string, on: boolean) {
+    const next = value.filter((v) => lower(v) !== lower(id));
+    if (on) next.push(id);
+    onChange(next.length > 0 ? next : undefined);
+  }
+
+  return (
+    <fieldset className="field">
+      <legend>{legend}</legend>
+      {hint && <p className="hint">{hint}</p>}
+      <div className="checks">
+        {options.map((o) => (
+          <label key={o.id} className="check">
+            <input
+              type="checkbox"
+              checked={selected.has(lower(o.id)) || selected.has(lower(o.label))}
+              onChange={(e) => {
+                toggle(o.id, e.target.checked);
+              }}
+            />
+            {o.label}
+          </label>
+        ))}
+        {extras.map((v) => (
+          <label key={`extra:${v}`} className="check" title="From YAML; not found in this instance">
+            <input
+              type="checkbox"
+              checked
+              onChange={() => {
+                toggle(v, false);
+              }}
+            />
+            {v} ?
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}

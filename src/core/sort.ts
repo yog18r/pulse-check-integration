@@ -26,12 +26,12 @@ function byName(a: DeviceHealth, b: DeviceHealth): number {
   return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
 }
 
-/** Drain estimates keyed by the battery entity id they were computed for. */
-export type DrainMap = ReadonlyMap<string, DrainEstimate>;
+/** Battery history (points + optional drain estimate) keyed by battery entity id. */
+export type DrainMap = ReadonlyMap<string, { estimate?: DrainEstimate | undefined }>;
 
 function drainFor(device: DeviceHealth, drains: DrainMap | undefined): DrainEstimate | undefined {
   const id = device.battery?.entityId;
-  return id ? drains?.get(id) : undefined;
+  return id ? drains?.get(id)?.estimate : undefined;
 }
 
 export function batteryList(

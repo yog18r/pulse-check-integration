@@ -55,9 +55,14 @@ describe('loadDrains', () => {
       'sensor.no_stats',
     ]);
 
-    expect(drains.get('sensor.front_door_battery')?.ratePerDay).toBeCloseTo(2, 5);
-    expect(drains.get('sensor.front_door_battery')?.daysLeft).toBeCloseTo(43.5, 5);
-    expect(drains.has('sensor.kitchen_ht_battery')).toBe(false);
+    const door = drains.get('sensor.front_door_battery');
+    expect(door?.estimate?.ratePerDay).toBeCloseTo(2, 5);
+    expect(door?.estimate?.daysLeft).toBeCloseTo(43.5, 5);
+    expect(door?.points).toHaveLength(HISTORY_DAYS + 1); // daily means + the live reading
+    expect(door?.points.at(-1)).toEqual({ time: FIXED_NOW.getTime(), level: 87 });
+    // Flat history still comes back (for the sparkline) but with no estimate.
+    expect(drains.get('sensor.kitchen_ht_battery')?.points.length).toBeGreaterThan(2);
+    expect(drains.get('sensor.kitchen_ht_battery')?.estimate).toBeUndefined();
     expect(drains.has('sensor.no_stats')).toBe(false);
   });
 
@@ -71,14 +76,14 @@ describe('loadDrains', () => {
       [{ entityId: 'sensor.lock_battery', level: 62 }],
       FIXED_NOW,
     );
-    expect(flat.has('sensor.lock_battery')).toBe(false); // genuinely flat: no estimate
+    expect(flat.get('sensor.lock_battery')?.estimate).toBeUndefined(); // genuinely flat
 
     const dropped = await loadDrains(
       { ...hass, callWS },
       [{ entityId: 'sensor.lock_battery', level: 42 }],
       FIXED_NOW,
     );
-    const est = dropped.get('sensor.lock_battery');
+    const est = dropped.get('sensor.lock_battery')?.estimate;
     expect(est).toBeDefined();
     // 20 points lost over the 14-day window: roughly 1.4%/day on the fit's
     // slope once the single live point is weighed against two flat weeks.

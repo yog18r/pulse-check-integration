@@ -26,6 +26,7 @@ import type { DeviceHealth, HassLike } from '../core/types';
 import type { Enhancer } from '../enhancers';
 import { DeviceRow } from './DeviceRow';
 import { EmptyState } from './EmptyState';
+import { RowList } from './RowList';
 import { ShoppingTab } from './ShoppingTab';
 import { useDrainEstimates } from './useDrainEstimates';
 import { useLastReported } from './useLastReported';
@@ -167,18 +168,22 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
               detail="Everything here runs on mains power. Lucky you."
             />
           ) : (
-            <ul className="rows">
-              {batteries.map((d) => (
+            <RowList
+              items={batteries}
+              maxRows={config.max_rows}
+              resetKey="batteries"
+              renderRow={(d) => (
                 <DeviceRow
                   key={d.deviceId}
                   device={d}
                   severity={batterySeverity(d.battery, config)}
                   mode="battery"
-                  drain={d.battery ? drains?.get(d.battery.entityId) : undefined}
+                  history={d.battery ? drains?.get(d.battery.entityId) : undefined}
+                  sparkline={config.show_sparklines}
                   {...rowProps}
                 />
-              ))}
-            </ul>
+              )}
+            />
           ))}
 
         {activeTab === 'connectivity' &&
@@ -189,8 +194,11 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
               detail="No devices are offline or unusually quiet."
             />
           ) : (
-            <ul className="rows">
-              {connectivity.map((d) => (
+            <RowList
+              items={connectivity}
+              maxRows={config.max_rows}
+              resetKey="connectivity"
+              renderRow={(d) => (
                 <DeviceRow
                   key={d.deviceId}
                   device={d}
@@ -198,8 +206,8 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
                   mode="connectivity"
                   {...rowProps}
                 />
-              ))}
-            </ul>
+              )}
+            />
           ))}
 
         {activeTab === 'shopping' && (

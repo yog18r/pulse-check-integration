@@ -444,3 +444,21 @@
 .footerbutton:hover {
   color: var(--primary-text-color, #212121);
 }
+
+/* ---- sparkline -------------------------------------------------------- */
+
+.gauge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spark path {
+  stroke: var(--success-color, #43a047);
+}
+.spark[data-severity='warning'] path {
+  stroke: var(--warning-color, #ffa600);
+}
+.spark[data-severity='critical'] path {
+  stroke: var(--error-color, #db4437);
+}

@@ -25,6 +25,8 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 - **📡 Connectivity**: anything offline or not heard from within a threshold
 - **🛒 Shopping** (optional tab): which batteries to buy, grouped by type
 - **Snooze** a device for 1, 7 or 30 days when you already know about it
+- **Trend sparklines** next to each battery bar, from the same 14-day history
+- **Row cap** with "show more", and **area and integration filters** for per-room cards
 - **Charging awareness**: a docked vacuum or a phone on the charger is never "low"
 - **"Replace soon" ordering** (optional): uses each battery's drain rate from HA's recorder to put the ones about to die first, even when their percentage still looks fine
 
@@ -73,6 +75,11 @@ exclude_devices: [] # device ids (or an entity id for device-less entities)
 exclude_entities: [] # entity ids to ignore, e.g. a settings sensor labelled as a battery
 quiet_scope: battery # "battery" (default) or "all": which devices can be flagged quiet
 battery_sort: level # "level" (default) or "replace_soon": order of the Batteries tab
+max_rows: 12 # rows per tab before "Show N more"; a number or "all"
+show_sparklines: true # 14-day trend line next to each battery bar
+include_areas: [] # only devices in these areas (names or ids); empty = all
+exclude_areas: []
+include_integrations: [] # only these integrations; empty = all
 show_tabs: [batteries, connectivity] # add "shopping" for the battery shopping list
 default_tab: batteries
 ```
@@ -92,6 +99,11 @@ Prefer clicking to typing? The card has a **visual editor**: add the card from t
 | `exclude_entities`       | list    | `[]`                        | Removes single entities from consideration.                        |
 | `quiet_scope`            | string  | `battery`                   | `battery` or `all`. See "Quiet" below.                             |
 | `battery_sort`           | string  | `level`                     | `level` or `replace_soon`. See \"Replace soon\" below.             |
+| `max_rows`               | number  | `12`                        | Or `all`. Applies to the Batteries and Connectivity tabs.          |
+| `show_sparklines`        | boolean | `true`                      | Needs recorder history; hidden otherwise.                          |
+| `include_areas`          | list    | `[]`                        | Area names or ids. Devices with no area are dropped when set.      |
+| `exclude_areas`          | list    | `[]`                        |                                                                    |
+| `include_integrations`   | list    | `[]`                        | Allow-list counterpart of `exclude_integrations`.                  |
 | `show_tabs`              | list    | `[batteries, connectivity]` | Any of `batteries`, `connectivity`, `shopping`.                    |
 | `default_tab`            | string  | `batteries`                 | Must be in `show_tabs`.                                            |
 
@@ -124,6 +136,10 @@ By default only **battery-powered devices** can be quiet (`quiet_scope: battery`
 **Skipped on purpose:** service devices (Sun, Forecast…), disabled devices, excluded integrations/devices/entities, and entities with no device that carry no battery information. An entity with no device can only ever contribute a battery reading; with no hardware behind it there is nothing to be offline or quiet.
 
 **Replace soon** (`battery_sort: replace_soon`): the card asks Home Assistant's recorder for 14 days of daily averages of every battery sensor, once when the card loads and then every 6 hours, and fits a straight line through them. The slope is the drain rate; the current level divided by it is the time left, shown on each row as "~12d left". The live reading is added as the last point, so a battery that just dropped sharply moves straight away rather than waiting for the recorder's hourly statistics. The fit needs at least 3 days of history and ignores flat or rising series (a phone that gets charged, a lock sitting at 62% for a fortnight), so those devices simply keep their level-based position and show no estimate. Treat the number as an order of magnitude: locks and other motorised devices report in coarse steps and under load, and the estimate will wander for a few days after a sudden drop. Without a recorder nothing changes.
+
+**Sparklines:** the same 14 days of daily means that feed the drain estimate are drawn as a small trend line beside the battery bar, scaled to the data so a slow decline is visible. No extra requests; if there is no history, there is no line.
+
+**Row cap and filters:** `max_rows` (default 12, or `all`) limits each of the Batteries and Connectivity tabs, with a "Show N more" control so nothing is hidden silently. `include_areas` / `exclude_areas` and `include_integrations` / `exclude_integrations` scope the card, which is how you put a per-room card on a sections dashboard: `include_areas: [Office]`. Area filters accept the name shown in Home Assistant or the area id, case-insensitively.
 
 **Shopping list** (`show_tabs` including `shopping`): every device at or below the warning threshold, grouped by the `battery_type` you set in `device_overrides`. There is no reliable way to know from Home Assistant's data that a sensor takes a CR2032, so untyped devices sit in an "Unknown type" group until you tell the card.
 
@@ -204,7 +220,8 @@ The same fixture drives the unit tests, so every detection, grouping, threshold 
 - [x] **Phase 2:** Z-Wave JS, Zigbee2MQTT and ZHA enhancers; tap a row to open the device page (or the more-info dialog for device-less entities); header breakdown and per-row threshold hints
 - [x] **Phase 3:** "replace soon" ordering using drain rate from HA statistics; battery shopping list grouped by `battery_type`; visual config editor
 - [x] **v0.2:** charging awareness; on-demand `last_reported` lookup; snooze; visual editor rows for thresholds and overrides
-- [ ] **Ideas:** row cap with "show more" and a problems-only toggle for big installs; area filter; battery sparklines; translations; HACS default-repository submission
+- [x] **v0.3:** trend sparklines; configurable row cap; area and integration filters; editor checkbox pickers for both
+- [ ] **Ideas:** a problems-only toggle on the Batteries tab; translations; HACS default-repository submission
 
 ## Licence
 

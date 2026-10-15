@@ -34,10 +34,10 @@ describe('batteryList with battery_sort: replace_soon', () => {
   const config = { ...DEFAULT_CONFIG, battery_sort: 'replace_soon' as const };
   const drains = new Map([
     // Window sensor (40%) will die well before the Shelly H&T (92%).
-    ['sensor.window_sensor_battery', { ratePerDay: 4, daysLeft: 10, samples: 14 }],
-    ['sensor.kitchen_ht_battery', { ratePerDay: 1, daysLeft: 92, samples: 14 }],
+    ['sensor.window_sensor_battery', { estimate: { ratePerDay: 4, daysLeft: 10, samples: 14 } }],
+    ['sensor.kitchen_ht_battery', { estimate: { ratePerDay: 1, daysLeft: 92, samples: 14 } }],
     // The 87% door sensor is draining fastest of all.
-    ['sensor.front_door_battery', { ratePerDay: 20, daysLeft: 4, samples: 14 }],
+    ['sensor.front_door_battery', { estimate: { ratePerDay: 20, daysLeft: 4, samples: 14 } }],
   ]);
 
   it('orders healthy devices by days left, estimates before unknowns', () => {

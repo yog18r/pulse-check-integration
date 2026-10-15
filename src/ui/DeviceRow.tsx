@@ -6,12 +6,14 @@
  * announced as clickable. Tapping it opens the device in Home Assistant.
  * The snooze control sits beside it as a separate button.
  */
-import { formatDaysLeft, type DrainEstimate } from '../core/drain';
+import type { BatteryHistory } from '../card/statistics';
+import { formatDaysLeft } from '../core/drain';
 import { formatHours, formatRelative } from '../core/time';
 import type { DeviceHealth, Severity } from '../core/types';
 import { BatteryBar } from './BatteryBar';
 import { IntegrationBadge } from './IntegrationBadge';
 import { SnoozeMenu } from './SnoozeMenu';
+import { Sparkline } from './Sparkline';
 
 interface Props {
   device: DeviceHealth;
@@ -21,8 +23,10 @@ interface Props {
   now: Date;
   /** Called when the row is activated. Optional so the row works without HA. */
   onOpen?: ((device: DeviceHealth) => void) | undefined;
-  /** Drain estimate for the battery, when the recorder had enough history. */
-  drain?: DrainEstimate | undefined;
+  /** Battery history (trend points and drain estimate), when the recorder had any. */
+  history?: BatteryHistory | undefined;
+  /** Draw the trend line next to the bar. */
+  sparkline?: boolean;
   /** Snooze handlers. When absent the 💤 control is not rendered. */
   onSnooze?: ((device: DeviceHealth, days: number) => void) | undefined;
   onUnsnooze?: ((device: DeviceHealth) => void) | undefined;
@@ -40,10 +44,12 @@ export function DeviceRow({
   mode,
   now,
   onOpen,
-  drain,
+  history,
+  sparkline = true,
   onSnooze,
   onUnsnooze,
 }: Props) {
+  const drain = history?.estimate;
   const lastHeard = formatRelative(device.lastHeard, now);
   const charging = device.battery?.isCharging === true;
   // Only offer snoozing where there is something to snooze.
@@ -94,7 +100,10 @@ export function DeviceRow({
         <span className="status">
           {mode === 'battery' && device.battery ? (
             <>
-              <BatteryBar battery={device.battery} severity={severity} />
+              <span className="gauge">
+                {sparkline && history && <Sparkline points={history.points} severity={severity} />}
+                <BatteryBar battery={device.battery} severity={severity} />
+              </span>
               <span className="sub">
                 heard {lastHeard}
                 {drain && !charging && (

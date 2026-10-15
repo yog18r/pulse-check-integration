@@ -81,6 +81,21 @@ describe('resolveConfig', () => {
     expect(resolved.default_tab).toBe('shopping');
   });
 
+  it('validates max_rows, sparklines and the new filters', () => {
+    expect(resolveConfig({}).max_rows).toBe(12);
+    expect(resolveConfig({ max_rows: 'all' }).max_rows).toBe('all');
+    expect(resolveConfig({ max_rows: 30 }).max_rows).toBe(30);
+    expect(() => resolveConfig({ max_rows: 0 })).toThrow(/max_rows/);
+    expect(() => resolveConfig({ max_rows: 2.5 })).toThrow(/max_rows/);
+    expect(() => resolveConfig({ max_rows: 'lots' })).toThrow(/max_rows/);
+    expect(resolveConfig({}).show_sparklines).toBe(true);
+    expect(resolveConfig({ show_sparklines: false }).show_sparklines).toBe(false);
+    expect(() => resolveConfig({ show_sparklines: 'yes' })).toThrow(/show_sparklines/);
+    expect(resolveConfig({ include_areas: ['Office'] }).include_areas).toEqual(['Office']);
+    expect(() => resolveConfig({ exclude_areas: 'Office' })).toThrow(/exclude_areas/);
+    expect(() => resolveConfig({ include_integrations: [1] })).toThrow(/include_integrations/);
+  });
+
   it('validates tabs', () => {
     expect(() => resolveConfig({ show_tabs: [] })).toThrow(/non-empty/);
     expect(() => resolveConfig({ show_tabs: ['weather'] })).toThrow(/show_tabs/);

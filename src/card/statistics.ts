@@ -34,6 +34,13 @@ export interface BatteryEntity {
   level: number;
 }
 
+/** What we know about one battery's past: the daily points, and a fit if one was possible. */
+export interface BatteryHistory {
+  /** Daily means over the window plus the live reading, oldest first. */
+  points: DrainPoint[];
+  estimate?: DrainEstimate;
+}
+
 function toMillis(value: number | string): number {
   return typeof value === 'number' ? value : new Date(value).getTime();
 }
@@ -57,8 +64,8 @@ export async function loadDrains(
   hass: HassLike,
   batteries: BatteryEntity[],
   now: Date = new Date(),
-): Promise<Map<string, DrainEstimate>> {
-  const result = new Map<string, DrainEstimate>();
+): Promise<Map<string, BatteryHistory>> {
+  const result = new Map<string, BatteryHistory>();
   if (!hass.callWS || batteries.length === 0) return result;
 
   const start = new Date(now.getTime() - HISTORY_DAYS * 24 * 60 * 60 * 1000);
@@ -83,9 +90,14 @@ export async function loadDrains(
     // Append the live reading as the final point. Daily statistics lag by
     // an hour or more, so without this a battery that just fell off a cliff
     // would look flat until the recorder caught up.
-    const points = [...rowsToPoints(rows), { time: now.getTime(), level: battery.level }];
+    const points = [...rowsToPoints(rows), { time: now.getTime(), level: battery.level }].sort(
+      (a, b) => a.time - b.time,
+    );
+    if (points.length < 2) continue; // only the live point: nothing to draw or fit
+    const history: BatteryHistory = { points };
     const estimate = estimateDrain(points, battery.level);
-    if (estimate) result.set(battery.entityId, estimate);
+    if (estimate) history.estimate = estimate;
+    result.set(battery.entityId, history);
   }
   return result;
 }

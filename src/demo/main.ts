@@ -20,6 +20,8 @@ const CONFIGS: Record<Scenario, unknown> = {
     battery_critical: 20,
     integration_thresholds: { zwave_js: 48 },
     quiet_scope: 'all',
+    max_rows: 5,
+    exclude_areas: ['Office'],
     exclude_integrations: ['mobile_app'],
     default_tab: 'connectivity',
   } satisfies CardConfig,
@@ -85,7 +87,11 @@ function fakeCallWS<T>(message: Record<string, unknown>): Promise<T> {
   const response: Record<string, { start: number; end: number; mean: number }[]> = {};
   for (const id of ids) {
     const rate = DRAIN_PER_DAY[id] ?? 0;
-    const level = Number(current[id]?.state ?? 50);
+    const state = current[id];
+    // Numeric battery sensors keep the level in `state`; attribute-based
+    // readings (a GPS tracker) keep it in `battery_level`.
+    const raw = Number(state?.state);
+    const level = Number.isFinite(raw) ? raw : Number(state?.attributes.battery_level ?? 50);
     response[id] = Array.from({ length: 14 }, (_, i) => {
       const daysAgo = 14 - i;
       const start = now - daysAgo * DAY;
