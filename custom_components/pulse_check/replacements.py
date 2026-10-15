@@ -33,9 +33,6 @@ type EventKind = Literal["replaced", "charged"]
 JUMP_POINTS = 20
 # A level that falls by at least this much in one step is suspicious.
 SUDDEN_DROP_POINTS = 20
-# A cycle draining more than this many times faster than the device's
-# past average is flagged as unusual.
-UNUSUAL_RATE_FACTOR = 2.0
 # Cycles shorter than this are too noisy to learn a rate from.
 MIN_CYCLE_DAYS = 1.0
 # After a manual "replaced", wait this long for the sensor to show the new
@@ -171,6 +168,9 @@ class ReplacementTracker:
             if previous_level != level or (
                 previous and previous.get("charging") != battery.is_charging
             ):
+                charging_seen = (previous or {}).get("charging_seen_at")
+                if battery.is_charging:
+                    charging_seen = to_iso(now)
                 levels[device.device_id] = {
                     "level": level,
                     "at": to_iso(now),
@@ -178,6 +178,9 @@ class ReplacementTracker:
                     "sudden_drop_at": to_iso(now)
                     if sudden_drop
                     else (previous or {}).get("sudden_drop_at"),
+                    # The last time a charging signal was seen: it classifies
+                    # the battery as one that gets charged (core/cycles.py).
+                    "charging_seen_at": charging_seen,
                 }
                 changed = True
 
@@ -189,18 +192,19 @@ class ReplacementTracker:
             self.store.async_save()
         return changed
 
-    def annotate(self, device: DeviceHealth, rate_per_day: float | None, now: datetime) -> None:
-        """Set `last_replaced` and `unusual` on a device from its history."""
+    def annotate(self, device: DeviceHealth, now: datetime) -> None:
+        """Set `last_replaced` on a device from its recorded events.
+
+        Unusual drain is judged from the battery's cycles (core/cycles.py) by
+        the history tracker; this adds the user's own record and, when there
+        is no history to judge from, a sudden drop seen live.
+        """
         last = self.last_event(device.device_id)
         if last is not None:
             device.last_replaced = as_utc(datetime.fromisoformat(last["at"]))
-
-        average = self.average_rate(device.device_id)
-        if rate_per_day is not None and average and rate_per_day > UNUSUAL_RATE_FACTOR * average:
-            factor = rate_per_day / average
-            device.unusual = f"draining {factor:.0f}× faster than usual"
-            return
-        observed = self.store.levels.get(device.device_id, {})
-        dropped = observed.get("sudden_drop_at")
-        if dropped and (as_utc(now) - as_utc(datetime.fromisoformat(dropped))).days < 7:
-            device.unusual = "level dropped suddenly"
+        # Without recorder history there are no cycles; the live readings
+        # still catch a sudden drop.
+        if device.unusual is None:
+            dropped = self.store.levels.get(device.device_id, {}).get("sudden_drop_at")
+            if dropped and (as_utc(now) - as_utc(datetime.fromisoformat(dropped))).days < 7:
+                device.unusual = "level dropped suddenly"

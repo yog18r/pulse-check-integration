@@ -1,12 +1,19 @@
-"""Battery history from the recorder, for drain estimates.
+"""Battery history from the recorder, for cycles and days-left estimates.
 
 Home Assistant's *recorder* keeps every state change in a database and,
 for sensors with `state_class: measurement`, long-term *statistics*: one
 mean per hour and per day. Reading those is cheap and never touches a
-device. This module asks for the last 14 days of daily means for every
-battery sensor, falls back to raw state history for sensors without
-statistics, and uses raw history with attributes for batteries that are
-only reported as a `battery_level` attribute (vacuums, trackers).
+device. For every battery this module fetches:
+
+- up to a year of daily means, to see whole cycles (a coin cell lasting
+  eight months, a blind charged every two), and
+- hourly means for the last fortnight, to measure the current cycle of a
+  device that gets charged (days until a charge is needed).
+
+Sensors without statistics fall back to raw state history, collapsed to
+the same daily and hourly means; batteries that only exist as a
+`battery_level` attribute (vacuums, trackers) use raw history with
+attributes. The pure analysis lives in `core/cycles.py`.
 
 The recorder runs its queries in its own worker thread via
 `get_instance(hass).async_add_executor_job`, so the event loop is never
@@ -16,39 +23,39 @@ blocked by a slow database.
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
-from typing import TYPE_CHECKING
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.recorder.history import state_changes_during_period
 from homeassistant.components.recorder.statistics import statistics_during_period
 from homeassistant.helpers.recorder import get_instance
 from homeassistant.util import dt as dt_util
 
-from .const import HISTORY_DAYS
 from .core.battery import parse_numeric
-from .core.drain import (
-    DrainEstimate,
-    DrainPoint,
-    daily_means,
-    estimate_drain,
-    has_charge_cycles,
-    hourly_means,
-    rows_to_points,
-    since_last_rise,
-)
-
-# Windows this short get hourly points, so a sparkline has some shape.
-HOURLY_MAX_DAYS = 3
+from .core.cycles import BatteryInsight, assess
+from .core.drain import DrainPoint, daily_means, hourly_means, rows_to_points
+from .core.models import as_utc
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Iterable
-    from datetime import datetime
+    from collections.abc import Iterable
 
     from homeassistant.core import HomeAssistant, State
 
-    from .core import DeviceHealth
+    from .core import CoreConfig, DeviceHealth
+    from .storage import PulseCheckStore
 
 _LOGGER = logging.getLogger(__name__)
+
+# Daily means over up to a year: enough to see several replacement cycles.
+HISTORY_LONG_DAYS = 365
+# Hourly means over the last fortnight: enough to measure a charge cycle.
+HISTORY_FINE_DAYS = 14
+# Raw state history is heavier than statistics, so the fallback looks back less.
+RAW_FALLBACK_DAYS = 90
+# Windows this short get hourly points, so a sparkline has some shape.
+HOURLY_MAX_DAYS = 3
+# A charging signal seen within this long still classifies the battery as charged.
+CHARGING_SIGNAL_MEMORY = timedelta(days=HISTORY_LONG_DAYS)
 
 
 def _history_points(
@@ -89,106 +96,116 @@ def _samples(states: Iterable[State], attribute: str | None) -> list[tuple[datet
 
 
 class HistoryTracker:
-    """Keeps a drain estimate per battery entity, refreshed every few hours."""
+    """Keeps a battery insight per battery entity, refreshed every few hours."""
 
     def __init__(self, hass: HomeAssistant) -> None:
-        """Start with no estimates; they arrive after the first refresh."""
+        """Start with no insights; they arrive after the first refresh."""
         self.hass = hass
-        self.estimates: dict[str, DrainEstimate] = {}
+        self.insights: dict[str, BatteryInsight] = {}
 
     @property
     def available(self) -> bool:
         """The recorder is optional; without it there is simply no history."""
         return "recorder" in self.hass.config.components
 
-    async def async_refresh(
-        self, devices: Iterable[DeviceHealth], rechargeable: Collection[str] = ()
-    ) -> None:
-        """Re-read history for every battery device with a numeric level.
-
-        `rechargeable` holds the device ids the user marked as charged
-        rather than replaced. Those, phones (mobile_app), devices charging
-        right now and any battery whose history shows repeated charging get
-        no days-left estimate: a line through charge cycles means nothing.
-        A single big rise (a new battery, or a glitch that healed) only
-        restarts the fit from there.
-        """
-        if not self.available:
-            return
-        levels: dict[str, float] = {}
-        sensor_ids: set[str] = set()
-        attribute_ids: set[str] = set()
-        no_estimate: set[str] = set()
-        for device in devices:
-            battery = device.battery
-            if battery is None or battery.level is None:
-                continue
-            levels[battery.entity_id] = battery.level
-            (sensor_ids if battery.source == "sensor" else attribute_ids).add(battery.entity_id)
-            if (
-                device.integration == "mobile_app"
-                or battery.is_charging
-                or device.device_id in rechargeable
-            ):
-                no_estimate.add(battery.entity_id)
-        if not levels:
-            self.estimates = {}
-            return
-
+    async def _means(
+        self,
+        sensor_ids: set[str],
+        attribute_ids: set[str],
+        days: int,
+        period: str,
+        hourly: bool,
+    ) -> dict[str, list[DrainPoint]]:
+        """Means per entity over the last `days`: statistics first, raw history as fallback."""
         now = dt_util.utcnow()
-        start = now - timedelta(days=HISTORY_DAYS)
         recorder = get_instance(self.hass)
-
         points: dict[str, list[DrainPoint]] = {}
         if sensor_ids:
             stats = await recorder.async_add_executor_job(
                 statistics_during_period,
                 self.hass,
-                start,
+                now - timedelta(days=days),
                 None,
                 sensor_ids,
-                "day",
+                period,
                 None,
                 {"mean"},
             )
             for entity_id, rows in stats.items():
                 points[entity_id] = rows_to_points(rows)
-        # Sensors the recorder has no statistics for: raw history instead.
+        raw_start = now - timedelta(days=min(days, RAW_FALLBACK_DAYS))
         without_stats = sensor_ids - {k for k, v in points.items() if v}
         if without_stats:
             points.update(
                 await recorder.async_add_executor_job(
-                    _history_points, self.hass, start, without_stats, None
+                    _history_points, self.hass, raw_start, without_stats, None, hourly
                 )
             )
         if attribute_ids:
             points.update(
                 await recorder.async_add_executor_job(
-                    _history_points, self.hass, start, attribute_ids, "battery_level"
+                    _history_points, self.hass, raw_start, attribute_ids, "battery_level", hourly
                 )
             )
+        return points
 
-        self.estimates = self._fit(points, levels, now, no_estimate)
-        _LOGGER.debug("Drain estimates for %d of %d batteries", len(self.estimates), len(levels))
+    async def async_refresh(
+        self, devices: Iterable[DeviceHealth], store: PulseCheckStore, config: CoreConfig
+    ) -> None:
+        """Re-read history for every battery device with a numeric level.
 
-    @staticmethod
-    def _fit(
-        points: dict[str, list[DrainPoint]],
-        levels: dict[str, float],
-        now: datetime,
-        no_estimate: Collection[str] = (),
-    ) -> dict[str, DrainEstimate]:
-        estimates: dict[str, DrainEstimate] = {}
-        for entity_id, level in levels.items():
-            if entity_id in no_estimate:
+        The store supplies what the history alone cannot: the user's
+        rechargeable setting, recorded replacements and charges (cycle
+        boundaries), and whether a charging signal has been seen.
+        """
+        if not self.available:
+            return
+        batteries: dict[str, DeviceHealth] = {}
+        sensor_ids: set[str] = set()
+        attribute_ids: set[str] = set()
+        for device in devices:
+            battery = device.battery
+            if battery is None or battery.level is None:
                 continue
-            history = [*points.get(entity_id, []), DrainPoint(time=now, level=level)]
-            if has_charge_cycles(history):
-                continue
-            estimate = estimate_drain(since_last_rise(history), level)
-            if estimate is not None:
-                estimates[entity_id] = estimate
-        return estimates
+            batteries[battery.entity_id] = device
+            (sensor_ids if battery.source == "sensor" else attribute_ids).add(battery.entity_id)
+        if not batteries:
+            self.insights = {}
+            return
+
+        daily = await self._means(sensor_ids, attribute_ids, HISTORY_LONG_DAYS, "day", False)
+        hourly = await self._means(sensor_ids, attribute_ids, HISTORY_FINE_DAYS, "hour", True)
+
+        now = dt_util.utcnow()
+        insights: dict[str, BatteryInsight] = {}
+        for entity_id, device in batteries.items():
+            battery = device.battery
+            assert battery is not None and battery.level is not None
+            settings: dict[str, Any] = store.device_settings.get(device.device_id, {})
+            observed: dict[str, Any] = store.levels.get(device.device_id, {})
+            charging_seen = observed.get("charging_seen_at")
+            charging_signal = battery.is_charging or (
+                charging_seen is not None
+                and now - as_utc(datetime.fromisoformat(charging_seen)) <= CHARGING_SIGNAL_MEMORY
+            )
+            events = store.history.get(device.device_id, {}).get("events") or []
+            marks = [as_utc(datetime.fromisoformat(event["at"])) for event in events]
+            insights[entity_id] = assess(
+                daily.get(entity_id, []),
+                hourly.get(entity_id, []),
+                battery.level,
+                now,
+                warning=config.battery_warning,
+                mobile_app=device.integration == "mobile_app",
+                rechargeable=bool(settings.get("rechargeable")),
+                charging_signal=charging_signal,
+                marks=marks,
+            )
+        self.insights = insights
+        estimated = sum(1 for i in insights.values() if i.estimate is not None)
+        _LOGGER.debug(
+            "Battery insights for %d batteries, %d with an estimate", len(insights), estimated
+        )
 
     async def async_points(
         self, entity_id: str, days: int, attribute: bool = False
@@ -201,29 +218,13 @@ class HistoryTracker:
         """
         if not self.available:
             return []
-        now = dt_util.utcnow()
-        start = now - timedelta(days=days)
         hourly = days <= HOURLY_MAX_DAYS
-        recorder = get_instance(self.hass)
         if attribute:
-            found = await recorder.async_add_executor_job(
-                _history_points, self.hass, start, {entity_id}, "battery_level", hourly
+            points = await self._means(
+                set(), {entity_id}, days, "hour" if hourly else "day", hourly
             )
-            return found.get(entity_id, [])
-        stats = await recorder.async_add_executor_job(
-            statistics_during_period,
-            self.hass,
-            start,
-            None,
-            {entity_id},
-            "hour" if hourly else "day",
-            None,
-            {"mean"},
-        )
-        points = rows_to_points(stats.get(entity_id, []))
-        if points:
-            return points
-        found = await recorder.async_add_executor_job(
-            _history_points, self.hass, start, {entity_id}, None, hourly
-        )
-        return found.get(entity_id, [])
+        else:
+            points = await self._means(
+                {entity_id}, set(), days, "hour" if hourly else "day", hourly
+            )
+        return points.get(entity_id, [])

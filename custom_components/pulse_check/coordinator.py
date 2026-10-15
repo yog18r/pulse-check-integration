@@ -50,7 +50,14 @@ from .core import (
     summarise,
 )
 from .core.enhancers import ENHANCERS
-from .core.models import AreaEntry, DeviceEntry, EntityEntry, EntityState, Snapshot
+from .core.models import (
+    AreaEntry,
+    DeviceEntry,
+    EntityEntry,
+    EntityState,
+    EstimateInfo,
+    Snapshot,
+)
 from .history import HistoryTracker
 from .options import core_config_from_options
 from .replacements import ReplacementTracker
@@ -159,12 +166,7 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         logged and the previous estimates (if any) are kept.
         """
         try:
-            rechargeable = {
-                device_id
-                for device_id, settings in self.store.device_settings.items()
-                if settings.get("rechargeable")
-            }
-            await self.history.async_refresh(self.data.devices, rechargeable)
+            await self.history.async_refresh(self.data.devices, self.store, self.core_config)
         except Exception:
             _LOGGER.warning("Reading battery history from the recorder failed", exc_info=True)
             return
@@ -203,18 +205,30 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
     def _attach_drain_estimates(
         self, devices: list[DeviceHealth], now: datetime
     ) -> DeviceHealth | None:
-        """Copy days-left and history facts onto each device; return the soonest to run out."""
+        """Copy the battery insight onto each device; return the soonest to run out."""
         soonest: DeviceHealth | None = None
         for device in devices:
             battery = device.battery
             if battery is None:
                 continue
-            estimate = self.history.estimates.get(battery.entity_id)
-            if estimate is not None:
-                device.days_left = estimate.days_left
-                if soonest is None or (soonest.days_left or 0) > estimate.days_left:
-                    soonest = device
-            self.replacements.annotate(device, estimate.rate_per_day if estimate else None, now)
+            insight = self.history.insights.get(battery.entity_id)
+            if insight is not None:
+                device.battery_kind = insight.kind
+                device.unusual = insight.unusual
+                estimate = insight.estimate
+                if estimate is not None:
+                    device.days_left = estimate.days_left
+                    device.estimate = EstimateInfo(
+                        days_left=estimate.days_left,
+                        basis=estimate.basis,
+                        confidence=estimate.confidence,
+                        kind=estimate.kind,
+                        open_ended=estimate.open_ended,
+                    )
+                    sooner = soonest is None or (soonest.days_left or 0) > estimate.days_left
+                    if not estimate.open_ended and sooner:
+                        soonest = device
+            self.replacements.annotate(device, now)
         return soonest
 
 

@@ -49,16 +49,15 @@ def recorder(hass: HomeAssistant, fixed_now: datetime) -> Iterator[dict[str, Any
     calls: dict[str, Any] = {"statistics": [], "history": []}
 
     def statistics(
-        _hass: HomeAssistant, start: datetime, end: Any, ids: set[str], *_: Any
+        _hass: HomeAssistant, start: datetime, end: Any, ids: set[str], period: str, *_: Any
     ) -> dict[str, list[dict[str, Any]]]:
-        calls["statistics"].append(ids)
+        calls["statistics"].append((period, ids))
+        if period == "hour":
+            return {}  # no hourly statistics in this house
         # The motion sensor drops 2 %/day. The phone's means also decline
-        # (its history looks like a clean drain). The window sensor got a
-        # fresh battery a week ago: 30 points up in a day, then a slower
-        # drain. The garage multisensor dipped and recovered once (a glitch).
-        window = linear_rows(fixed_now, 25, -1)  # the old battery: 25 % down to 19 %
-        for i, row in enumerate(window[7:]):
-            row["mean"] = 50.5 - 1.5 * i  # the new one: 50.5 % down to 41.5 %, live 40 %
+        # (its history looks like a clean drain). The window sensor drains
+        # 1.5 %/day. The garage multisensor dipped and recovered once (a glitch).
+        window = linear_rows(fixed_now, 60, -1.5)  # 60 % down to 40.5 %, live 40 %
         glitch = linear_rows(fixed_now, 68, -1)  # 68 % down to 55 %, live 55 %
         glitch[9]["mean"] = 42
         return {
@@ -128,19 +127,20 @@ async def test_drain_estimates_reach_the_entities(
     await config_entry.runtime_data.async_refresh_history()
     await hass.async_block_till_done()
 
-    # One statistics query for every numeric battery sensor at once.
-    assert len(recorder["statistics"]) == 1
-    assert "sensor.living_room_motion_battery" in recorder["statistics"][0]
-    assert "sensor.front_door_battery" in recorder["statistics"][0]
+    # One daily and one hourly statistics query for every numeric battery sensor at once.
+    assert [period for period, _ in recorder["statistics"]] == ["day", "hour"]
+    assert "sensor.living_room_motion_battery" in recorder["statistics"][0][1]
+    assert "sensor.front_door_battery" in recorder["statistics"][0][1]
     # Raw history only for sensors without statistics (no attributes) and
     # for attribute batteries (with attributes).
     assert ("sensor.front_door_battery", True) in recorder["history"]
     assert ("device_tracker.dog_collar", False) in recorder["history"]
-    assert ("sensor.living_room_motion_battery", True) not in recorder["history"]
 
     by_name = {d["name"]: d for d in device_dicts(hass)}
-    # 12 % at 2 %/day: about 6 days.
+    # 12 % at 2 %/day: about 6 days, from the current cycle's own trend.
     assert by_name["Living Room Motion"]["daysLeft"] == pytest.approx(6, abs=0.5)
+    assert by_name["Living Room Motion"]["estimate"]["basis"] == "trend over current cycle"
+    assert by_name["Living Room Motion"]["batteryKind"] == "replaceable"
     # 58 (carried forward to day -6), 50 at day -2, 44 now: about 1.4 %/day.
     assert by_name["Dog Collar Tracker"]["daysLeft"] == pytest.approx(31, abs=3)
     # No history at all: no estimate.
@@ -148,12 +148,20 @@ async def test_drain_estimates_reach_the_entities(
     # A phone (mobile_app) is charged daily: never an estimate, however
     # clean its history looks.
     assert "daysLeft" not in by_name["Pixel 9"]
-    # A single big rise is a new battery: the fit starts there. 40 % at 1.5 %/day.
+    # 40 % at 1.5 %/day: about 27 days.
     assert by_name["Window Sensor"]["daysLeft"] == pytest.approx(27, abs=3)
     # One dip-and-recover glitch does not cost the lock-like device its estimate.
     assert 30 < by_name["Garage Multisensor"]["daysLeft"] < 80
-    # The user said this one is rechargeable: no estimate either.
-    assert "daysLeft" not in by_name["Front Door Sensor"]
+    # Phones are "charged"; the others are replaceable.
+    assert by_name["Pixel 9"]["batteryKind"] == "charged"
+    assert by_name["Garage Multisensor"]["batteryKind"] == "replaceable"
+    # The user said this one is rechargeable: it gets a "charge in" estimate
+    # instead. 87 % at about 1 %/day, down to the 30 % warning: ~57 days.
+    door = by_name["Front Door Sensor"]
+    assert door["batteryKind"] == "charged"
+    assert door["estimate"]["kind"] == "charge"
+    assert door["estimate"]["basis"] == "until charge needed"
+    assert door["daysLeft"] == pytest.approx(57, abs=5)
     # And the docked, charging vacuum.
     assert "daysLeft" not in by_name["Mr Roboto"]
 

@@ -12,9 +12,7 @@ from custom_components.pulse_check.core.drain import (
     daily_means,
     estimate_drain,
     format_days_left,
-    has_charge_cycles,
     rows_to_points,
-    since_last_rise,
 )
 
 T0 = datetime(2026, 10, 1, tzinfo=UTC)
@@ -74,43 +72,6 @@ def test_never_returns_negative_days_left() -> None:
     estimate = estimate_drain(series(5, 10, -2), 0)
     assert estimate is not None
     assert estimate.days_left == 0
-
-
-def test_repeated_rises_mean_charging_but_one_rise_does_not() -> None:
-    assert has_charge_cycles(series(10, 90, -2)) is False
-    # A phone charged nightly: 80, 60, 40, 95, 75, 55, 98...
-    phone = [
-        DrainPoint(time=T0, level=80),
-        DrainPoint(time=T0 + DAY, level=60),
-        DrainPoint(time=T0 + 2 * DAY, level=40),
-        DrainPoint(time=T0 + 3 * DAY, level=95),
-        DrainPoint(time=T0 + 4 * DAY, level=75),
-        DrainPoint(time=T0 + 5 * DAY, level=55),
-        DrainPoint(time=T0 + 6 * DAY, level=98),
-    ]
-    assert has_charge_cycles(phone) is True
-    assert has_charge_cycles(list(reversed(phone))) is True  # order does not matter
-    # A lock that read 42 % for a day and then 61 % again: one rise, not charging.
-    lock = [*series(5, 61, -0.5), DrainPoint(time=T0 + 5 * DAY, level=42)]
-    lock += [DrainPoint(time=T0 + 6 * DAY, level=61), DrainPoint(time=T0 + 7 * DAY, level=60.5)]
-    assert has_charge_cycles(lock) is False
-    # A small wobble is not a charge either.
-    assert has_charge_cycles([*series(5, 50, -1), DrainPoint(time=T0 + 5 * DAY, level=52)]) is False
-
-
-def test_since_last_rise_starts_the_fit_at_a_new_battery() -> None:
-    # Old battery 30 -> 10 over 5 days, replaced, new battery 100 -> 92.
-    old = series(5, 30, -5)
-    fresh = [DrainPoint(time=T0 + (5 + i) * DAY, level=100 - 2 * i) for i in range(5)]
-    assert since_last_rise([*old, *fresh]) == fresh
-    # The lock's 19-point recovery is below the cycle-start size: everything is kept.
-    lock = [*series(5, 61, -0.5), DrainPoint(time=T0 + 5 * DAY, level=42)]
-    lock += [DrainPoint(time=T0 + 6 * DAY, level=61)]
-    assert since_last_rise(lock) == lock
-    # The fit over the fresh battery alone gives the right rate.
-    estimate = estimate_drain(since_last_rise([*old, *fresh]), 92)
-    assert estimate is not None
-    assert estimate.rate_per_day == pytest.approx(2)
 
 
 def test_format_days_left_rounds_to_a_friendly_unit() -> None:

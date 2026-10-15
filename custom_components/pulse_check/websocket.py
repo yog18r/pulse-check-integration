@@ -125,7 +125,8 @@ async def ws_history(
     history = await coordinator.history.async_points(
         entity_id, msg["days"], attribute=battery.source == "attribute"
     )
-    estimate = coordinator.history.estimates.get(entity_id)
+    insight = coordinator.history.insights.get(entity_id)
+    estimate = insight.estimate if insight is not None else None
     connection.send_result(
         msg["id"],
         {
@@ -137,9 +138,12 @@ async def ws_history(
             ],
             "estimate": (
                 {
-                    "ratePerDay": estimate.rate_per_day,
                     "daysLeft": estimate.days_left,
-                    "samples": estimate.samples,
+                    "basis": estimate.basis,
+                    "confidence": estimate.confidence,
+                    "kind": estimate.kind,
+                    "openEnded": estimate.open_ended,
+                    "ratePerDay": estimate.rate_per_day,
                 }
                 if estimate is not None
                 else None

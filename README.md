@@ -222,7 +222,24 @@ These rules are shared with the card and checked against the same test fixture (
 
 **Enhancers.** Optional, integration-specific extras that never break the core: Z-Wave JS node status, Zigbee2MQTT link quality and `last_seen`, ZHA LQI and RSSI.
 
-**Days left.** Every six hours the integration reads the last 14 days of daily battery means from the recorder's long-term statistics (raw state history for sensors without statistics, and attribute history for batteries that only exist as a `battery_level` attribute), adds the live reading, and fits a straight line. It needs at least three samples over two days and a slope of at least 0.1 % per day; a flat or rising battery (on charge, or noisy) gets no estimate. Days left is the level divided by the rate. It is a rough order of magnitude by design. Devices that get charged never get an estimate, because a line through charge cycles means nothing: phones (the companion app), anything charging right now, anything marked rechargeable in its settings, and any battery whose history shows two or more rises of 15 points between samples. A single rise of 20 points or more is a new battery (or a glitch that healed): the fit simply starts again from there.
+**Days left: cycles, kinds and bases.** Every six hours the integration reads up to a year of daily battery means from the recorder's long-term statistics, plus hourly means for the last fortnight (raw state history as the fallback for sensors without statistics, attribute history for batteries that only exist as a `battery_level` attribute). It cuts each battery's history into *cycles*: a new cycle starts at a rise of 15 points or more within 48 hours (a charge or a new battery), at a `mark_replaced` or `mark_charged` call, or when a charging signal turns on. A lone reading far below both its neighbours is a glitch, not a cycle, so a lock that read 42 % for a day and then 61 % again keeps its estimate.
+
+From the cycles each battery gets a *kind*, published as `batteryKind`:
+
+- **charged**: the device is a phone (`mobile_app`), is marked rechargeable in its settings, has shown a charging signal, or has completed cycles with a median length under 30 days.
+- **replaceable**: every cycle so far began near full (85 % or more), which is what a fresh cell looks like.
+- **unknown**: anything else, such as a partial top-up. No estimate is made; nothing is ever invented.
+
+The estimate depends on the kind, and always carries a `basis` and a `confidence` (`estimate` on the device, `daysLeft` alongside it):
+
+| Kind | Basis | What it means |
+| --- | --- | --- |
+| replaceable | "trend over current cycle" | The current cycle spans at least a week of decline; days left is the level divided by the fitted rate. High confidence with two weeks or more of samples |
+| replaceable | "from N previous cycles of ~D days" | Too early in the current cycle, so the device's own completed cycles are used: how many days they lasted per 100 points, scaled to the current level. Medium confidence with two or more cycles, low with one |
+| replaceable | "flat for D days" | At least 90 days in the current cycle and fewer than 10 points lost: "more than a year", low confidence, `openEnded: true` |
+| charged | "until charge needed" | Days until the warning level at the rate since the last charge, from the hourly means. A device charged every day never spans enough to fit, and anything under a day is suppressed, so phones show nothing while a blind charged every couple of months shows "charge in ~N days" |
+
+Rows are also flagged as `unusual` when the current cycle drains more than twice as fast as the median of the device's past cycles ("draining 3× faster than usual"), or when the level fell by 20 points within 48 hours in the last week ("level dropped suddenly").
 
 ## Architecture
 

@@ -267,6 +267,31 @@ class EnhancerExtra:
         return out
 
 
+@dataclass(frozen=True, slots=True)
+class EstimateInfo:
+    """A days-left estimate with its provenance (see core/cycles.py)."""
+
+    days_left: float
+    basis: str
+    confidence: str
+    # "replace" (days until empty) or "charge" (days until the warning level).
+    kind: str
+    # True for "more than a year": days_left is a floor, not a prediction.
+    open_ended: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON shape."""
+        out: dict[str, Any] = {
+            "daysLeft": round(self.days_left, 1),
+            "basis": self.basis,
+            "confidence": self.confidence,
+            "kind": self.kind,
+        }
+        if self.open_ended:
+            out["openEnded"] = True
+        return out
+
+
 @dataclass(slots=True)
 class DeviceHealth:
     """Everything known about one device's health."""
@@ -296,8 +321,12 @@ class DeviceHealth:
     # Set while the user has snoozed this device. Facts are still reported,
     # but severity is "ok".
     snoozed_until: datetime | None = None
-    # Days until empty at the current drain rate, when history allows an estimate.
+    # Days until empty (or until a charge is needed), when history allows an
+    # estimate, with where the number came from and how much to trust it.
     days_left: float | None = None
+    estimate: EstimateInfo | None = None
+    # "charged", "replaceable" or "unknown", from the battery's cycles.
+    battery_kind: str | None = None
     # When the battery was last replaced or charged, from the integration's history.
     last_replaced: datetime | None = None
     # A short note when the battery behaves unlike its own past, e.g.
@@ -332,6 +361,10 @@ class DeviceHealth:
             out["snoozedUntil"] = to_iso(self.snoozed_until)
         if self.days_left is not None:
             out["daysLeft"] = round(self.days_left, 1)
+        if self.estimate is not None:
+            out["estimate"] = self.estimate.to_dict()
+        if self.battery_kind is not None:
+            out["batteryKind"] = self.battery_kind
         if self.last_replaced is not None:
             out["lastReplaced"] = to_iso(self.last_replaced)
         if self.unusual is not None:
