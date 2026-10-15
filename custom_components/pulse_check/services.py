@@ -18,7 +18,13 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, NOTIFY_POLICIES
+from .const import (
+    CONF_MAINTENANCE_HOURS,
+    DEFAULT_MAINTENANCE_HOURS,
+    DOMAIN,
+    MAX_MAINTENANCE_HOURS,
+    NOTIFY_POLICIES,
+)
 from .core.group import ORPHAN_PREFIX
 
 if TYPE_CHECKING:
@@ -30,11 +36,13 @@ SERVICE_SET_DEVICE_SETTINGS = "set_device_settings"
 SERVICE_MARK_REPLACED = "mark_replaced"
 SERVICE_MARK_CHARGED = "mark_charged"
 SERVICE_REFRESH = "refresh"
+SERVICE_MAINTENANCE_MODE = "maintenance_mode"
 
 ATTR_DEVICE_ID = "device_id"
 ATTR_DAYS = "days"
 ATTR_UNTIL = "until"
 ATTR_BATTERY_TYPE = "battery_type"
+ATTR_HOURS = "hours"
 
 DEFAULT_SNOOZE_DAYS = 7
 
@@ -79,6 +87,13 @@ SET_DEVICE_SETTINGS_SCHEMA = probatio.Schema(
 )
 MARK_SCHEMA = probatio.Schema({**DEVICE_SCHEMA, probatio.Optional(ATTR_BATTERY_TYPE): cv.string})
 REFRESH_SCHEMA = probatio.Schema({})
+MAINTENANCE_SCHEMA = probatio.Schema(
+    {
+        probatio.Optional(ATTR_HOURS): probatio.All(
+            probatio.Coerce(float), probatio.Range(min=0, max=MAX_MAINTENANCE_HOURS)
+        )
+    }
+)
 
 
 def _coordinator(hass: HomeAssistant) -> PulseCheckCoordinator:
@@ -155,6 +170,21 @@ async def _refresh(call: ServiceCall) -> None:
     await coordinator.async_refresh_history()
 
 
+async def _maintenance_mode(call: ServiceCall) -> None:
+    # Hours from now, the options' default when left out; 0 ends it now.
+    coordinator = _coordinator(call.hass)
+    hours = call.data.get(
+        ATTR_HOURS,
+        coordinator.config_entry.options.get(CONF_MAINTENANCE_HOURS, DEFAULT_MAINTENANCE_HOURS),
+    )
+    now = dt_util.utcnow()
+    if hours > 0:
+        coordinator.store.start_maintenance(now, now + timedelta(hours=float(hours)))
+    elif not coordinator.store.end_maintenance(now):
+        return
+    await coordinator.async_refresh()
+
+
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
     """Register every service. Called once from `async_setup`."""
@@ -165,5 +195,6 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_MARK_REPLACED, _mark_replaced, MARK_SCHEMA),
         (SERVICE_MARK_CHARGED, _mark_charged, MARK_SCHEMA),
         (SERVICE_REFRESH, _refresh, REFRESH_SCHEMA),
+        (SERVICE_MAINTENANCE_MODE, _maintenance_mode, MAINTENANCE_SCHEMA),
     ):
         hass.services.async_register(DOMAIN, name, handler, schema=schema)

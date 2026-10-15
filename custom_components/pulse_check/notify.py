@@ -39,6 +39,15 @@ Digests go out at a fixed time. The store remembers when each kind was
 last judged (sent, or found to have nothing to say), so a slot missed
 because Home Assistant was off or still starting is caught up once, at
 the end of the next startup grace period.
+
+Maintenance mode (`pulse_check.maintenance_mode`) silences everything for
+a few hours while someone works on the house: migrating a Zigbee
+coordinator would otherwise produce a burst of offline and quiet alerts.
+Transitions are still tracked and the event still fires; only messages
+are held back, and a digest slot inside the window counts as judged. When
+the window ends nothing is replayed: one summary lists the instant
+problems that appeared during it and are still there, and from then on
+everything runs as usual.
 """
 
 from __future__ import annotations
@@ -49,8 +58,12 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import CoreState, Event, HomeAssistant, callback
-from homeassistant.helpers.event import async_call_later, async_track_time_change
+from homeassistant.core import CALLBACK_TYPE, CoreState, Event, HomeAssistant, callback
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_point_in_utc_time,
+    async_track_time_change,
+)
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -184,6 +197,9 @@ class Notifier:
         self.baseline_pending = True
         # Devices seen online (not offline) at least once in this run.
         self._seen_online: set[str] = set()
+        # The timer that ends maintenance mode, and the end time it is set for.
+        self._maintenance_timer: CALLBACK_TYPE | None = None
+        self._maintenance_timer_at: datetime | None = None
 
     # -- options -------------------------------------------------------------
 
@@ -256,6 +272,8 @@ class Notifier:
             )
         )
         self._start_digest_record()
+        self._schedule_maintenance_end()
+        self.entry.async_on_unload(self._cancel_maintenance_timer)
 
         if self.hass.state is CoreState.running:
             self._mark_started()
@@ -300,8 +318,42 @@ class Notifier:
 
     @callback
     def _handle_update(self) -> None:
+        # The maintenance service changes the store, then recomputes.
+        self._schedule_maintenance_end()
         self.entry.async_create_background_task(
             self.hass, self.async_process(), "pulse_check notifications"
+        )
+
+    @callback
+    def _schedule_maintenance_end(self) -> None:
+        """Keep one timer at the end of the maintenance window, if there is one.
+
+        The timer only triggers a recompute; the summary is sent by the
+        processing that follows, which also covers a window that ended while
+        Home Assistant was off.
+        """
+        until = self.store.maintenance_until
+        if until == self._maintenance_timer_at:
+            return
+        self._cancel_maintenance_timer()
+        self._maintenance_timer_at = until
+        if until is not None and until > dt_util.utcnow():
+            self._maintenance_timer = async_track_point_in_utc_time(
+                self.hass, self._handle_maintenance_over, until
+            )
+
+    @callback
+    def _cancel_maintenance_timer(self) -> None:
+        if self._maintenance_timer is not None:
+            self._maintenance_timer()
+            self._maintenance_timer = None
+        self._maintenance_timer_at = None
+
+    @callback
+    def _handle_maintenance_over(self, _now: datetime) -> None:
+        self._maintenance_timer = None
+        self.entry.async_create_background_task(
+            self.hass, self.coordinator.async_refresh(), "pulse_check maintenance over"
         )
 
     @callback
@@ -355,6 +407,8 @@ class Notifier:
         if changed:
             self.store.async_save()
 
+        if self.store.maintenance and not self.store.in_maintenance(now):
+            await self._end_maintenance(now)
         if baseline:
             await self._catch_up_digests(now)
 
@@ -408,7 +462,9 @@ class Notifier:
         """A confirmed transition: fire the event and notify per policy."""
         policy = self.policy_for(device.device_id, issue.severity)
         self._fire(device, issue, "entered", policy)
-        if policy == "instant":
+        # In maintenance mode `notified_at` stays empty: the summary at the
+        # end of the window picks the issue up from there.
+        if policy == "instant" and not self.store.in_maintenance(now):
             await self._send(issue.message)
             record["notified_at"] = to_iso(now)
 
@@ -418,6 +474,8 @@ class Notifier:
         """Send a reminder for an unresolved instant issue when it is due."""
         if self.policy_for(device.device_id, issue.severity) != "instant":
             return False
+        if self.store.in_maintenance(now):
+            return False  # due reminders wait for the end of the window
         if record.get("reminders", 0) >= self.reminder_max:
             return False
         last = record.get("notified_at") or record.get("since")
@@ -448,8 +506,45 @@ class Notifier:
                 "message": issue.message,
                 "policy": policy,
                 "level": device.battery.level if device.battery else None,
+                "maintenance": self.store.in_maintenance(dt_util.utcnow()),
             },
         )
+
+    # -- maintenance mode ----------------------------------------------------
+
+    async def _end_maintenance(self, now: datetime) -> None:
+        """The window is over: one summary of what appeared during it and remains.
+
+        Only instant problems are listed: a daily or weekly one goes into
+        its next digest anyway, and `none` means never. An issue counts as
+        new unless it was already confirmed when the window began and has
+        been present ever since. Each listed issue counts as notified now,
+        so its reminders run from the summary.
+        """
+        window = self.store.maintenance
+        started_at = _at(window["started_at"])
+        known: dict[str, list[str]] = window.get("known", {})
+        data: PulseCheckData = self.coordinator.data
+        lines: list[str] = []
+        for device in data.devices:
+            stored = self.store.notify.get(device.device_id, {})
+            for key, issue in device_issues(device, data.config, now).items():
+                record = stored.get(key)
+                if record is None or not record.get("confirmed", True):
+                    continue
+                if record.get("notified_at") is not None:
+                    continue  # already announced, after the window closed
+                if key in known.get(device.device_id, []) and _at(record["since"]) <= started_at:
+                    continue  # there before the work began
+                if self.policy_for(device.device_id, issue.severity) != "instant":
+                    continue
+                lines.append(issue.message)
+                record["notified_at"] = to_iso(now)
+        self.store.clear_maintenance()
+        _LOGGER.debug("Maintenance mode over; %d new problems", len(lines))
+        if lines:
+            body = "\n".join(f"- {line}" for line in lines)
+            await self._send(f"Maintenance mode is over. New since it began:\n{body}")
 
     # -- digests -------------------------------------------------------------
 
@@ -497,7 +592,9 @@ class Notifier:
                 if self.policy_for(device.device_id, issue.severity) == kind:
                     lines.append(issue.message)
         all_clear = kind == "weekly" and bool(self.entry.options.get(CONF_WEEKLY_ALL_CLEAR, False))
-        if lines or all_clear:
+        if self.store.in_maintenance(now):
+            _LOGGER.debug("Skipping the %s digest: maintenance mode", kind)
+        elif lines or all_clear:
             heading = f"{TITLE} {kind} digest"
             body = "\n".join(f"- {line}" for line in lines) if lines else "All devices OK."
             await self._send(f"{heading}\n{body}")

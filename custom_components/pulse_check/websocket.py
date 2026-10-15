@@ -28,6 +28,7 @@ from homeassistant.components.websocket_api.decorators import async_response, we
 from homeassistant.components.websocket_api.messages import event_message
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, SIGNAL_SNAPSHOT
 from .core.models import to_iso
@@ -55,6 +56,8 @@ def _coordinator(hass: HomeAssistant) -> PulseCheckCoordinator | None:
 def snapshot_payload(coordinator: PulseCheckCoordinator) -> dict[str, Any]:
     """Everything the card needs, JSON-ready."""
     data: PulseCheckData = coordinator.data
+    store = coordinator.store
+    until = store.maintenance_until if store.in_maintenance(dt_util.utcnow()) else None
     return {
         "devices": [device.to_dict() for device in data.devices],
         "summary": data.summary.to_dict(),
@@ -64,6 +67,8 @@ def snapshot_payload(coordinator: PulseCheckCoordinator) -> dict[str, Any]:
         # core does not use but the card's editor shows.
         "device_settings": coordinator.store.device_settings,
         "computed_at": to_iso(data.computed_at),
+        # When maintenance mode ends, while it holds notifications back.
+        "maintenance_until": to_iso(until) if until is not None else None,
     }
 
 

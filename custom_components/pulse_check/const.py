@@ -65,6 +65,9 @@ CONF_STARTUP_GRACE_MINUTES = "startup_grace_minutes"
 # Minutes an offline or quiet state must persist before it is a transition.
 CONF_CONFIRM_MINUTES = "confirm_minutes"
 
+# Default length of maintenance mode, when the service is called without hours.
+CONF_MAINTENANCE_HOURS = "maintenance_hours"
+
 NOTIFY_POLICIES = ("instant", "daily", "weekly", "none")
 DEFAULT_NOTIFY_CRITICAL = "instant"
 DEFAULT_NOTIFY_WARNING = "weekly"
@@ -75,6 +78,8 @@ WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", 
 DEFAULT_DIGEST_WEEKDAY = "monday"
 DEFAULT_STARTUP_GRACE_MINUTES = 5
 DEFAULT_CONFIRM_MINUTES = 5
+DEFAULT_MAINTENANCE_HOURS = 2
+MAX_MAINTENANCE_HOURS = 24 * 30
 
 EVENT_TRANSITION = "pulse_check_transition"
 
