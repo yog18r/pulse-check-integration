@@ -47,6 +47,13 @@ describe('batterySeverity', () => {
     expect(batterySeverity(reading(31), config)).toBe('ok');
   });
 
+  it('never flags a charging device, whatever its level', () => {
+    expect(batterySeverity({ ...reading(5), isCharging: true }, config)).toBe('ok');
+    expect(
+      batterySeverity({ isLow: true, isCharging: true, source: 'binary', entityId: 'b' }, config),
+    ).toBe('ok');
+  });
+
   it('treats a binary "low" as critical and binary "not low" as ok', () => {
     expect(batterySeverity({ isLow: true, source: 'binary', entityId: 'b' }, config)).toBe(
       'critical',

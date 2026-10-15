@@ -123,8 +123,15 @@
 }
 
 .row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
   margin: 0;
   padding: 0;
+}
+
+.row[data-snoozed='true'] .rowbutton {
+  opacity: 0.6;
 }
 
 /* The whole row is a button: reset the browser's button styling, then lay
@@ -336,4 +343,104 @@
   padding: 0 4px;
   border-radius: 3px;
   background: var(--secondary-background-color, #f0f0f0);
+}
+
+/* ---- charging / snoozed badges --------------------------------------- */
+
+.badge[data-kind='charging'] {
+  background: color-mix(in srgb, var(--success-color, #43a047) 18%, transparent);
+  color: var(--success-color, #43a047);
+}
+
+.badge[data-kind='snoozed'] {
+  background: color-mix(in srgb, var(--primary-color, #03a9f4) 15%, transparent);
+  color: var(--primary-color, #03a9f4);
+}
+
+/* ---- snooze control --------------------------------------------------- */
+
+.snoozewrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.snooze {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.05em;
+  line-height: 1;
+  padding: 8px;
+  margin-right: 8px;
+  opacity: 0.55;
+}
+
+.snooze:hover,
+.snooze:focus-visible,
+.snooze[aria-expanded='true'] {
+  opacity: 1;
+  background: var(--secondary-background-color, #f0f0f0);
+}
+
+.snooze:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+}
+
+.menu {
+  position: absolute;
+  right: 8px;
+  top: 100%;
+  z-index: 2;
+  display: grid;
+  min-width: 96px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+
+.menu button {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: var(--primary-text-color, #212121);
+  cursor: pointer;
+  font: inherit;
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.menu button:hover,
+.menu button:focus-visible {
+  background: var(--secondary-background-color, #f0f0f0);
+  outline: none;
+}
+
+/* ---- snoozed footer --------------------------------------------------- */
+
+.footer {
+  border-top: 1px solid var(--divider-color, #e0e0e0);
+}
+
+.footerbutton {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: var(--secondary-text-color, #727272);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85em;
+  padding: 8px 16px;
+  width: 100%;
+  text-align: left;
+}
+
+.footerbutton:hover {
+  color: var(--primary-text-color, #212121);
 }

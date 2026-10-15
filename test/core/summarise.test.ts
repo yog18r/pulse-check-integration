@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG } from '../../src/card/config';
 import { analyseDevices } from '../../src/core/analyse';
 import { breakdown, headline, summarise } from '../../src/core/summarise';
-import { FIXED_NOW, hass } from '../fixtures/hass';
+import { DEV, FIXED_NOW, hass } from '../fixtures/hass';
 
 describe('summarise', () => {
   it('counts the fixture correctly', () => {
@@ -15,9 +15,23 @@ describe('summarise', () => {
     expect(s.attention).toBe(6);
     expect(s.offline).toBe(1);
     expect(s.quiet).toBe(2);
-    expect(s.batteryDevices).toBe(10);
-    // low: smoke alarm (binary), orphan 9%, motion 12%, zha 28%
+    expect(s.batteryDevices).toBe(11);
+    // low: smoke alarm (binary), orphan 9%, motion 12%, zha 28%. The vacuum
+    // at 18% is docked and charging, so it does not count.
     expect(s.lowBatteries).toBe(4);
+    expect(s.snoozed).toBe(0);
+  });
+
+  it('counts snoozed devices separately and nowhere else', () => {
+    const devices = analyseDevices(hass, DEFAULT_CONFIG, {
+      now: FIXED_NOW,
+      snoozes: new Map([[DEV.zwaveLock, new Date('2027-01-01')]]),
+    });
+    const s = summarise(devices, DEFAULT_CONFIG);
+    expect(s.snoozed).toBe(1);
+    expect(s.offline).toBe(0);
+    expect(s.critical).toBe(3);
+    expect(s.attention).toBe(5);
   });
 });
 
@@ -29,6 +43,7 @@ describe('headline and breakdown', () => {
     lowBatteries: 0,
     offline: 0,
     quiet: 0,
+    snoozed: 0,
   };
 
   it('celebrates when nothing needs attention', () => {

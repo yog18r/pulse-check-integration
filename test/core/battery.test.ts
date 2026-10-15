@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   combineBatteryReadings,
   detectBattery,
+  detectCharging,
   parseNumeric,
   readBattery,
 } from '../../src/core/battery';
@@ -80,6 +81,40 @@ describe('readBattery', () => {
   });
 });
 
+describe('detectCharging', () => {
+  const attrs = (a: Record<string, unknown>, id = 'sensor.x', state = '50') =>
+    makeState(id, state, now, { attributes: a });
+
+  it('recognises the HA standard binary sensor', () => {
+    expect(
+      detectCharging([attrs({ device_class: 'battery_charging' }, 'binary_sensor.c', 'on')]),
+    ).toBe(true);
+    expect(
+      detectCharging([attrs({ device_class: 'battery_charging' }, 'binary_sensor.c', 'off')]),
+    ).toBe(false);
+  });
+
+  it('recognises companion-app battery state sensors and attributes', () => {
+    expect(detectCharging([attrs({}, 'sensor.phone_battery_state', 'charging')])).toBe(true);
+    expect(detectCharging([attrs({}, 'sensor.phone_battery_state', 'full')])).toBe(true);
+    expect(detectCharging([attrs({}, 'sensor.phone_battery_state', 'discharging')])).toBe(false);
+    expect(detectCharging([attrs({ battery_state: 'charging' }, 'device_tracker.p', 'home')])).toBe(
+      true,
+    );
+    expect(detectCharging([attrs({ is_charging: true })])).toBe(true);
+    expect(detectCharging([attrs({ charging: false })])).toBe(false);
+  });
+
+  it('recognises a docked vacuum but not a cleaning one', () => {
+    expect(detectCharging([attrs({}, 'vacuum.v', 'docked')])).toBe(true);
+    expect(detectCharging([attrs({}, 'vacuum.v', 'cleaning')])).toBe(false);
+  });
+
+  it('does not mistake unrelated "full" states', () => {
+    expect(detectCharging([attrs({}, 'sensor.bin_level', 'full')])).toBe(false);
+  });
+});
+
 describe('combineBatteryReadings', () => {
   it('returns undefined for no readings', () => {
     expect(combineBatteryReadings([])).toBeUndefined();
@@ -134,6 +169,11 @@ describe('detectBattery', () => {
     const states = [hass.states['sensor.inverter_min_soc']!];
     expect(detectBattery(states)).toMatchObject({ level: 10 }); // no registry: looks like a battery
     expect(detectBattery(states, hass.entities)).toBeUndefined(); // registry says it is a setting
+  });
+
+  it('marks a docked vacuum as charging', () => {
+    const states = [hass.states['vacuum.mr_roboto']!, hass.states['sensor.mr_roboto_battery']!];
+    expect(detectBattery(states, hass.entities)).toMatchObject({ level: 18, isCharging: true });
   });
 
   it('returns undefined for a mains-powered device', () => {

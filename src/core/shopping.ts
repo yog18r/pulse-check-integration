@@ -30,7 +30,8 @@ export function shoppingList(devices: DeviceHealth[], config: ResolvedConfig): S
   const groups = new Map<string, ShoppingGroup>();
 
   for (const device of devices) {
-    if (!device.battery || batterySeverity(device.battery, config) === 'ok') continue;
+    if (!device.battery || device.snoozedUntil) continue;
+    if (batterySeverity(device.battery, config) === 'ok') continue;
     const type = batteryTypeFor(device, config) ?? UNKNOWN_BATTERY_TYPE;
     let group = groups.get(type);
     if (!group) {

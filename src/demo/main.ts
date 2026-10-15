@@ -149,8 +149,32 @@ function mount(scenario: Scenario) {
   mountEditor(CONFIGS[scenario] as CardConfig);
 }
 
+/**
+ * A fake REST API for the on-demand last_reported lookup. The ZHA bedroom
+ * sensor's temperature entity "reported" (unchanged) two hours ago even
+ * though its value last changed 30h ago, so after the lookup it stops
+ * being quiet. Everything else just echoes the frontend's last_updated.
+ */
+function fakeCallApi<T>(method: string, path: string): Promise<T> {
+  if (method !== 'GET' || !path.startsWith('states/')) {
+    return Promise.reject(new Error(`demo: unsupported ${method} ${path}`));
+  }
+  const entityId = decodeURIComponent(path.slice('states/'.length));
+  const state = buildHass(new Date()).states[entityId];
+  if (!state) return Promise.reject(new Error('404'));
+  const lastReported =
+    entityId === 'sensor.bedroom_climate_temperature'
+      ? new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+      : state.last_updated;
+  return new Promise((resolve) =>
+    setTimeout(() => {
+      resolve({ entity_id: entityId, last_reported: lastReported } as T);
+    }, 200),
+  );
+}
+
 function withWS(h: HassLike): HassLike {
-  return { ...h, callWS: fakeCallWS };
+  return { ...h, callWS: fakeCallWS, callApi: fakeCallApi };
 }
 
 interface EditorLike extends HTMLElement {

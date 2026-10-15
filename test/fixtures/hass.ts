@@ -113,6 +113,7 @@ export const DEV = {
   sun: 'dev_sun',
   disabledSensor: 'dev_disabled',
   mqttLight: 'dev_mqtt_light',
+  vacuum: 'dev_vacuum',
 } as const;
 
 /**
@@ -495,6 +496,31 @@ export function buildHass(now: Date): HassLike {
         friendly_name: 'TV Remote Battery',
       },
       lastUpdated: hoursAgo(now, 4),
+    }),
+  );
+
+  // --- Robot vacuum: 18% but DOCKED and charging. Must not be flagged.
+  devices.push(
+    makeDevice(DEV.vacuum, 'Mr Roboto', {
+      manufacturer: 'Ecovacs',
+      model: 'DEEBOT',
+      area_id: 'living_room',
+    }),
+  );
+  entities.push(
+    makeEntity('vacuum.mr_roboto', 'ecovacs', DEV.vacuum),
+    makeEntity('sensor.mr_roboto_battery', 'ecovacs', DEV.vacuum, {
+      entity_category: 'diagnostic',
+    }),
+  );
+  states.push(
+    makeState('vacuum.mr_roboto', 'docked', now, {
+      attributes: { battery_level: 18 },
+      lastUpdated: minutesAgo(now, 3),
+    }),
+    makeState('sensor.mr_roboto_battery', '18', now, {
+      attributes: { device_class: 'battery', unit_of_measurement: '%' },
+      lastUpdated: minutesAgo(now, 3),
     }),
   );
 

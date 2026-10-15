@@ -61,6 +61,31 @@ describe('loadDrains', () => {
     expect(drains.has('sensor.no_stats')).toBe(false);
   });
 
+  it('lets a sudden drop in the live reading pull the estimate forward', async () => {
+    // Two flat weeks at 62% in the recorder, but the sensor now says 42%.
+    const callWS = vi.fn().mockResolvedValue({
+      'sensor.lock_battery': decline(FIXED_NOW, 62, 0),
+    });
+    const flat = await loadDrains(
+      { ...hass, callWS },
+      [{ entityId: 'sensor.lock_battery', level: 62 }],
+      FIXED_NOW,
+    );
+    expect(flat.has('sensor.lock_battery')).toBe(false); // genuinely flat: no estimate
+
+    const dropped = await loadDrains(
+      { ...hass, callWS },
+      [{ entityId: 'sensor.lock_battery', level: 42 }],
+      FIXED_NOW,
+    );
+    const est = dropped.get('sensor.lock_battery');
+    expect(est).toBeDefined();
+    // 20 points lost over the 14-day window: roughly 1.4%/day on the fit's
+    // slope once the single live point is weighed against two flat weeks.
+    expect(est!.ratePerDay).toBeGreaterThanOrEqual(0.4);
+    expect(est!.daysLeft).toBeLessThan(120);
+  });
+
   it('returns an empty map without a websocket or without batteries', async () => {
     expect((await loadDrains(hass, [{ entityId: 'sensor.x', level: 1 }])).size).toBe(0);
     const callWS = vi.fn();

@@ -24,6 +24,8 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 - **🔋 Batteries**: every battery-powered device, lowest first, with a coloured bar
 - **📡 Connectivity**: anything offline or not heard from within a threshold
 - **🛒 Shopping** (optional tab): which batteries to buy, grouped by type
+- **Snooze** a device for 1, 7 or 30 days when you already know about it
+- **Charging awareness**: a docked vacuum or a phone on the charger is never "low"
 - **"Replace soon" ordering** (optional): uses each battery's drain rate from HA's recorder to put the ones about to die first, even when their percentage still looks fine
 
 Everything is grouped by **device**, not entity, so each physical thing appears once. Tap a row to jump to that device's page in Home Assistant.
@@ -121,13 +123,19 @@ By default only **battery-powered devices** can be quiet (`quiet_scope: battery`
 
 **Skipped on purpose:** service devices (Sun, Forecast…), disabled devices, excluded integrations/devices/entities, and entities with no device that carry no battery information. An entity with no device can only ever contribute a battery reading; with no hardware behind it there is nothing to be offline or quiet.
 
-**Replace soon** (`battery_sort: replace_soon`): the card asks Home Assistant's recorder for 14 days of daily averages of every battery sensor, once when the card loads and then every 6 hours, and fits a straight line through them. The slope is the drain rate; the current level divided by it is the time left, shown on each row as "~12d left". The fit needs at least 3 days of history and ignores flat or rising series (a phone that gets charged), so those devices simply keep their level-based position. Without a recorder nothing changes.
+**Replace soon** (`battery_sort: replace_soon`): the card asks Home Assistant's recorder for 14 days of daily averages of every battery sensor, once when the card loads and then every 6 hours, and fits a straight line through them. The slope is the drain rate; the current level divided by it is the time left, shown on each row as "~12d left". The live reading is added as the last point, so a battery that just dropped sharply moves straight away rather than waiting for the recorder's hourly statistics. The fit needs at least 3 days of history and ignores flat or rising series (a phone that gets charged, a lock sitting at 62% for a fortnight), so those devices simply keep their level-based position and show no estimate. Treat the number as an order of magnitude: locks and other motorised devices report in coarse steps and under load, and the estimate will wander for a few days after a sudden drop. Without a recorder nothing changes.
 
 **Shopping list** (`show_tabs` including `shopping`): every device at or below the warning threshold, grouped by the `battery_type` you set in `device_overrides`. There is no reliable way to know from Home Assistant's data that a sensor takes a CR2032, so untyped devices sit in an "Unknown type" group until you tell the card.
 
+**Charging:** a device that says it is charging is never flagged for battery, whatever its level, and sorts last within its band. The card recognises the standard `battery_charging` binary sensor, companion-app "battery state" sensors reading charging/full, a vacuum that is `docked`, and the `is_charging` / `charging` / `battery_state` attributes some integrations use.
+
+**On-demand `last_reported` lookup:** once a device is flagged quiet, the card asks Home Assistant's REST API for the true `last_reported` of that device's live entities (`GET /api/states/<entity_id>`). Unlike `last_updated`, that timestamp moves on every report, even when the value is unchanged, so a sensor that keeps saying "21.4 °C" stops looking dead. This is a question to the Home Assistant server about data it already holds. **Nothing is sent to any device**, so it cannot wake a sensor or cost it battery. It is also deliberately frugal: only entities of quiet devices, each asked at most once every 5 minutes, at most 40 per round.
+
+**Snooze:** the 💤 button on any flagged row hides that device from the counts, the Connectivity tab and the shopping list for 1, 7 or 30 days. Snoozes are stored in your browser, not in the card config, so they are per browser and need no YAML edit. A footer shows how many are snoozed and lets you un-snooze. The Batteries tab still lists a snoozed device, greyed and badged, because it is still a battery.
+
 ### Known limitations
 
-- **`last_reported` is not available in the frontend.** Home Assistant tracks a `last_reported` timestamp (updated even when a value is re-sent unchanged), but the websocket subscription that feeds the dashboard only carries `last_changed` and `last_updated`. So a sensor that keeps reporting the exact same value looks "quiet" even though the device is alive. Raise `quiet_threshold_hours` for such integrations, or use `device_overrides`. A future version may fetch the true `last_reported` on demand for devices already flagged quiet.
+- **`last_reported` is not available in the frontend.** Home Assistant tracks a `last_reported` timestamp (updated even when a value is re-sent unchanged), but the websocket subscription that feeds the dashboard only carries `last_changed` and `last_updated`. The on-demand lookup above closes most of that gap, but it only runs for devices already flagged quiet and refreshes every 5 minutes, so a device can appear quiet for up to a few minutes before the lookup clears it.
 - **Sleeping devices look quiet.** Battery Z-Wave and Zigbee sensors may only wake every day or two. Use `integration_thresholds` (e.g. `zwave_js: 48`).
 - **Mains devices are only judged by availability.** With the default `quiet_scope: battery`, a mains device shows up only when it is `unavailable`. A Wi-Fi device that silently stops responding but that its integration never marks unavailable will not be caught. `quiet_scope: all` catches it, at the cost of noise from idle lights and media players.
 - **Powered-off media players show as offline.** A TV that is switched off is `unavailable` to Home Assistant, which is indistinguishable from a TV that has lost its network. Exclude them with `exclude_integrations` or `exclude_devices` if that is not useful to you.
@@ -143,7 +151,9 @@ src/
 │   ├── PulseCheckCardEditor.ts    the visual editor element (fires config-changed)
 │   ├── config.ts                  CardConfig → ResolvedConfig with validation
 │   ├── navigation.ts              open a device page / more-info from a row
-│   └── statistics.ts              recorder websocket call → drain estimates
+│   ├── statistics.ts              recorder websocket call → drain estimates
+│   ├── lastReported.ts            REST lookup of true last_reported (rate limited)
+│   └── snoozeStore.ts             snoozes in localStorage, pure helpers + storage
 ├── core/                     pure TypeScript, no React, no DOM, 100% unit-testable
 │   ├── battery.ts            detection rules 1–3
 │   ├── availability.ts       offline / last heard / quiet
@@ -154,7 +164,8 @@ src/
 │   ├── shopping.ts           batteries to buy, grouped by type
 │   ├── sort.ts, summarise.ts, time.ts, fingerprint.ts
 ├── enhancers/                optional per-integration extras (Enhancer interface)
-└── ui/                       React components, two hooks, two stylesheets
+└── ui/                       React components, hooks (useNow, useDrainEstimates,
+                              useLastReported, useSnoozes), two stylesheets
 ```
 
 **Universal core + optional enhancers.** The core uses only data every integration provides. An _enhancer_ implements one small interface and adds detail when, and only when, the data exists. Enhancers can never break the card: each call is isolated, and returning nothing is always valid. Adding one is a new file plus one line in the registry.
@@ -192,7 +203,8 @@ The same fixture drives the unit tests, so every detection, grouping, threshold 
 - [x] **Phase 1 (MVP):** card contract, universal detection, both tabs, config with defaults, theming, unit tests, demo page, CI
 - [x] **Phase 2:** Z-Wave JS, Zigbee2MQTT and ZHA enhancers; tap a row to open the device page (or the more-info dialog for device-less entities); header breakdown and per-row threshold hints
 - [x] **Phase 3:** "replace soon" ordering using drain rate from HA statistics; battery shopping list grouped by `battery_type`; visual config editor
-- [ ] **Ideas:** on-demand `last_reported` lookup for quiet devices; a per-device "mute until" action; HACS default-repository submission
+- [x] **v0.2:** charging awareness; on-demand `last_reported` lookup; snooze; visual editor rows for thresholds and overrides
+- [ ] **Ideas:** row cap with "show more" and a problems-only toggle for big installs; area filter; battery sparklines; translations; HACS default-repository submission
 
 ## Licence
 

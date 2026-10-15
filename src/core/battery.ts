@@ -126,5 +126,43 @@ export function detectBattery(
     const r = readBattery(s);
     if (r) readings.push(r);
   }
-  return combineBatteryReadings(readings);
+  const combined = combineBatteryReadings(readings);
+  if (combined && detectCharging(states)) combined.isCharging = true;
+  return combined;
+}
+
+/** States that integrations use to say "plugged in". */
+const CHARGING_STATES = new Set(['charging', 'full']);
+
+/**
+ * Is any entity on this device saying it is charging? Integrations spell
+ * this many ways; these cover the common ones:
+ *
+ *  - binary_sensor with device_class battery_charging (the HA standard)
+ *  - a "battery state" sensor reading charging/full (companion app)
+ *  - a vacuum that is docked
+ *  - boolean attributes: is_charging, charging, battery_charging
+ *  - a battery_state attribute reading charging
+ */
+export function detectCharging(states: HassEntityState[]): boolean {
+  for (const s of states) {
+    const domain = domainOf(s.entity_id);
+    const attrs = s.attributes;
+
+    if (domain === 'binary_sensor' && attrs.device_class === 'battery_charging') {
+      if (s.state === 'on') return true;
+      continue;
+    }
+    if (domain === 'sensor' && s.entity_id.includes('battery') && CHARGING_STATES.has(s.state)) {
+      return true;
+    }
+    if (domain === 'vacuum' && s.state === 'docked') return true;
+    if (attrs.is_charging === true || attrs.charging === true || attrs.battery_charging === true) {
+      return true;
+    }
+    if (typeof attrs.battery_state === 'string' && CHARGING_STATES.has(attrs.battery_state)) {
+      return true;
+    }
+  }
+  return false;
 }

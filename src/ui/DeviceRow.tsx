@@ -2,14 +2,16 @@
  * One device in a list. Both tabs use this; `mode` picks what the right-hand
  * status column emphasises.
  *
- * The whole row is a <button>, so it is keyboard reachable and announced
- * as clickable. Tapping it opens the device in Home Assistant.
+ * The main part of the row is a <button>, so it is keyboard reachable and
+ * announced as clickable. Tapping it opens the device in Home Assistant.
+ * The snooze control sits beside it as a separate button.
  */
 import { formatDaysLeft, type DrainEstimate } from '../core/drain';
 import { formatHours, formatRelative } from '../core/time';
 import type { DeviceHealth, Severity } from '../core/types';
 import { BatteryBar } from './BatteryBar';
 import { IntegrationBadge } from './IntegrationBadge';
+import { SnoozeMenu } from './SnoozeMenu';
 
 interface Props {
   device: DeviceHealth;
@@ -21,6 +23,9 @@ interface Props {
   onOpen?: ((device: DeviceHealth) => void) | undefined;
   /** Drain estimate for the battery, when the recorder had enough history. */
   drain?: DrainEstimate | undefined;
+  /** Snooze handlers. When absent the 💤 control is not rendered. */
+  onSnooze?: ((device: DeviceHealth, days: number) => void) | undefined;
+  onUnsnooze?: ((device: DeviceHealth) => void) | undefined;
 }
 
 function connectivityLabel(device: DeviceHealth): string {
@@ -29,11 +34,30 @@ function connectivityLabel(device: DeviceHealth): string {
   return 'Online';
 }
 
-export function DeviceRow({ device, severity, mode, now, onOpen, drain }: Props) {
+export function DeviceRow({
+  device,
+  severity,
+  mode,
+  now,
+  onOpen,
+  drain,
+  onSnooze,
+  onUnsnooze,
+}: Props) {
   const lastHeard = formatRelative(device.lastHeard, now);
+  const charging = device.battery?.isCharging === true;
+  // Only offer snoozing where there is something to snooze.
+  const snoozable =
+    onSnooze !== undefined &&
+    onUnsnooze !== undefined &&
+    (device.snoozedUntil !== undefined || severity !== 'ok');
 
   return (
-    <li className="row" data-severity={severity}>
+    <li
+      className="row"
+      data-severity={severity}
+      data-snoozed={device.snoozedUntil ? 'true' : undefined}
+    >
       <button
         type="button"
         className="rowbutton"
@@ -49,6 +73,16 @@ export function DeviceRow({ device, severity, mode, now, onOpen, drain }: Props)
           <span className="meta">
             {device.area && <span>{device.area}</span>}
             <IntegrationBadge platform={device.integration} />
+            {charging && (
+              <span className="badge" data-kind="charging" title="Charging">
+                ⚡ charging
+              </span>
+            )}
+            {device.snoozedUntil && (
+              <span className="badge" data-kind="snoozed">
+                💤 until {device.snoozedUntil.toLocaleDateString()}
+              </span>
+            )}
             {device.extras.map((extra) => (
               <span key={extra.label} className="badge" data-severity={extra.severity ?? 'ok'}>
                 {extra.label}: {extra.value}
@@ -63,7 +97,7 @@ export function DeviceRow({ device, severity, mode, now, onOpen, drain }: Props)
               <BatteryBar battery={device.battery} severity={severity} />
               <span className="sub">
                 heard {lastHeard}
-                {drain && (
+                {drain && !charging && (
                   <>
                     {' · '}
                     <span title={`Losing about ${drain.ratePerDay.toFixed(1)}% per day`}>
@@ -86,6 +120,19 @@ export function DeviceRow({ device, severity, mode, now, onOpen, drain }: Props)
           )}
         </span>
       </button>
+
+      {snoozable && (
+        <SnoozeMenu
+          deviceName={device.name}
+          snoozedUntil={device.snoozedUntil}
+          onSnooze={(days) => {
+            onSnooze(device, days);
+          }}
+          onUnsnooze={() => {
+            onUnsnooze(device);
+          }}
+        />
+      )}
     </li>
   );
 }

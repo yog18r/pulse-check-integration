@@ -43,6 +43,7 @@ export function batterySeverity(
   config: ResolvedConfig,
 ): Severity {
   if (!battery) return 'ok';
+  if (battery.isCharging) return 'ok'; // it is being dealt with
   if (battery.isLow) return 'critical';
   if (battery.level === undefined) return 'ok'; // binary sensor saying "not low"
   if (battery.level <= config.battery_critical) return 'critical';

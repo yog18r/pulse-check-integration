@@ -80,7 +80,11 @@ export async function loadDrains(
   for (const battery of batteries) {
     const rows = response[battery.entityId];
     if (!rows) continue;
-    const estimate = estimateDrain(rowsToPoints(rows), battery.level);
+    // Append the live reading as the final point. Daily statistics lag by
+    // an hour or more, so without this a battery that just fell off a cliff
+    // would look flat until the recorder caught up.
+    const points = [...rowsToPoints(rows), { time: now.getTime(), level: battery.level }];
+    const estimate = estimateDrain(points, battery.level);
     if (estimate) result.set(battery.entityId, estimate);
   }
   return result;

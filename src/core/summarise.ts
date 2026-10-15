@@ -17,6 +17,8 @@ export interface Summary {
   lowBatteries: number;
   offline: number;
   quiet: number;
+  /** Devices the user has muted; they count in nothing else. */
+  snoozed: number;
 }
 
 export function summarise(devices: DeviceHealth[], config: ResolvedConfig): Summary {
@@ -28,8 +30,13 @@ export function summarise(devices: DeviceHealth[], config: ResolvedConfig): Summ
     lowBatteries: 0,
     offline: 0,
     quiet: 0,
+    snoozed: 0,
   };
   for (const d of devices) {
+    if (d.snoozedUntil) {
+      summary.snoozed += 1;
+      continue;
+    }
     if (d.severity === 'critical') summary.critical += 1;
     if (d.severity === 'warning') summary.warning += 1;
     if (d.severity !== 'ok') summary.attention += 1;

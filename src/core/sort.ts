@@ -51,6 +51,11 @@ export function batteryList(
         SEVERITY_RANK[batterySeverity(a.battery, config)];
       if (sev !== 0) return sev;
 
+      // A charging device is being dealt with: after the others in its band.
+      const charging =
+        Number(a.battery?.isCharging ?? false) - Number(b.battery?.isCharging ?? false);
+      if (charging !== 0) return charging;
+
       // "Replace soon": fewest days left first. Devices without an estimate
       // come after those with one, ordered by level.
       if (useDrain) {
@@ -69,7 +74,7 @@ export function batteryList(
 
 export function connectivityList(devices: DeviceHealth[]): DeviceHealth[] {
   return devices
-    .filter((d) => d.isOffline || d.isQuiet)
+    .filter((d) => (d.isOffline || d.isQuiet) && !d.snoozedUntil)
     .sort((a, b) => {
       // Offline before quiet.
       if (a.isOffline !== b.isOffline) return a.isOffline ? -1 : 1;

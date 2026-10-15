@@ -22,6 +22,7 @@ describe('batteryList', () => {
       DEV.phone, // 71%
       DEV.z2mDoor, // 87%
       DEV.shellyHt, // 92%
+      DEV.vacuum, // 18% but charging: last in its band
     ]);
     // The offline lock has an unavailable battery sensor, so no reading.
     expect(ids).not.toContain(DEV.zwaveLock);
@@ -43,8 +44,8 @@ describe('batteryList with battery_sort: replace_soon', () => {
     const ids = batteryList(devices, config, drains).map((d) => d.deviceId);
     const okOnly = ids.slice(4); // the four critical/warning rows stay on top
     expect(okOnly.slice(0, 3)).toEqual([DEV.z2mDoor, DEV.matterContact, DEV.shellyHt]);
-    // Everything without an estimate follows, still by level.
-    expect(okOnly.slice(3)).toEqual([DEV.legacyTracker, DEV.zwaveMulti, DEV.phone]);
+    // Everything without an estimate follows, still by level; charging last.
+    expect(okOnly.slice(3)).toEqual([DEV.legacyTracker, DEV.zwaveMulti, DEV.phone, DEV.vacuum]);
   });
 
   it('never reorders across severity bands', () => {
@@ -72,6 +73,13 @@ describe('connectivityList', () => {
     // Mains devices (Shelly plug 72h, MQTT light 50h) are not quiet by default.
     expect(ids).not.toContain(DEV.shellyPlug);
     expect(ids).not.toContain(DEV.mqttLight);
+  });
+
+  it('leaves snoozed devices off the list', () => {
+    const snoozed = devices.map((d) =>
+      d.deviceId === DEV.zwaveLock ? { ...d, snoozedUntil: new Date('2027-01-01') } : d,
+    );
+    expect(connectivityList(snoozed).map((d) => d.deviceId)).toEqual([DEV.zwaveMulti, DEV.zhaTemp]);
   });
 });
 

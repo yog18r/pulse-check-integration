@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG, type ResolvedConfig } from '../../src/card/config';
-import { analyseDevices } from '../../src/core/analyse';
+import { analyseDevices, lastReportedCandidates } from '../../src/core/analyse';
 import { ORPHAN_PREFIX } from '../../src/core/group';
 import type { Enhancer } from '../../src/enhancers';
-import { DEV, FIXED_NOW, hass } from '../fixtures/hass';
+import { DEV, FIXED_NOW, hass, hoursAgo } from '../fixtures/hass';
 
 const now = FIXED_NOW;
 
@@ -94,6 +94,65 @@ describe('analyseDevices', () => {
     expect(byId.get(DEV.z2mMotion)?.severity).toBe('ok');
     // The orphan had only that one entity, so it is gone entirely.
     expect(byId.has(ORPHAN_PREFIX + 'sensor.remote_battery_template')).toBe(false);
+  });
+
+  it('does not flag a charging device however low it is', () => {
+    const { byId } = run();
+    const vacuum = byId.get(DEV.vacuum)!;
+    expect(vacuum.battery).toMatchObject({ level: 18, isCharging: true });
+    expect(vacuum.severity).toBe('ok');
+  });
+
+  it('uses on-demand last_reported when it is newer than last_updated', () => {
+    // The ZHA sensor last changed value 30h ago, but HA's server says the
+    // temperature entity reported (unchanged) 2h ago: not quiet after all.
+    const lastReported = new Map([
+      ['sensor.bedroom_climate_temperature', new Date(hoursAgo(FIXED_NOW, 2))],
+      // A static entity's report must not count.
+      ['button.bedroom_climate_identify', new Date(FIXED_NOW)],
+    ]);
+    const list = analyseDevices(hass, DEFAULT_CONFIG, { now, lastReported });
+    const zha = list.find((d) => d.deviceId === DEV.zhaTemp)!;
+    expect(zha.isQuiet).toBe(false);
+    expect(zha.lastHeard?.toISOString()).toBe(hoursAgo(FIXED_NOW, 2));
+    expect(zha.severity).toBe('warning'); // still 28%
+  });
+
+  it('ignores last_reported that is older than what the frontend knows', () => {
+    const lastReported = new Map([
+      ['sensor.bedroom_climate_temperature', new Date(hoursAgo(FIXED_NOW, 90))],
+    ]);
+    const list = analyseDevices(hass, DEFAULT_CONFIG, { now, lastReported });
+    expect(list.find((d) => d.deviceId === DEV.zhaTemp)?.isQuiet).toBe(true);
+  });
+
+  it('snoozes keep the facts but mute the severity until they expire', () => {
+    const future = new Date('2027-01-01T00:00:00Z');
+    const past = new Date('2020-01-01T00:00:00Z');
+    const list = analyseDevices(hass, DEFAULT_CONFIG, {
+      now,
+      snoozes: new Map([
+        [DEV.zwaveLock, future],
+        [DEV.z2mMotion, past],
+      ]),
+    });
+    const lock = list.find((d) => d.deviceId === DEV.zwaveLock)!;
+    expect(lock.isOffline).toBe(true);
+    expect(lock.severity).toBe('ok');
+    expect(lock.snoozedUntil).toEqual(future);
+    const motion = list.find((d) => d.deviceId === DEV.z2mMotion)!;
+    expect(motion.severity).toBe('critical'); // expired snooze
+    expect(motion.snoozedUntil).toBeUndefined();
+  });
+
+  it('lists only live entities of quiet devices as last_reported candidates', () => {
+    const { list } = run();
+    const ids = lastReportedCandidates(list, hass);
+    expect(ids).toContain('sensor.bedroom_climate_temperature');
+    expect(ids).toContain('sensor.garage_multisensor_battery_level');
+    expect(ids).not.toContain('button.bedroom_climate_identify'); // static
+    expect(ids).not.toContain('sensor.front_door_battery'); // not quiet
+    expect(ids).not.toContain('lock.front_door_lock'); // offline, not quiet
   });
 
   it('honours per-integration quiet thresholds', () => {

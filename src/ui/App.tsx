@@ -6,16 +6,18 @@
  *  - show the header with title, headline and breakdown
  *  - manage which tab is selected
  *  - hand each tab its sorted list
+ *  - own the three bits of browser-side state: snoozes, drain estimates
+ *    and on-demand last_reported lookups
  *
  * React note on `useMemo`: it caches the result of a calculation and only
  * recomputes when one of the listed dependencies changes. `analyseDevices`
  * walks every entity in the house, so we do not want to run it on every
  * render (e.g. when the user merely clicks a tab).
  */
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ResolvedConfig, TabId } from '../card/config';
 import type { BatteryEntity } from '../card/statistics';
-import { analyseDevices } from '../core/analyse';
+import { analyseDevices, lastReportedCandidates } from '../core/analyse';
 import { shoppingList } from '../core/shopping';
 import { batteryList, connectivityList } from '../core/sort';
 import { breakdown, headline, summarise } from '../core/summarise';
@@ -26,7 +28,9 @@ import { DeviceRow } from './DeviceRow';
 import { EmptyState } from './EmptyState';
 import { ShoppingTab } from './ShoppingTab';
 import { useDrainEstimates } from './useDrainEstimates';
+import { useLastReported } from './useLastReported';
 import { useNow } from './useNow';
+import { useSnoozes } from './useSnoozes';
 
 export interface AppProps {
   hass: HassLike;
@@ -44,18 +48,32 @@ const TAB_LABELS: Record<TabId, string> = {
 
 export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
   const now = useNow();
+  const { snoozes, snooze, unsnooze } = useSnoozes();
 
   // `useState` returns the current value and a setter. Calling the setter
   // re-renders this component with the new value.
   const [selected, setSelected] = useState<TabId>(config.default_tab);
+  const [showSnoozed, setShowSnoozed] = useState(false);
   // If the config changes so the selected tab is hidden, fall back gracefully.
   const activeTab: TabId = config.show_tabs.includes(selected)
     ? selected
     : (config.show_tabs[0] ?? config.default_tab);
 
+  // First pass decides which devices look quiet from frontend data alone...
+  const firstPass = useMemo(
+    () => analyseDevices(hass, config, { now, enhancers, snoozes }),
+    [hass, config, now, enhancers, snoozes],
+  );
+  // ...those are the only entities worth asking the server about...
+  const candidates = useMemo(() => lastReportedCandidates(firstPass, hass), [firstPass, hass]);
+  const lastReported = useLastReported(hass, candidates);
+  // ...and the answers feed the real analysis. Same function, one more input.
   const devices = useMemo(
-    () => analyseDevices(hass, config, { now, enhancers }),
-    [hass, config, now, enhancers],
+    () =>
+      lastReported.size === 0
+        ? firstPass
+        : analyseDevices(hass, config, { now, enhancers, snoozes, lastReported }),
+    [firstPass, hass, config, now, enhancers, snoozes, lastReported],
   );
 
   // Battery sensors with a numeric level are candidates for drain estimates.
@@ -74,6 +92,20 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
   const connectivity = useMemo(() => connectivityList(devices), [devices]);
   const shopping = useMemo(() => shoppingList(devices, config), [devices, config]);
   const summary = useMemo(() => summarise(devices, config), [devices, config]);
+  const snoozed = useMemo(() => devices.filter((d) => d.snoozedUntil), [devices]);
+
+  const handleSnooze = useCallback(
+    (device: DeviceHealth, days: number) => {
+      snooze(device.deviceId, days);
+    },
+    [snooze],
+  );
+  const handleUnsnooze = useCallback(
+    (device: DeviceHealth) => {
+      unsnooze(device.deviceId);
+    },
+    [unsnooze],
+  );
 
   const tabCounts: Record<TabId, number> = {
     batteries: summary.lowBatteries,
@@ -84,6 +116,13 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
   const headlineSeverity =
     summary.critical > 0 ? 'critical' : summary.warning > 0 ? 'warning' : 'ok';
   const detail = breakdown(summary);
+
+  const rowProps = {
+    now,
+    onOpen: onOpenDevice,
+    onSnooze: handleSnooze,
+    onUnsnooze: handleUnsnooze,
+  };
 
   return (
     <div className="card">
@@ -135,9 +174,8 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
                   device={d}
                   severity={batterySeverity(d.battery, config)}
                   mode="battery"
-                  now={now}
                   drain={d.battery ? drains?.get(d.battery.entityId) : undefined}
-                  onOpen={onOpenDevice}
+                  {...rowProps}
                 />
               ))}
             </ul>
@@ -158,8 +196,7 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
                   device={d}
                   severity={connectivitySeverity(d.isOffline, d.isQuiet)}
                   mode="connectivity"
-                  now={now}
-                  onOpen={onOpenDevice}
+                  {...rowProps}
                 />
               ))}
             </ul>
@@ -169,6 +206,34 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
           <ShoppingTab groups={shopping} config={config} now={now} onOpen={onOpenDevice} />
         )}
       </div>
+
+      {snoozed.length > 0 && activeTab !== 'batteries' && (
+        <footer className="footer">
+          <button
+            type="button"
+            className="footerbutton"
+            aria-expanded={showSnoozed}
+            onClick={() => {
+              setShowSnoozed((s) => !s);
+            }}
+          >
+            💤 {snoozed.length} snoozed · {showSnoozed ? 'hide' : 'show'}
+          </button>
+          {showSnoozed && (
+            <ul className="rows">
+              {snoozed.map((d) => (
+                <DeviceRow
+                  key={d.deviceId}
+                  device={d}
+                  severity="ok"
+                  mode={d.isOffline || d.isQuiet ? 'connectivity' : 'battery'}
+                  {...rowProps}
+                />
+              ))}
+            </ul>
+          )}
+        </footer>
+      )}
     </div>
   );
 }

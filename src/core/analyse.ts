@@ -7,7 +7,7 @@
  */
 import type { ResolvedConfig } from '../card/config';
 import { applyEnhancers, type Enhancer } from '../enhancers';
-import { detectLastHeard, detectOffline, isQuiet } from './availability';
+import { detectLastHeard, detectOffline, isQuiet, isStaticEntity } from './availability';
 import { detectBattery } from './battery';
 import {
   areaName,
@@ -28,6 +28,14 @@ import type { DeviceHealth, HassLike } from './types';
 export interface AnalyseOptions {
   now: Date;
   enhancers?: readonly Enhancer[];
+  /**
+   * True "last reported" timestamps fetched on demand from HA's REST API,
+   * keyed by entity id. The frontend's `last_updated` only moves when a
+   * value changes; these move on every report. Used when newer.
+   */
+  lastReported?: ReadonlyMap<string, Date>;
+  /** Devices the user has muted, with the time the snooze ends. */
+  snoozes?: ReadonlyMap<string, Date>;
 }
 
 function isExcluded(group: DeviceGroup, integration: string, config: ResolvedConfig): boolean {
@@ -51,12 +59,28 @@ function withoutExcludedEntities(group: DeviceGroup, config: ResolvedConfig): De
   return { ...group, entities, states };
 }
 
+/** The newest on-demand `last_reported` among the group's live entities. */
+function newestReported(
+  group: DeviceGroup,
+  hass: HassLike,
+  lastReported: ReadonlyMap<string, Date> | undefined,
+): Date | undefined {
+  if (!lastReported) return undefined;
+  let newest: Date | undefined;
+  for (const entity of group.entities) {
+    if (isStaticEntity(entity.entity_id, hass.entities[entity.entity_id])) continue;
+    const d = lastReported.get(entity.entity_id);
+    if (d && (!newest || d > newest)) newest = d;
+  }
+  return newest;
+}
+
 export function analyseDevices(
   hass: HassLike,
   config: ResolvedConfig,
   options: AnalyseOptions,
 ): DeviceHealth[] {
-  const { now, enhancers = [] } = options;
+  const { now, enhancers = [], lastReported, snoozes } = options;
   const results: DeviceHealth[] = [];
 
   for (const rawGroup of collectDeviceGroups(hass)) {
@@ -83,9 +107,11 @@ export function analyseDevices(
     const isOffline =
       !isOrphan && (enhanced.offline === true || detectOffline(group.entities, hass.states));
 
+    // Last heard: the best of the frontend heuristic, any enhancer signal,
+    // and any on-demand last_reported lookup. Newest wins.
     let lastHeard = detectLastHeard(group.states, hass.entities);
-    if (enhanced.lastHeard && (!lastHeard || enhanced.lastHeard > lastHeard)) {
-      lastHeard = enhanced.lastHeard;
+    for (const candidate of [enhanced.lastHeard, newestReported(group, hass, lastReported)]) {
+      if (candidate && (!lastHeard || candidate > lastHeard)) lastHeard = candidate;
     }
 
     // Quiet detection only makes sense for devices expected to report on
@@ -96,11 +122,16 @@ export function analyseDevices(
     const quietHours = resolveQuietThreshold(config, integration, group.deviceId);
     const quiet = quietEligible && isQuiet(lastHeard, now, quietHours);
 
-    const severity = worstSeverity(
-      batterySeverity(battery, config),
-      connectivitySeverity(isOffline, quiet),
-      extrasSeverity(extras),
-    );
+    const snoozedUntil = snoozes?.get(group.deviceId);
+    const snoozed = snoozedUntil !== undefined && snoozedUntil > now;
+
+    const severity = snoozed
+      ? 'ok'
+      : worstSeverity(
+          batterySeverity(battery, config),
+          connectivitySeverity(isOffline, quiet),
+          extrasSeverity(extras),
+        );
 
     const health: DeviceHealth = {
       deviceId: group.deviceId,
@@ -122,9 +153,27 @@ export function analyseDevices(
     if (group.device?.model) health.model = group.device.model;
     if (battery) health.battery = battery;
     if (lastHeard) health.lastHeard = lastHeard;
+    if (snoozed) health.snoozedUntil = snoozedUntil;
 
     results.push(health);
   }
 
   return results;
+}
+
+/**
+ * Entities worth asking HA's REST API about: the live entities of devices
+ * currently flagged quiet. Tiny list by design; the lookup is only there to
+ * un-flag devices that report unchanged values, so there's no point asking
+ * about devices that are fine.
+ */
+export function lastReportedCandidates(devices: DeviceHealth[], hass: HassLike): string[] {
+  const ids: string[] = [];
+  for (const d of devices) {
+    if (!d.isQuiet) continue;
+    for (const id of d.entityIds) {
+      if (!isStaticEntity(id, hass.entities[id])) ids.push(id);
+    }
+  }
+  return ids;
 }

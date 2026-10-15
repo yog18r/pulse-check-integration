@@ -84,6 +84,8 @@ export interface HassLike {
    * gracefully when absent (the demo page provides a fake).
    */
   callWS?: <T>(message: Record<string, unknown>) => Promise<T>;
+  /** Call HA's REST API, e.g. callApi("GET", "states/sensor.x"). Optional, like callWS. */
+  callApi?: <T>(method: string, path: string) => Promise<T>;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -101,6 +103,11 @@ export interface BatteryReading {
   level?: number;
   /** True when a binary low-battery sensor reports "on". */
   isLow: boolean;
+  /**
+   * True when the device reports it is charging or docked. A charging
+   * device is never flagged as low, however empty it is right now.
+   */
+  isCharging?: boolean;
   source: BatterySource;
   /** The entity the reading was taken from, for debugging and tap-through. */
   entityId: string;
@@ -135,6 +142,11 @@ export interface DeviceHealth {
   isQuiet: boolean;
   /** The threshold that applied to this device, after overrides, in hours. */
   quietThresholdHours: number;
+  /**
+   * Set when the user has snoozed this device. The facts (isOffline, battery)
+   * are still reported, but severity is "ok" and lists leave it out.
+   */
+  snoozedUntil?: Date;
   severity: Severity;
   extras: EnhancerExtra[];
   /** Every entity id that belongs to this device, so the UI can drill down. */
