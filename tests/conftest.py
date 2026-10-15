@@ -51,7 +51,7 @@ def card_bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture(scope="session")
 def fixture_snapshot() -> dict[str, Any]:
-    """The card's fixture, exported as JSON (`buildHass(FIXED_NOW)`)."""
+    """The card's fixture, exported as JSON (`buildHass(FIXED_NOW)` in frontend/test/fixtures)."""
     return json.loads((FIXTURES / "hass.json").read_text(encoding="utf-8"))  # type: ignore[no-any-return]
 
 

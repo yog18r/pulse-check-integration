@@ -1,6 +1,6 @@
 # Pulse Check Card (frontend)
 
-> This folder used to be its own repository, [github.com/yog18r/pulse-check-card](https://github.com/yog18r/pulse-check-card). It moved here, history included, so one install of the [Pulse Check integration](../README.md) delivers the card too. Installation, the card's options and what it shows are in the [main README](../README.md#the-card).
+> The card's whole history is in this repository under `frontend/`; installation, its options and what it shows are in the [main README](../README.md#the-card).
 
 The dashboard card for Pulse Check, in TypeScript and React. Vite builds it into one JavaScript file, `../custom_components/pulse_check/frontend/pulse-check-card.js`, which the integration serves and registers as a dashboard resource. That file is not committed; CI and the release workflow build it.
 

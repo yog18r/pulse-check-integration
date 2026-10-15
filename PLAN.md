@@ -3,7 +3,7 @@
 A Home Assistant custom integration (domain `pulse_check`) that computes device
 battery and connectivity health server-side, exposes it as entities, sends
 notifications, and tracks battery replacements. It is the backend companion to
-the [Pulse Check Card](https://github.com/yog18r/pulse-check-card), but it
+the Pulse Check Card (now in `frontend/`), but it
 **must be fully useful with no card installed**: entities, notifications,
 services and the blueprint stand on their own. The card is one optional view.
 
@@ -168,7 +168,7 @@ the card):
    blueprint.
 4. **Replacement tracking**: history, auto-detect, cycle stats, unusual
    behaviour, per-device sensors.
-5. **Card integration mode** (in the card repo): `source: integration` reads
+5. **Card integration mode** (in the card, now `frontend/`): `source: integration` reads
    the attention sensor instead of analysing; snooze and mark-replaced call
    services; `group_by` option. Standalone mode stays, deprecated later.
 

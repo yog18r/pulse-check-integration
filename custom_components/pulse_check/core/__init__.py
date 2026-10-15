@@ -3,8 +3,9 @@
 Nothing in this package imports Home Assistant. It takes a plain snapshot
 of states and registries (see `models.Snapshot`), applies the detection
 rules, and returns one `DeviceHealth` per physical device. That makes it
-testable with a JSON fixture, and it is a line-for-line port of the
-Pulse Check Card's `src/core`, checked against the same golden output.
+testable with a JSON fixture. It began as a line-for-line port of the
+card's original TypeScript rules (see the history of `frontend/src/core`)
+and is checked against the golden output they produced.
 """
 
 from .actions import ActionItem, ActionList, ShoppingLine, action_list
