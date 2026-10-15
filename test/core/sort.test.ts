@@ -50,6 +50,7 @@ describe('sortableBatteryLevel', () => {
     integration: 'zha',
     isOffline: false,
     isQuiet: false,
+    quietThresholdHours: 24,
     severity: 'ok',
     extras: [],
     entityIds: [],

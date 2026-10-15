@@ -75,8 +75,18 @@ export function analyseDevices(
     const isOrphan = group.device === null;
     if (isOrphan && !battery) continue;
 
-    const isOffline = !isOrphan && detectOffline(group.entities, hass.states);
-    const lastHeard = detectLastHeard(group.states, hass.entities);
+    // Enhancers run first so their better signals (a Z-Wave "dead" node, a
+    // Zigbee2MQTT last_seen timestamp) can feed the generic rules below.
+    const enhanced = applyEnhancers(enhancers, integration, group, hass);
+    const { extras } = enhanced;
+
+    const isOffline =
+      !isOrphan && (enhanced.offline === true || detectOffline(group.entities, hass.states));
+
+    let lastHeard = detectLastHeard(group.states, hass.entities);
+    if (enhanced.lastHeard && (!lastHeard || enhanced.lastHeard > lastHeard)) {
+      lastHeard = enhanced.lastHeard;
+    }
 
     // Quiet detection only makes sense for devices expected to report on
     // their own. By default that is battery devices; mains devices go
@@ -85,8 +95,6 @@ export function analyseDevices(
       !isOrphan && !isOffline && (config.quiet_scope === 'all' || battery !== undefined);
     const quietHours = resolveQuietThreshold(config, integration, group.deviceId);
     const quiet = quietEligible && isQuiet(lastHeard, now, quietHours);
-
-    const extras = applyEnhancers(enhancers, integration, group, hass);
 
     const severity = worstSeverity(
       batterySeverity(battery, config),
@@ -100,6 +108,7 @@ export function analyseDevices(
       integration,
       isOffline,
       isQuiet: quiet,
+      quietThresholdHours: quietHours,
       severity,
       extras,
       entityIds: group.entities.map((e) => e.entity_id),

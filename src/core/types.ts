@@ -127,6 +127,8 @@ export interface DeviceHealth {
   isOffline: boolean;
   /** True when `lastHeard` is older than the device's quiet threshold. */
   isQuiet: boolean;
+  /** The threshold that applied to this device, after overrides, in hours. */
+  quietThresholdHours: number;
   severity: Severity;
   extras: EnhancerExtra[];
   /** Every entity id that belongs to this device, so the UI can drill down. */

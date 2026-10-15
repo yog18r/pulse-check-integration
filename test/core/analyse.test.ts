@@ -123,7 +123,7 @@ describe('analyseDevices', () => {
     const shout: Enhancer = {
       id: 'test-shout',
       platform: 'esphome',
-      enhance: () => [{ label: 'Test', value: 'boom', severity: 'critical' }],
+      enhance: () => ({ extras: [{ label: 'Test', value: 'boom', severity: 'critical' }] }),
     };
     const { byId } = run({}, [shout]);
     expect(byId.get(DEV.esphomePlant)?.extras).toEqual([
