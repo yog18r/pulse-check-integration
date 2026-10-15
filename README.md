@@ -14,7 +14,7 @@ It brings entities, notifications, services, a blueprint and a **dashboard card*
 
 [![CI](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml)
 
-> **Status: feature complete, lightly tested.** All five phases of the [plan](PLAN.md) are built: detection rules, entities, options, notifications, services, replacement tracking and the card. It has run on one real instance. Expect rough edges; issues are welcome. See [Roadmap](#roadmap).
+> **Status: feature complete, lightly tested.** Everything in the [plan](PLAN.md) is built: detection rules, entities, options, notifications, services, replacement tracking and the card. It has run on one real instance. Expect rough edges; issues are welcome. See [Roadmap](#roadmap).
 
 ---
 
@@ -397,14 +397,11 @@ To try a development build on a live instance, run `npm run build` in `frontend/
 
 ## Roadmap
 
-1. ~~Scaffold and core: tooling, config flow, the ported core with shared golden tests, the attention sensor~~
-2. ~~Entities and options: count sensors, the problem binary sensor, an options flow for thresholds, quiet scope and filters, drain estimates from recorder statistics~~
-3. ~~Notifications and storage: per-device settings and services, snooze, notifications on transitions with per-device policies (instant, daily, weekly, none), reminders, digests, a `pulse_check_transition` event and a blueprint~~
-4. ~~Replacement tracking: mark replaced or charged, auto-detect, cycle statistics, remaining days, "unusual behaviour" flags, per-device diagnostic sensors~~
-5. ~~The card becomes a renderer of this integration's data over a websocket subscription, with `group_by` and a per-device settings editor~~
-6. ~~One repository: the card ships inside the integration and registers itself~~
+Everything planned is built; [PLAN.md](PLAN.md) records how the design got here. Still to come:
 
-Ideas for later: catching up missed digests after a restart, watching entities that have no registry entry, and translations beyond English.
+- Translations beyond English
+- Catching up missed digests after a restart
+- Watching entities that have no registry entry
 
 ## License
 
