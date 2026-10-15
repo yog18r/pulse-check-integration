@@ -1,38 +1,35 @@
 /**
  * Core data types.
  *
- * Everything in `src/core` is plain TypeScript with no React and no DOM, so
- * it can be unit-tested directly. These types describe two things:
+ * The card is a renderer: the Pulse Check integration computes everything
+ * on the server and streams it over a websocket subscription (see
+ * `src/card/snapshot.ts`). These types describe two things:
  *
- *  1. The slice of Home Assistant's frontend `hass` object we read from
- *     (`HassLike` and friends). We define our own narrow interfaces rather
- *     than importing HA's, so the card has zero runtime dependencies on HA
- *     packages and the fixtures stay small.
- *  2. What the core produces: one `DeviceHealth` per physical device.
+ *  1. The slice of Home Assistant's frontend `hass` object the card still
+ *     reads: the registries (for the editor's device picker), the
+ *     websocket connection, and service calls. We define our own narrow
+ *     interfaces rather than importing HA's, so the card has zero runtime
+ *     dependencies on HA packages and the fixtures stay small.
+ *  2. The wire shape of what the integration sends: one `DeviceHealth`
+ *     per physical device. This is the integration's `DeviceHealth.to_dict()`
+ *     with the timestamps parsed into Dates.
  *
  * TypeScript note: an `interface` describes the *shape* of an object. It
  * exists only at compile time; nothing is emitted to the bundle.
  */
-
 import type { DeviceType } from './deviceType';
 
 /* ------------------------------------------------------------------------ */
 /* Input: the parts of `hass` we use                                        */
 /* ------------------------------------------------------------------------ */
 
-/** One entry in `hass.states`. */
+/** One entry in `hass.states`. Only used to name device-less battery sensors. */
 export interface HassEntityState {
   entity_id: string;
   /** Always a string in HA, even for numbers ("87") or timestamps. */
   state: string;
   attributes: Record<string, unknown>;
-  /** ISO 8601 timestamp of the last time `state` changed. */
   last_changed: string;
-  /**
-   * ISO 8601 timestamp of the last time state OR attributes changed.
-   * The frontend does not receive `last_reported`, so this is the best
-   * "last heard from" signal available without a websocket round-trip.
-   */
   last_updated: string;
 }
 
@@ -69,8 +66,19 @@ export interface HassAreaRegistryEntry {
   name: string;
 }
 
+/** Returned by `subscribeMessage`: call it to stop receiving events. */
+export type UnsubscribeFunc = () => Promise<void>;
+
+/** The part of HA's websocket connection object the card uses. */
+export interface HassConnection {
+  subscribeMessage(
+    callback: (message: unknown) => void,
+    message: Record<string, unknown>,
+  ): Promise<UnsubscribeFunc>;
+}
+
 /**
- * The subset of the frontend `hass` object the core reads.
+ * The subset of the frontend `hass` object the card reads.
  *
  * `Record<string, T>` is TypeScript's type for "an object used as a map from
  * string keys to T values", which is exactly how HA stores these.
@@ -80,15 +88,11 @@ export interface HassLike {
   entities: Record<string, HassEntityRegistryEntry>;
   devices: Record<string, HassDeviceRegistryEntry>;
   areas: Record<string, HassAreaRegistryEntry>;
-  /**
-   * Send a websocket command and await the result. Optional because the
-   * core never needs it; only the drain-rate feature does, and it degrades
-   * gracefully when absent (the demo page provides a fake).
-   */
+  /** The websocket connection, for the integration's subscription. */
+  connection?: HassConnection;
+  /** Send a websocket command and await the result (used for history). */
   callWS?: <T>(message: Record<string, unknown>) => Promise<T>;
-  /** Call HA's REST API, e.g. callApi("GET", "states/sensor.x"). Optional, like callWS. */
-  callApi?: <T>(method: string, path: string) => Promise<T>;
-  /** Call a Home Assistant service. Used in integration mode for snoozes and replacements. */
+  /** Call a Home Assistant service (snooze, mark replaced, device settings). */
   callService?: (
     domain: string,
     service: string,
@@ -96,14 +100,27 @@ export interface HassLike {
   ) => Promise<unknown>;
 }
 
+/**
+ * The latest `hass`, always. Home Assistant hands the card a new `hass`
+ * object several times a second; React must not re-render on each one, so
+ * components get this mutable box and read `.latest` when they act. (It is
+ * deliberately not a React ref: reading it during render is the point.)
+ */
+export interface HassBox {
+  latest: HassLike | undefined;
+}
+
+/** Prefix of the synthetic id the integration gives a device-less entity. */
+export const ORPHAN_PREFIX = 'entity:';
+
 /* ------------------------------------------------------------------------ */
-/* Output: what the core computes                                           */
+/* Output: what the integration computes                                    */
 /* ------------------------------------------------------------------------ */
 
 /** Traffic-light severity used for colouring and sorting. */
 export type Severity = 'ok' | 'warning' | 'critical';
 
-/** Where a battery reading came from. Shown in the UI as a hint, and useful in tests. */
+/** Where a battery reading came from. Shown in the UI as a hint. */
 export type BatterySource = 'sensor' | 'binary' | 'attribute';
 
 export interface BatteryReading {
@@ -111,24 +128,17 @@ export interface BatteryReading {
   level?: number;
   /** True when a binary low-battery sensor reports "on". */
   isLow: boolean;
-  /**
-   * True when the device reports it is charging or docked. A charging
-   * device is never flagged as low, however empty it is right now.
-   */
+  /** True when the device reports it is charging or docked. */
   isCharging?: boolean;
   source: BatterySource;
-  /** The entity the reading was taken from, for debugging and tap-through. */
+  /** The entity the reading was taken from, for sparklines and tap-through. */
   entityId: string;
 }
 
-/**
- * A small piece of extra information contributed by an integration-specific
- * enhancer, e.g. { label: "Node", value: "asleep" } for Z-Wave JS.
- */
+/** A small badge contributed by an integration-specific enhancer, e.g. { label: "Node", value: "asleep" }. */
 export interface EnhancerExtra {
   label: string;
   value: string;
-  /** Optional: an enhancer can escalate severity, e.g. a "dead" Z-Wave node. */
   severity?: Severity;
 }
 
@@ -142,7 +152,7 @@ export interface DeviceHealth {
   /** Integration domain, e.g. "zwave_js". "unknown" when the registry has no platform. */
   integration: string;
   battery?: BatteryReading;
-  /** The most recent `last_updated` across the device's entities. */
+  /** The newest report across the device's live entities. */
   lastHeard?: Date;
   /** True when every primary (non-diagnostic, non-config) entity is unavailable. */
   isOffline: boolean;
@@ -150,10 +160,7 @@ export interface DeviceHealth {
   isQuiet: boolean;
   /** The threshold that applied to this device, after overrides, in hours. */
   quietThresholdHours: number;
-  /**
-   * Set when the user has snoozed this device. The facts (isOffline, battery)
-   * are still reported, but severity is "ok" and lists leave it out.
-   */
+  /** Set while the user has snoozed this device; severity is then "ok". */
   snoozedUntil?: Date;
   severity: Severity;
   /** What kind of thing it is, for grouping: "lock", "motion", "phone"... */
@@ -161,10 +168,10 @@ export interface DeviceHealth {
   extras: EnhancerExtra[];
   /** Every entity id that belongs to this device, so the UI can drill down. */
   entityIds: string[];
-  /** Integration mode only: days until empty at the current drain rate. */
+  /** Days until empty at the current drain rate, from recorder history. */
   daysLeft?: number;
-  /** Integration mode only: when the battery was last replaced or charged. */
+  /** When the battery was last replaced or charged. */
   lastReplaced?: Date;
-  /** Integration mode only: a note when the battery behaves unlike its own past. */
+  /** A note when the battery behaves unlike its own past, e.g. "draining 3× faster than usual". */
   unusual?: string;
 }

@@ -10,22 +10,26 @@ describe('resolveConfig', () => {
   it('keeps valid user values', () => {
     const resolved = resolveConfig({
       title: 'Health',
-      battery_warning: 40,
-      battery_critical: 20,
-      quiet_threshold_hours: 12,
-      integration_thresholds: { zwave_js: 48 },
-      device_settings: [{ device_id: 'abc', quiet_threshold_hours: 72, battery_type: 'CR2032' }],
-      exclude_integrations: ['mobile_app'],
-      exclude_devices: ['xyz'],
-      show_tabs: ['connectivity'],
-      default_tab: 'connectivity',
+      show_tabs: ['connectivity', 'actions'],
+      default_tab: 'actions',
+      max_rows: 'all',
+      battery_sort: 'replace_soon',
+      group_by: 'area',
+      problems_only: true,
+      show_sparklines: false,
+      sparkline_days: 30,
     });
-    expect(resolved.title).toBe('Health');
-    expect(resolved.battery_warning).toBe(40);
-    expect(resolved.integration_thresholds).toEqual({ zwave_js: 48 });
-    expect(resolved.device_settings[0]?.battery_type).toBe('CR2032');
-    expect(resolved.show_tabs).toEqual(['connectivity']);
-    expect(resolved.default_tab).toBe('connectivity');
+    expect(resolved).toEqual({
+      title: 'Health',
+      show_tabs: ['connectivity', 'actions'],
+      default_tab: 'actions',
+      max_rows: 'all',
+      battery_sort: 'replace_soon',
+      group_by: 'area',
+      problems_only: true,
+      show_sparklines: false,
+      sparkline_days: 30,
+    });
   });
 
   it('rejects a non-object config', () => {
@@ -33,142 +37,29 @@ describe('resolveConfig', () => {
     expect(() => resolveConfig('nope')).toThrow(/YAML mapping/);
   });
 
-  it('rejects non-numeric and out-of-range thresholds with helpful messages', () => {
-    expect(() => resolveConfig({ battery_warning: '30' })).toThrow(/must be a number/);
-    expect(() => resolveConfig({ battery_warning: 130 })).toThrow(/between 0 and 100/);
-    expect(() => resolveConfig({ quiet_threshold_hours: 0 })).toThrow(/quiet_threshold_hours/);
-  });
-
-  it('rejects critical above warning', () => {
-    expect(() => resolveConfig({ battery_warning: 10, battery_critical: 20 })).toThrow(
-      /must not be higher/,
-    );
-  });
-
-  it('validates integration_thresholds and device_settings shapes', () => {
-    expect(() => resolveConfig({ integration_thresholds: [1] })).toThrow(/mapping/);
-    expect(() => resolveConfig({ integration_thresholds: { zha: 'soon' } })).toThrow(
-      /integration_thresholds.zha/,
-    );
-    expect(() => resolveConfig({ device_settings: 'abc' })).toThrow(/must be a list/);
-    expect(() => resolveConfig({ device_settings: [{}] })).toThrow(/device_settings\[0\]/);
-    expect(() => resolveConfig({ device_settings: [{ device_id: 'a', battery_type: 3 }] })).toThrow(
-      /battery_type/,
-    );
-  });
-
-  it('validates exclude_entities and quiet_scope', () => {
-    expect(resolveConfig({ exclude_entities: ['sensor.a'] }).exclude_entities).toEqual([
-      'sensor.a',
-    ]);
-    expect(() => resolveConfig({ exclude_entities: 'sensor.a' })).toThrow(/list of strings/);
-    expect(resolveConfig({}).quiet_scope).toBe('battery');
-    expect(resolveConfig({ quiet_scope: 'all' }).quiet_scope).toBe('all');
-    expect(() => resolveConfig({ quiet_scope: 'everything' })).toThrow(/quiet_scope/);
-  });
-
-  it('validates battery_sort', () => {
-    expect(resolveConfig({}).battery_sort).toBe('level');
-    expect(resolveConfig({ battery_sort: 'replace_soon' }).battery_sort).toBe('replace_soon');
-    expect(() => resolveConfig({ battery_sort: 'random' })).toThrow(/battery_sort/);
-  });
-
-  it('accepts the actions tab', () => {
-    const resolved = resolveConfig({ show_tabs: ['batteries', 'actions'], default_tab: 'actions' });
-    expect(resolved.show_tabs).toEqual(['batteries', 'actions']);
-    expect(resolved.default_tab).toBe('actions');
-  });
-
-  it('parses device_settings with count and rechargeable; a later duplicate wins', () => {
-    const resolved = resolveConfig({
-      device_settings: [
-        { device_id: 'both', battery_type: 'AAA' },
-        { device_id: 'both', battery_type: 'CR2032', battery_count: 2, rechargeable: false },
-        { device_id: 'blind', rechargeable: true, battery_type: 'Built-in rechargeable' },
-      ],
-    });
-    expect(resolved.device_settings).toEqual([
-      { device_id: 'both', battery_type: 'CR2032', battery_count: 2, rechargeable: false },
-      { device_id: 'blind', rechargeable: true, battery_type: 'Built-in rechargeable' },
-    ]);
-    expect(() =>
-      resolveConfig({ device_settings: [{ device_id: 'a', battery_count: 0 }] }),
-    ).toThrow(/battery_count/);
-    expect(() =>
-      resolveConfig({ device_settings: [{ device_id: 'a', rechargeable: 'yes' }] }),
-    ).toThrow(/rechargeable/);
-  });
-
-  it('validates sparkline_days globally and per device', () => {
-    expect(resolveConfig({}).sparkline_days).toBe(14);
-    expect(resolveConfig({ sparkline_days: 365 }).sparkline_days).toBe(365);
-    expect(() => resolveConfig({ sparkline_days: 0 })).toThrow(/sparkline_days/);
-    expect(() => resolveConfig({ sparkline_days: 400 })).toThrow(/sparkline_days/);
-    expect(() => resolveConfig({ sparkline_days: 1.5 })).toThrow(/sparkline_days/);
-    const perDevice = resolveConfig({ device_settings: [{ device_id: 'a', sparkline_days: 1 }] });
-    expect(perDevice.device_settings[0]?.sparkline_days).toBe(1);
-    expect(() =>
-      resolveConfig({ device_settings: [{ device_id: 'a', sparkline_days: 'year' }] }),
-    ).toThrow(/sparkline_days/);
-  });
-
-  it('validates problems_only and a per-device area', () => {
-    expect(resolveConfig({}).problems_only).toBe(false);
-    expect(resolveConfig({ problems_only: true }).problems_only).toBe(true);
-    expect(() => resolveConfig({ problems_only: 'yes' })).toThrow(/problems_only/);
-    const withArea = resolveConfig({ device_settings: [{ device_id: 'a', area: ' Garage ' }] });
-    expect(withArea.device_settings[0]?.area).toBe('Garage');
-    expect(() => resolveConfig({ device_settings: [{ device_id: 'a', area: 3 }] })).toThrow(/area/);
-  });
-
-  it('accepts a display name per device and trims it', () => {
-    const resolved = resolveConfig({
-      device_settings: [{ device_id: 'sensor.inverter_soc', name: '  Home Battery ' }],
-    });
-    expect(resolved.device_settings[0]?.name).toBe('Home Battery');
-    expect(
-      resolveConfig({ device_settings: [{ device_id: 'a', name: '' }] }).device_settings[0],
-    ).toEqual({ device_id: 'a' });
-    expect(() => resolveConfig({ device_settings: [{ device_id: 'a', name: 5 }] })).toThrow(/name/);
-  });
-
-  it('ignores unknown keys such as the retired device_overrides and shopping tab', () => {
-    const resolved = resolveConfig({ device_overrides: [{ device_id: 'x' }] });
-    expect(resolved.device_settings).toEqual([]);
-    expect(() => resolveConfig({ show_tabs: ['shopping'] })).toThrow(/show_tabs/);
-  });
-
-  it('validates max_rows, sparklines and the new filters', () => {
-    expect(resolveConfig({}).max_rows).toBe(12);
-    expect(resolveConfig({ max_rows: 'all' }).max_rows).toBe('all');
-    expect(resolveConfig({ max_rows: 30 }).max_rows).toBe(30);
-    expect(() => resolveConfig({ max_rows: 0 })).toThrow(/max_rows/);
-    expect(() => resolveConfig({ max_rows: 2.5 })).toThrow(/max_rows/);
-    expect(() => resolveConfig({ max_rows: 'lots' })).toThrow(/max_rows/);
-    expect(resolveConfig({}).show_sparklines).toBe(true);
-    expect(resolveConfig({ show_sparklines: false }).show_sparklines).toBe(false);
-    expect(() => resolveConfig({ show_sparklines: 'yes' })).toThrow(/show_sparklines/);
-    expect(resolveConfig({ include_areas: ['Office'] }).include_areas).toEqual(['Office']);
-    expect(() => resolveConfig({ exclude_areas: 'Office' })).toThrow(/exclude_areas/);
-    expect(() => resolveConfig({ include_integrations: [1] })).toThrow(/include_integrations/);
-  });
-
-  it('validates tabs', () => {
-    expect(() => resolveConfig({ show_tabs: [] })).toThrow(/non-empty/);
-    expect(() => resolveConfig({ show_tabs: ['weather'] })).toThrow(/show_tabs/);
-    expect(() => resolveConfig({ default_tab: 'weather' })).toThrow(/default_tab/);
-    expect(() => resolveConfig({ show_tabs: ['batteries'], default_tab: 'connectivity' })).toThrow(
+  it('rejects bad values with helpful messages', () => {
+    expect(() => resolveConfig({ title: 3 })).toThrow(/"title" must be text/);
+    expect(() => resolveConfig({ show_tabs: [] })).toThrow(/show_tabs/);
+    expect(() => resolveConfig({ show_tabs: ['batteries'], default_tab: 'actions' })).toThrow(
       /not in "show_tabs"/,
     );
+    expect(() => resolveConfig({ max_rows: 0 })).toThrow(/max_rows/);
+    expect(() => resolveConfig({ battery_sort: 'random' })).toThrow(/level, replace_soon/);
+    expect(() => resolveConfig({ group_by: 'colour' })).toThrow(/none, area, integration/);
+    expect(() => resolveConfig({ problems_only: 'yes' })).toThrow(/true or false/);
+    expect(() => resolveConfig({ sparkline_days: 400 })).toThrow(/1 to 365/);
   });
 
-  it('falls back to the first shown tab when the default tab is hidden', () => {
-    expect(resolveConfig({ show_tabs: ['connectivity'] }).default_tab).toBe('connectivity');
-  });
-
-  it('de-duplicates show_tabs', () => {
+  it('picks a sensible default tab when batteries is hidden', () => {
+    expect(resolveConfig({ show_tabs: ['actions', 'connectivity'] }).default_tab).toBe('actions');
     expect(resolveConfig({ show_tabs: ['batteries', 'batteries'] }).show_tabs).toEqual([
       'batteries',
     ]);
+  });
+
+  it('ignores the analysis keys that used to exist', () => {
+    // Old YAML keeps working; the integration owns these now.
+    const resolved = resolveConfig({ battery_warning: 40, device_settings: [], exclude_areas: [] });
+    expect(resolved).toEqual(DEFAULT_CONFIG);
   });
 });

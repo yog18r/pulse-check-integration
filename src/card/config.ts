@@ -1,6 +1,12 @@
 /**
  * Card configuration: the YAML a user writes, with defaults and validation.
  *
+ * Everything here is presentation. What counts as a low battery, how long
+ * a device may stay quiet, which devices to ignore and what batteries they
+ * take all live in the Pulse Check integration (Settings → Devices &
+ * services → Pulse Check → Configure, and the card editor's per-device
+ * panel, which saves through the integration's services).
+ *
  * Home Assistant calls `setConfig(config)` with whatever the user typed. If
  * we throw an Error there, HA shows the message in a red box on the card,
  * which is far friendlier than silently misbehaving. So every check below
@@ -8,159 +14,67 @@
  *
  * TypeScript note: `CardConfig` is what the user MAY give us (every field
  * optional). `ResolvedConfig` is what the rest of the card works with
- * (every field present). Converting one to the other once, up front, means
- * no `?? default` sprinkled through the UI.
+ * (every field present).
  */
-
 import { GROUP_BYS, type GroupBy } from '../core/grouping';
 
 export const TAB_IDS = ['batteries', 'connectivity', 'actions'] as const;
-
-/**
- * Where the device list comes from.
- *  - standalone: analysed in the browser from `hass` (the default; no backend needed)
- *  - integration: read from the Pulse Check integration's sensor, which also
- *    brings days-left, replacement history and shared snoozes
- */
-export const SOURCES = ['standalone', 'integration'] as const;
-export type Source = (typeof SOURCES)[number];
-export const DEFAULT_INTEGRATION_ENTITY = 'sensor.pulse_check_attention';
-
-/**
- * How the Batteries tab is ordered.
- *  - level: lowest percentage first (the default; needs nothing but hass)
- *  - replace_soon: soonest to run out first, using drain rates from the
- *    recorder's statistics. Devices without enough history fall back to level.
- */
-export const BATTERY_SORTS = ['level', 'replace_soon'] as const;
-export type BatterySort = (typeof BATTERY_SORTS)[number];
-/** "batteries" | "connectivity", derived from the array above so they can't drift apart. */
 export type TabId = (typeof TAB_IDS)[number];
 
 /**
- * Which devices can be flagged as "quiet".
- *  - battery: only battery-powered devices (the default). Mains devices
- *    announce failure by going unavailable; a light nobody has toggled for
- *    two days is fine, not quiet.
- *  - all: every device. Expect noise from lights, media players and bridges.
+ * How the Batteries tab is ordered.
+ *  - level: lowest percentage first (the default)
+ *  - replace_soon: soonest to run out first, using the integration's drain
+ *    estimates. Devices without enough history fall back to level.
  */
-export const QUIET_SCOPES = ['battery', 'all'] as const;
-export type QuietScope = (typeof QUIET_SCOPES)[number];
-
-/** Per-device settings: what this device needs and how patient to be with it. */
-export interface DeviceSettings {
-  device_id: string;
-  quiet_threshold_hours?: number;
-  /** Free text, usually a standard size: "CR2032", "AA", "Built-in rechargeable". */
-  battery_type?: string;
-  /** How many cells the device takes. Defaults to 1 on the Actions tab. */
-  battery_count?: number;
-  /** Charge it rather than replace it. */
-  rechargeable?: boolean;
-  /** Shown instead of the device's registry name. Does not rename the device. */
-  name?: string;
-  /** Sparkline window for this device, in days (1-365). Overrides the global one. */
-  sparkline_days?: number;
-  /**
-   * Area shown for this device (and used by the area filters), instead of
-   * the registry's. Handy for device-less sensors, which have no area at all.
-   */
-  area?: string;
-}
+export const BATTERY_SORTS = ['level', 'replace_soon'] as const;
+export type BatterySort = (typeof BATTERY_SORTS)[number];
 
 /** Raw user input. All optional. */
 export interface CardConfig {
   type?: string;
   title?: string;
-  /** Battery % at or below which a device is a warning. */
-  battery_warning?: number;
-  /** Battery % at or below which a device is critical. */
-  battery_critical?: number;
-  /** Hours without an update before a device is "quiet". */
-  quiet_threshold_hours?: number;
-  /** Per-integration quiet thresholds, keyed by platform, e.g. { zwave_js: 48 }. */
-  integration_thresholds?: Record<string, number>;
-  device_settings?: DeviceSettings[];
-  exclude_integrations?: string[];
-  exclude_devices?: string[];
-  /** Entity ids to ignore entirely, e.g. a settings sensor mis-labelled as a battery. */
-  exclude_entities?: string[];
-  quiet_scope?: QuietScope;
-  battery_sort?: BatterySort;
+  show_tabs?: TabId[];
+  default_tab?: TabId;
   /** Rows shown per tab before a "show more" control. A number, or "all". */
   max_rows?: number | 'all';
+  battery_sort?: BatterySort;
+  /** Split the lists into sections: none, area, integration or device_type. */
+  group_by?: GroupBy;
+  /** Start the Batteries tab showing only devices that need attention. */
+  problems_only?: boolean;
   /** Draw a trend line next to each battery bar when history exists. */
   show_sparklines?: boolean;
   /** How many days of history the sparkline covers (1-365). Default 14. */
   sparkline_days?: number;
-  /** Start the Batteries tab showing only devices that need attention. */
-  problems_only?: boolean;
-  /** Allow-lists. Area names or ids; integration platforms. */
-  include_areas?: string[];
-  exclude_areas?: string[];
-  include_integrations?: string[];
-  show_tabs?: TabId[];
-  default_tab?: TabId;
-  /** "standalone" (default) or "integration". See `Source`. */
-  source?: Source;
-  /** The integration's sensor to read in integration mode. */
-  integration_entity?: string;
-  /** Split the lists into sections: none, area, integration or device_type. */
-  group_by?: GroupBy;
 }
 
 /** Fully resolved config with defaults applied. */
 export interface ResolvedConfig {
   title: string;
-  battery_warning: number;
-  battery_critical: number;
-  quiet_threshold_hours: number;
-  integration_thresholds: Record<string, number>;
-  device_settings: DeviceSettings[];
-  exclude_integrations: string[];
-  exclude_devices: string[];
-  exclude_entities: string[];
-  quiet_scope: QuietScope;
-  battery_sort: BatterySort;
-  max_rows: number | 'all';
-  show_sparklines: boolean;
-  sparkline_days: number;
-  problems_only: boolean;
-  include_areas: string[];
-  exclude_areas: string[];
-  include_integrations: string[];
   show_tabs: TabId[];
   default_tab: TabId;
-  source: Source;
-  integration_entity: string;
+  max_rows: number | 'all';
+  battery_sort: BatterySort;
   group_by: GroupBy;
+  problems_only: boolean;
+  show_sparklines: boolean;
+  sparkline_days: number;
 }
 
 export const DEFAULT_CONFIG: ResolvedConfig = {
   title: '',
-  battery_warning: 30,
-  battery_critical: 15,
-  quiet_threshold_hours: 24,
-  integration_thresholds: {},
-  device_settings: [],
-  exclude_integrations: [],
-  exclude_devices: [],
-  exclude_entities: [],
-  quiet_scope: 'battery',
-  battery_sort: 'level',
-  max_rows: 12,
-  show_sparklines: true,
-  sparkline_days: 14,
-  problems_only: false,
-  include_areas: [],
-  exclude_areas: [],
-  include_integrations: [],
   show_tabs: ['batteries', 'connectivity'],
   default_tab: 'batteries',
-  source: 'standalone',
-  integration_entity: DEFAULT_INTEGRATION_ENTITY,
+  max_rows: 12,
+  battery_sort: 'level',
   group_by: 'none',
+  problems_only: false,
+  show_sparklines: true,
+  sparkline_days: 14,
 };
+
+export const MAX_SPARKLINE_DAYS = 365;
 
 /** Thrown for bad config. A separate class lets callers tell it apart from bugs. */
 export class ConfigError extends Error {
@@ -170,57 +84,32 @@ export class ConfigError extends Error {
   }
 }
 
-/* ------------------------------------------------------------------------ */
-/* Small validators                                                         */
-/* ------------------------------------------------------------------------ */
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function numberOrDefault(value: unknown, key: string, fallback: number, min: number, max: number) {
-  if (value === undefined) return fallback;
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new ConfigError(`"${key}" must be a number, got ${JSON.stringify(value)}.`);
-  }
-  if (value < min || value > max) {
-    throw new ConfigError(`"${key}" must be between ${String(min)} and ${String(max)}.`);
-  }
-  return value;
-}
-
-function stringArrayOrDefault(value: unknown, key: string, fallback: string[]): string[] {
-  if (value === undefined) return fallback;
-  if (!Array.isArray(value) || !value.every((v) => typeof v === 'string')) {
-    throw new ConfigError(`"${key}" must be a list of strings.`);
-  }
-  return value;
-}
-
-export const MAX_SPARKLINE_DAYS = 365;
-
-/** A sparkline window: a whole number of days from 1 to a year. */
-function sparklineDays(value: unknown, key: string): number {
-  if (
-    typeof value !== 'number' ||
-    !Number.isInteger(value) ||
-    value < 1 ||
-    value > MAX_SPARKLINE_DAYS
-  ) {
-    throw new ConfigError(
-      `"${key}" must be a whole number of days from 1 to ${String(MAX_SPARKLINE_DAYS)}.`,
-    );
-  }
-  return value;
 }
 
 function isTabId(value: unknown): value is TabId {
   return typeof value === 'string' && (TAB_IDS as readonly string[]).includes(value);
 }
 
-/* ------------------------------------------------------------------------ */
-/* Main entry                                                               */
-/* ------------------------------------------------------------------------ */
+function oneOf<T extends string>(
+  value: unknown,
+  key: string,
+  allowed: readonly T[],
+  fallback: T,
+): T {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'string' || !(allowed as readonly string[]).includes(value)) {
+    throw new ConfigError(`"${key}" must be one of: ${allowed.join(', ')}.`);
+  }
+  return value as T;
+}
+
+function booleanOr(value: unknown, key: string, fallback: boolean): boolean {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'boolean') throw new ConfigError(`"${key}" must be true or false.`);
+  return value;
+}
 
 /**
  * Validate raw config and fill in defaults.
@@ -234,203 +123,6 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
   // Blank or absent means "no title row" rather than a default name.
   const title = raw.title === undefined ? DEFAULT_CONFIG.title : raw.title;
   if (typeof title !== 'string') throw new ConfigError('"title" must be text.');
-
-  const battery_warning = numberOrDefault(
-    raw.battery_warning,
-    'battery_warning',
-    DEFAULT_CONFIG.battery_warning,
-    0,
-    100,
-  );
-  const battery_critical = numberOrDefault(
-    raw.battery_critical,
-    'battery_critical',
-    DEFAULT_CONFIG.battery_critical,
-    0,
-    100,
-  );
-  if (battery_critical > battery_warning) {
-    throw new ConfigError(
-      `"battery_critical" (${String(battery_critical)}) must not be higher than "battery_warning" (${String(battery_warning)}).`,
-    );
-  }
-
-  const quiet_threshold_hours = numberOrDefault(
-    raw.quiet_threshold_hours,
-    'quiet_threshold_hours',
-    DEFAULT_CONFIG.quiet_threshold_hours,
-    0.01,
-    24 * 365,
-  );
-
-  // integration_thresholds: { platform: hours }
-  const integration_thresholds: Record<string, number> = {};
-  const rawIntegration = raw.integration_thresholds;
-  if (rawIntegration !== undefined) {
-    if (!isRecord(rawIntegration)) {
-      throw new ConfigError('"integration_thresholds" must be a mapping of integration: hours.');
-    }
-    for (const [platform, hours] of Object.entries(rawIntegration)) {
-      integration_thresholds[platform] = numberOrDefault(
-        hours,
-        `integration_thresholds.${platform}`,
-        quiet_threshold_hours,
-        0.01,
-        24 * 365,
-      );
-    }
-  }
-
-  // device_settings: one entry per device; a later duplicate replaces an earlier one
-  const device_settings: DeviceSettings[] = [];
-  const seenDevices = new Set<string>();
-  const rawSettings = raw.device_settings;
-  if (rawSettings !== undefined) {
-    if (!Array.isArray(rawSettings)) throw new ConfigError('"device_settings" must be a list.');
-    rawSettings.forEach((item: unknown, i) => {
-      const where = `device_settings[${String(i)}]`;
-      if (!isRecord(item) || typeof item.device_id !== 'string' || item.device_id === '') {
-        throw new ConfigError(`${where} needs a "device_id".`);
-      }
-      const entry: DeviceSettings = { device_id: item.device_id };
-      if (item.quiet_threshold_hours !== undefined) {
-        entry.quiet_threshold_hours = numberOrDefault(
-          item.quiet_threshold_hours,
-          `${where}.quiet_threshold_hours`,
-          quiet_threshold_hours,
-          0.01,
-          24 * 365,
-        );
-      }
-      if (item.battery_type !== undefined) {
-        if (typeof item.battery_type !== 'string') {
-          throw new ConfigError(`${where}.battery_type must be text, e.g. "CR2032".`);
-        }
-        if (item.battery_type.trim() !== '') entry.battery_type = item.battery_type.trim();
-      }
-      if (item.name !== undefined) {
-        if (typeof item.name !== 'string') {
-          throw new ConfigError(`${where}.name must be text.`);
-        }
-        if (item.name.trim() !== '') entry.name = item.name.trim();
-      }
-      if (item.sparkline_days !== undefined) {
-        entry.sparkline_days = sparklineDays(item.sparkline_days, `${where}.sparkline_days`);
-      }
-      if (item.area !== undefined) {
-        if (typeof item.area !== 'string') throw new ConfigError(`${where}.area must be text.`);
-        if (item.area.trim() !== '') entry.area = item.area.trim();
-      }
-      if (item.battery_count !== undefined) {
-        const n = item.battery_count;
-        if (typeof n !== 'number' || !Number.isInteger(n) || n < 1) {
-          throw new ConfigError(`${where}.battery_count must be a whole number of at least 1.`);
-        }
-        entry.battery_count = n;
-      }
-      if (item.rechargeable !== undefined) {
-        if (typeof item.rechargeable !== 'boolean') {
-          throw new ConfigError(`${where}.rechargeable must be true or false.`);
-        }
-        entry.rechargeable = item.rechargeable;
-      }
-      if (seenDevices.has(entry.device_id)) {
-        const at = device_settings.findIndex((d) => d.device_id === entry.device_id);
-        device_settings[at] = entry;
-      } else {
-        seenDevices.add(entry.device_id);
-        device_settings.push(entry);
-      }
-    });
-  }
-
-  const exclude_integrations = stringArrayOrDefault(
-    raw.exclude_integrations,
-    'exclude_integrations',
-    DEFAULT_CONFIG.exclude_integrations,
-  );
-  const exclude_devices = stringArrayOrDefault(
-    raw.exclude_devices,
-    'exclude_devices',
-    DEFAULT_CONFIG.exclude_devices,
-  );
-
-  const exclude_entities = stringArrayOrDefault(
-    raw.exclude_entities,
-    'exclude_entities',
-    DEFAULT_CONFIG.exclude_entities,
-  );
-
-  // quiet_scope
-  let quiet_scope: QuietScope = DEFAULT_CONFIG.quiet_scope;
-  const rawScope = raw.quiet_scope;
-  if (rawScope !== undefined) {
-    if (typeof rawScope !== 'string' || !(QUIET_SCOPES as readonly string[]).includes(rawScope)) {
-      throw new ConfigError(`"quiet_scope" must be one of: ${QUIET_SCOPES.join(', ')}.`);
-    }
-    quiet_scope = rawScope as QuietScope;
-  }
-
-  // battery_sort
-  let battery_sort: BatterySort = DEFAULT_CONFIG.battery_sort;
-  const rawSort = raw.battery_sort;
-  if (rawSort !== undefined) {
-    if (typeof rawSort !== 'string' || !(BATTERY_SORTS as readonly string[]).includes(rawSort)) {
-      throw new ConfigError(`"battery_sort" must be one of: ${BATTERY_SORTS.join(', ')}.`);
-    }
-    battery_sort = rawSort as BatterySort;
-  }
-
-  // max_rows: a positive whole number, or "all"
-  let max_rows: number | 'all' = DEFAULT_CONFIG.max_rows;
-  const rawMax = raw.max_rows;
-  if (rawMax !== undefined) {
-    if (rawMax === 'all') {
-      max_rows = 'all';
-    } else if (typeof rawMax === 'number' && Number.isInteger(rawMax) && rawMax >= 1) {
-      max_rows = rawMax;
-    } else {
-      throw new ConfigError('"max_rows" must be a whole number of at least 1, or "all".');
-    }
-  }
-
-  // show_sparklines
-  let show_sparklines = DEFAULT_CONFIG.show_sparklines;
-  if (raw.show_sparklines !== undefined) {
-    if (typeof raw.show_sparklines !== 'boolean') {
-      throw new ConfigError('"show_sparklines" must be true or false.');
-    }
-    show_sparklines = raw.show_sparklines;
-  }
-
-  const sparkline_days =
-    raw.sparkline_days === undefined
-      ? DEFAULT_CONFIG.sparkline_days
-      : sparklineDays(raw.sparkline_days, 'sparkline_days');
-
-  let problems_only = DEFAULT_CONFIG.problems_only;
-  if (raw.problems_only !== undefined) {
-    if (typeof raw.problems_only !== 'boolean') {
-      throw new ConfigError('"problems_only" must be true or false.');
-    }
-    problems_only = raw.problems_only;
-  }
-
-  const include_areas = stringArrayOrDefault(
-    raw.include_areas,
-    'include_areas',
-    DEFAULT_CONFIG.include_areas,
-  );
-  const exclude_areas = stringArrayOrDefault(
-    raw.exclude_areas,
-    'exclude_areas',
-    DEFAULT_CONFIG.exclude_areas,
-  );
-  const include_integrations = stringArrayOrDefault(
-    raw.include_integrations,
-    'include_integrations',
-    DEFAULT_CONFIG.include_integrations,
-  );
 
   // show_tabs
   let show_tabs: TabId[] = DEFAULT_CONFIG.show_tabs;
@@ -459,57 +151,49 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     default_tab = rawDefault;
   }
 
-  // source, integration_entity, group_by
-  let source: Source = DEFAULT_CONFIG.source;
-  if (raw.source !== undefined) {
-    if (typeof raw.source !== 'string' || !(SOURCES as readonly string[]).includes(raw.source)) {
-      throw new ConfigError(`"source" must be one of: ${SOURCES.join(', ')}.`);
+  // max_rows: a positive whole number, or "all"
+  let max_rows: number | 'all' = DEFAULT_CONFIG.max_rows;
+  const rawMax = raw.max_rows;
+  if (rawMax !== undefined) {
+    if (rawMax === 'all') {
+      max_rows = 'all';
+    } else if (typeof rawMax === 'number' && Number.isInteger(rawMax) && rawMax >= 1) {
+      max_rows = rawMax;
+    } else {
+      throw new ConfigError('"max_rows" must be a whole number of at least 1, or "all".');
     }
-    source = raw.source as Source;
   }
-  let integration_entity = DEFAULT_CONFIG.integration_entity;
-  if (raw.integration_entity !== undefined) {
-    if (typeof raw.integration_entity !== 'string' || !raw.integration_entity.includes('.')) {
+
+  const battery_sort = oneOf(raw.battery_sort, 'battery_sort', BATTERY_SORTS, 'level');
+  const group_by = oneOf(raw.group_by, 'group_by', GROUP_BYS, 'none');
+  const problems_only = booleanOr(raw.problems_only, 'problems_only', false);
+  const show_sparklines = booleanOr(raw.show_sparklines, 'show_sparklines', true);
+
+  let sparkline_days = DEFAULT_CONFIG.sparkline_days;
+  const rawDays = raw.sparkline_days;
+  if (rawDays !== undefined) {
+    if (
+      typeof rawDays !== 'number' ||
+      !Number.isInteger(rawDays) ||
+      rawDays < 1 ||
+      rawDays > MAX_SPARKLINE_DAYS
+    ) {
       throw new ConfigError(
-        '"integration_entity" must be an entity id like sensor.pulse_check_attention.',
+        `"sparkline_days" must be a whole number of days from 1 to ${String(MAX_SPARKLINE_DAYS)}.`,
       );
     }
-    integration_entity = raw.integration_entity;
-  }
-  let group_by: GroupBy = DEFAULT_CONFIG.group_by;
-  if (raw.group_by !== undefined) {
-    if (
-      typeof raw.group_by !== 'string' ||
-      !(GROUP_BYS as readonly string[]).includes(raw.group_by)
-    ) {
-      throw new ConfigError(`"group_by" must be one of: ${GROUP_BYS.join(', ')}.`);
-    }
-    group_by = raw.group_by as GroupBy;
+    sparkline_days = rawDays;
   }
 
   return {
     title,
-    battery_warning,
-    battery_critical,
-    quiet_threshold_hours,
-    integration_thresholds,
-    device_settings,
-    exclude_integrations,
-    exclude_devices,
-    exclude_entities,
-    quiet_scope,
-    battery_sort,
-    max_rows,
-    show_sparklines,
-    sparkline_days,
-    problems_only,
-    include_areas,
-    exclude_areas,
-    include_integrations,
     show_tabs,
     default_tab,
-    source,
-    integration_entity,
+    max_rows,
+    battery_sort,
     group_by,
+    problems_only,
+    show_sparklines,
+    sparkline_days,
   };
 }

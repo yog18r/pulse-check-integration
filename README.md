@@ -1,8 +1,8 @@
 # Pulse Check Card
 
-A universal device health card for [Home Assistant](https://www.home-assistant.io/). One card, every protocol: it shows which devices are **low on battery**, which are **offline**, and which have **gone quiet**, across Zigbee, Z-Wave, Matter, Bluetooth, ESPHome, Shelly, Wi-Fi and the companion app.
+A device health card for [Home Assistant](https://www.home-assistant.io/): which devices are **low on battery**, which are **offline**, which have **gone quiet**, and what to do about it, across Zigbee, Z-Wave, Matter, Bluetooth, ESPHome, Shelly, Wi-Fi and the companion app.
 
-Fully local. One file to install. No HACS required (but supported).
+It is the dashboard view of the [Pulse Check integration](https://github.com/yog18r/pulse-check-integration), which does the work: the integration runs the detection rules on the server around the clock, sends notifications, tracks battery replacements and estimates days left; the card shows that data and lets you act on it. **The card requires the integration.**
 
 <p align="center">
   <img src="docs/screenshot-batteries.jpg" alt="Batteries tab in a dark theme: devices sorted lowest battery first with coloured bars" width="420" />
@@ -15,246 +15,109 @@ Fully local. One file to install. No HACS required (but supported).
 
 ---
 
-## The problem
+## What it shows
 
-Devices quietly drop off. A door sensor's coin cell dies on a Tuesday, and you find out three weeks later when an automation never fires. A Z-Wave node goes dead after a power blip. A Wi-Fi plug loses its connection and sits there reporting its last known state forever.
+- **🔋 Batteries**: every battery-powered device, lowest first (or soonest to run out), with a coloured bar, a trend sparkline, "~12d left", and a note when a battery is draining much faster than it used to
+- **📡 Connectivity**: anything offline or not heard from within its threshold
+- **🛠️ Actions** (optional tab): "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", a to-buy total, and a **Done** button that records the replacement
+- **Snooze** a device for 1, 7 or 30 days. Snoozes live in the integration, so every dashboard, phone and notification agrees
+- **Group by** area, integration or device type
+- Everything grouped by **device**, not entity, so each physical thing appears once. Tap a row to open it in Home Assistant
 
-Home Assistant has all the data to spot this, but it is spread across hundreds of entities. Pulse Check Card pulls it into one place:
-
-- **🔋 Batteries**: every battery-powered device, lowest first, with a coloured bar
-- **📡 Connectivity**: anything offline or not heard from within a threshold
-- **🛠️ Actions** (optional tab): "Replace 2 × AA in Kitchen Mini Switch", "Charge Office 1 Large", plus a to-buy total
-- **Snooze** a device for 1, 7 or 30 days when you already know about it
-- **Trend sparklines** next to each battery bar, from the same 14-day history
-- **Row cap** with "show more", and **area and integration filters** for per-room cards
-- **Charging awareness**: a docked vacuum or a phone on the charger is never "low"
-- **"Replace soon" ordering** (optional): uses each battery's drain rate from HA's recorder to put the ones about to die first, even when their percentage still looks fine
-
-Everything is grouped by **device**, not entity, so each physical thing appears once. Tap a row to jump to that device's page in Home Assistant.
+What counts as low, how long a device may stay quiet, which devices to ignore and which notifications to send are the integration's settings. The card's own options are about presentation only.
 
 ## Installation
 
-### Option 1: manual (recommended, no dependencies)
-
-1. Download `pulse-check-card.js` from the [latest release](https://github.com/yog18r/pulse-check-card/releases/latest) (or build it yourself, see below).
-2. Copy it to your Home Assistant `config/www/` folder.
-3. In Home Assistant go to **Settings → Dashboards → ⋮ → Resources → Add resource**:
-   - URL: `/local/pulse-check-card.js`
-   - Type: **JavaScript module**
-4. Refresh the browser. "Pulse Check Card" now appears in the card picker.
-
-### Option 2: HACS
-
-Add this repository as a custom repository in HACS (category: Dashboard), then install it. HACS adds the resource for you.
-
-### Minimal card config
+1. Install the [Pulse Check integration](https://github.com/yog18r/pulse-check-integration) (HACS custom repository, or copy its folder) and add it under **Settings → Devices & services**.
+2. Install the card:
+   - **Manual**: download `pulse-check-card.js` from the [latest release](https://github.com/yog18r/pulse-check-card/releases/latest), copy it to `config/www/`, and add `/local/pulse-check-card.js` as a **JavaScript module** resource under **Settings → Dashboards → ⋮ → Resources**.
+   - **HACS**: add this repository as a custom repository (category: Dashboard) and install it. HACS adds the resource for you.
+3. Refresh the browser. "Pulse Check Card" appears in the card picker.
 
 ```yaml
 type: custom:pulse-check-card
 ```
 
-That is all you need. Everything else has a sensible default.
+That is all you need. Without the integration the card says so instead of rendering.
 
 ## Configuration
 
+Every option is about presentation and has a sensible default. The visual editor covers all of them.
+
 ```yaml
 type: custom:pulse-check-card
-title: Pulse Check # optional; leave out for no title row
-battery_warning: 30 # % at or below this is a warning (orange)
-battery_critical: 15 # % at or below this is critical (red)
-quiet_threshold_hours: 24 # no update for this long = "quiet"
-integration_thresholds: # per-integration overrides for quiet_threshold_hours
-  zwave_js: 48 # sleeping Z-Wave sensors report rarely
-  mqtt: 12
-device_settings: # per-device settings
-  - device_id: abc123
-    battery_type: CR2032 # any text; the editor offers the standard sizes
-    battery_count: 2 # cells to replace; default 1
-    rechargeable: false # true = "charge it" instead of "replace it"
-    quiet_threshold_hours: 72 # per-device quiet limit
-    name: Home Battery # shown instead of the device's name; the device itself is not renamed
-    sparkline_days: 365 # this device's trend line covers a year
-    area: Garage # shown on the card and used by the area filters; handy for device-less sensors
-  - device_id: sensor.inverter_soc # a battery sensor with no device: use its entity id
-    name: Inverter
-exclude_integrations: [mobile_app] # hide phones
-exclude_devices: [] # device ids (or an entity id for device-less entities)
-exclude_entities: [] # entity ids to ignore, e.g. a settings sensor labelled as a battery
-quiet_scope: battery # "battery" (default) or "all": which devices can be flagged quiet
-battery_sort: level # "level" (default) or "replace_soon": order of the Batteries tab
-max_rows: 12 # rows per tab before "Show N more"; a number or "all"
-show_sparklines: true # trend line next to each battery bar
-sparkline_days: 14 # how much history the line covers, 1-365
-problems_only: false # Batteries tab lists only devices that need attention
-include_areas: [] # only devices in these areas (names or ids); empty = all
-exclude_areas: []
-include_integrations: [] # only these integrations; empty = all
-show_tabs: [batteries, connectivity] # add "actions" for the to-do list
+title: Device Health # leave out for no title row
+show_tabs: [batteries, connectivity, actions]
 default_tab: batteries
+max_rows: 12 # or "all"
+battery_sort: level # or replace_soon
+group_by: none # none, area, integration or device_type
+problems_only: false # Batteries tab shows only warning/critical rows
+show_sparklines: true
+sparkline_days: 14 # 1 to 365
 ```
 
-Prefer clicking to typing? The card has a **visual editor**: add the card from the picker, or press "Edit" on an existing one, and every option above is a form field. Areas and integrations are two lists with everything ticked; untick one to hide its devices (that writes `exclude_areas` / `exclude_integrations`; the `include_*` allow-lists are YAML-only and the editor converts them to exclusions on first change). Integration thresholds and per-device settings are rows you add and remove. The device picker is a search box (type part of a name, area or integration), the battery type is a dropdown of standard sizes with an "Other…" free-text option, and you never have to look up a device id.
+| Option            | Type    | Default                     | Notes                                                                     |
+| ----------------- | ------- | --------------------------- | ------------------------------------------------------------------------- |
+| `title`           | string  | none                        | Leave out (or blank) for no title row.                                    |
+| `show_tabs`       | list    | `[batteries, connectivity]` | Any of `batteries`, `connectivity`, `actions`.                            |
+| `default_tab`     | string  | `batteries`                 | Must be in `show_tabs`.                                                   |
+| `max_rows`        | number  | `12`                        | Or `all`. A "show more" control reveals the rest.                         |
+| `battery_sort`    | string  | `level`                     | `level` or `replace_soon` (fewest days left first, from the integration). |
+| `group_by`        | string  | `none`                      | `none`, `area`, `integration` or `device_type`.                           |
+| `problems_only`   | boolean | `false`                     | Batteries tab shows only warning/critical rows.                           |
+| `show_sparklines` | boolean | `true`                      | Trend lines from recorder history, via the integration.                   |
+| `sparkline_days`  | number  | `14`                        | 1 to 365.                                                                 |
 
-| Option                   | Type    | Default                        | Notes                                                                          |
-| ------------------------ | ------- | ------------------------------ | ------------------------------------------------------------------------------ |
-| `title`                  | string  | none                           | Leave out (or blank) for no title row.                                         |
-| `battery_warning`        | number  | `30`                           | 0–100. Inclusive: 30% counts as a warning.                                     |
-| `battery_critical`       | number  | `15`                           | 0–100. Must not exceed `battery_warning`.                                      |
-| `quiet_threshold_hours`  | number  | `24`                           | Hours since the device's newest `last_updated`.                                |
-| `integration_thresholds` | mapping | `{}`                           | `platform: hours`. Platform is the integration domain (see badge).             |
-| `device_settings`        | list    | `[]`                           | Each item needs `device_id`.                                                   |
-| `exclude_integrations`   | list    | `[]`                           |                                                                                |
-| `exclude_devices`        | list    | `[]`                           |                                                                                |
-| `exclude_entities`       | list    | `[]`                           | Removes single entities from consideration.                                    |
-| `quiet_scope`            | string  | `battery`                      | `battery` or `all`. See "Quiet" below.                                         |
-| `battery_sort`           | string  | `level`                        | `level` or `replace_soon`. See \"Replace soon\" below.                         |
-| `max_rows`               | number  | `12`                           | Or `all`. Applies to the Batteries and Connectivity tabs.                      |
-| `show_sparklines`        | boolean | `true`                         | Needs recorder history; hidden otherwise.                                      |
-| `sparkline_days`         | number  | `14`                           | 1 to 365. Per-device override in `device_settings`.                            |
-| `problems_only`          | boolean | `false`                        | Batteries tab shows only warning/critical rows.                                |
-| `include_areas`          | list    | `[]`                           | Area names or ids. Devices with no area are dropped when set.                  |
-| `exclude_areas`          | list    | `[]`                           |                                                                                |
-| `include_integrations`   | list    | `[]`                           | Allow-list counterpart of `exclude_integrations`.                              |
-| `show_tabs`              | list    | `[batteries, connectivity]`    | Any of `batteries`, `connectivity`, `actions`.                                 |
-| `default_tab`            | string  | `batteries`                    | Must be in `show_tabs`.                                                        |
-| `source`                 | string  | `standalone`                   | `standalone` or `integration`. See "Using the integration" below.              |
-| `integration_entity`     | string  | `sensor.pulse_check_attention` | The integration's sensor, if renamed.                                          |
-| `group_by`               | string  | `none`                         | `none`, `area`, `integration` or `device_type`: split the lists into sections. |
+Keys from older versions (`battery_warning`, `device_settings`, `exclude_*`, `quiet_*` and so on) are ignored: those settings now live in the integration.
 
-Invalid config shows a plain-English error on the card, for example `"battery_critical" (40) must not be higher than "battery_warning" (30).`
+### Per-device settings
 
-**Finding a device id:** open the device in **Settings → Devices & services → Devices**. The id is the last part of the URL: `/config/devices/device/<device_id>`.
+The card's visual editor has a **Per-device settings** panel: pick any device (or a battery sensor that has no device), then set its display name, area, battery type and count, whether it is rechargeable, its quiet threshold and its notification policy. Each change is saved immediately through the integration's `pulse_check.set_device_settings` service, not into the card's YAML, so it applies everywhere: every card, the Actions tab's labels and shopping list, and the integration's notifications.
 
-## Using the integration
+Thresholds, quiet rules, filters and notification targets are in the integration's own dialog: **Settings → Devices & services → Pulse Check → Configure**.
 
-The [Pulse Check integration](https://github.com/yog18r/pulse-check-integration) runs the same rules on the server, around the clock, and adds what a browser cannot: notifications, shared snoozes, per-device settings, battery replacement history and days-left estimates from the recorder. With it installed, point the card at it:
+## How it works
 
-```yaml
-type: custom:pulse-check-card
-source: integration
-group_by: area # optional: none, area, integration, device_type
-```
+The integration registers two websocket commands. The card subscribes to `pulse_check/subscribe` and receives a full snapshot immediately and again after every recompute (about two seconds after a relevant state change, and at least every five minutes): one entry per device with its battery, offline, quiet and severity facts, days left, the summary counts, the action list, the thresholds in force and the per-device settings. Sparklines come from `pulse_check/history`, which reads the recorder on the server. Snooze, unsnooze and Done are service calls; the next snapshot shows the result.
 
-In this mode the card reads `sensor.pulse_check_attention` instead of analysing in the browser. The device list, its severities, the thresholds and the per-device settings all come from the integration (it publishes the values it used on the sensor's `config` attribute), so the card's own `battery_warning`, `battery_critical`, `quiet_*`, `device_settings` and filter options have no effect. The card keeps its presentation options: `title`, `show_tabs`, `max_rows`, `battery_sort`, `group_by`, `problems_only`, `sparkline_days`. Snoozing calls the integration's `pulse_check.snooze` service, so a snooze made on one phone is seen everywhere, and the Actions tab gains a "Done" button that records a replacement (`pulse_check.mark_replaced`) or a charge. Rows show the integration's days-left estimate and an "unusual behaviour" note when a battery drains much faster than its own history.
+The browser never queries the recorder or analyses entities. A new `hass` object from Home Assistant does not re-render the card; only a new snapshot does.
 
-`group_by` works in both modes.
-
-## How detection works
-
-The card reads only what the Home Assistant frontend already has in memory (`hass.states`, `hass.entities`, `hass.devices`, `hass.areas`). No API calls, no polling, no cloud.
-
-**Battery** (first match wins per entity; the best reading per device is kept):
-
-1. `sensor.*` with `device_class: battery` and a numeric state → level in %
-2. `binary_sensor.*` with `device_class: battery` → `on` means **low**
-3. Any entity with a numeric `battery_level` attribute → level in % (older and custom integrations)
-
-If a device has several readings, the lowest numeric level wins (the weakest cell matters), and any binary "low" flags the device regardless.
-
-**Offline:** every _primary_ entity of the device is `unavailable`. Primary means no `entity_category`; diagnostic and config entities are ignored because integrations handle those inconsistently.
-
-**Quiet:** the newest `last_updated` across the device's _live_ entities is older than the threshold. Static entities are ignored when working this out: anything with `entity_category: config`, and the `number`, `select`, `button`, `update`, `text`, `scene` and `script` domains, because those only change when a person changes a setting. Threshold resolution: device override → integration override → global default.
-
-By default only **battery-powered devices** can be quiet (`quiet_scope: battery`). Those are the ones that die silently. Mains-powered devices announce failure by going `unavailable`, and a light nobody has toggled for two days is simply a light nobody has toggled, so flagging it would bury the real problems. Set `quiet_scope: all` if you want every device judged.
-
-**Settings are not batteries.** Some integrations expose configuration values with `device_class: battery` because the unit is `%` (an inverter's minimum state of charge, say). Entities with `entity_category: config` are never read as batteries. If an integration forgets to categorise such an entity, drop it with `exclude_entities`.
-
-**Severity:** critical for offline, battery at/below critical, or binary low. Warning for battery at/below warning, or quiet. The header counts anything that is not OK.
-
-**Skipped on purpose:** service devices (Sun, Forecast…), disabled devices, excluded integrations/devices/entities, and entities with no device that carry no battery information. An entity with no device can only ever contribute a battery reading; with no hardware behind it there is nothing to be offline or quiet.
-
-**Replace soon** (`battery_sort: replace_soon`): the card asks Home Assistant's recorder for 14 days of daily averages of every battery sensor, once when the card loads and then every 6 hours, and fits a straight line through them. The slope is the drain rate; the current level divided by it is the time left, shown on each row as "~12d left". Sensors the recorder has no statistics for fall back to their raw history, averaged per day. The live reading is added as the last point, so a battery that just dropped sharply moves straight away rather than waiting for the recorder's hourly statistics. The fit needs at least 3 days of history and ignores flat or rising series (a phone that gets charged, a lock sitting at 62% for a fortnight), so those devices simply keep their level-based position and show no estimate. Treat the number as an order of magnitude: locks and other motorised devices report in coarse steps and under load, and the estimate will wander for a few days after a sudden drop. Without a recorder nothing changes.
-
-**Sparklines:** daily means from the recorder are drawn as a small trend line beside the battery bar, scaled to the data so a slow decline is visible (which also means a phone's daily charge cycle shows as a wobble). `sparkline_days` sets the window (default 14, up to a year), globally or per device; windows of three days or less are drawn from hourly means so a one-day line has shape. The "days left" estimate always uses the last 14 days, whatever the line shows. Sensors without long-term statistics (custom integrations that don't set `state_class: measurement`) are fetched from raw history instead and averaged per day, so they get a line too. A battery reported only as an attribute (some vacuums and trackers) is fetched from raw history with attributes, for just those entities. Only a binary low/ok sensor has no numeric history and gets no line.
-
-**Problems only:** `problems_only: true` makes the Batteries tab list only the devices at or below the warning threshold, for a compact card on a busy dashboard.
-
-**Row cap and filters:** `max_rows` (default 12, or `all`) limits each of the Batteries and Connectivity tabs, with a "Show N more" control so nothing is hidden silently. `include_areas` / `exclude_areas` and `include_integrations` / `exclude_integrations` scope the card, which is how you put a per-room card on a sections dashboard: `include_areas: [Office]`. Area filters accept the name shown in Home Assistant or the area id, case-insensitively.
-
-**Actions** (`show_tabs` including `actions`): every device at or below the warning threshold becomes a job. Devices marked `rechargeable` in `device_settings` go under **Charge** ("Charge Office 1 Large"); everything else goes under **Replace** ("Replace 2 × AAA in Bedroom Sensor"), with a **To buy** line totalling cells per battery type across devices. There is no reliable way to know from Home Assistant's data that a sensor takes a CR2032 or two AAAs, so untyped devices read "Replace the battery in …" and count as "unknown" until you set them. Charging and snoozed devices are left out.
-
-**Charging:** a device that says it is charging is never flagged for battery, whatever its level, and sorts last within its band. The card recognises the standard `battery_charging` binary sensor, companion-app "battery state" sensors reading charging/full, a vacuum that is `docked`, and the `is_charging` / `charging` / `battery_state` attributes some integrations use.
-
-**On-demand `last_reported` lookup:** once a device is flagged quiet, the card asks Home Assistant's REST API for the true `last_reported` of that device's live entities (`GET /api/states/<entity_id>`). Unlike `last_updated`, that timestamp moves on every report, even when the value is unchanged, so a sensor that keeps saying "21.4 °C" stops looking dead. This is a question to the Home Assistant server about data it already holds. **Nothing is sent to any device**, so it cannot wake a sensor or cost it battery. It is also deliberately frugal: only entities of quiet devices, each asked at most once every 5 minutes, at most 40 per round.
-
-**Snooze:** the 💤 button on any flagged row hides that device from the counts, the Connectivity tab and the Actions tab for 1, 7 or 30 days. Snoozes are stored in your browser, not in the card config, so they are per browser and need no YAML edit. A footer shows how many are snoozed and lets you un-snooze. The Batteries tab still lists a snoozed device, greyed and badged, because it is still a battery.
-
-### Known limitations
-
-- **`last_reported` is not available in the frontend.** Home Assistant tracks a `last_reported` timestamp (updated even when a value is re-sent unchanged), but the websocket subscription that feeds the dashboard only carries `last_changed` and `last_updated`. The on-demand lookup above closes most of that gap, but it only runs for devices already flagged quiet and refreshes every 5 minutes, so a device can appear quiet for up to a few minutes before the lookup clears it.
-- **Sleeping devices look quiet.** Battery Z-Wave and Zigbee sensors may only wake every day or two. Use `integration_thresholds` (e.g. `zwave_js: 48`).
-- **Mains devices are only judged by availability.** With the default `quiet_scope: battery`, a mains device shows up only when it is `unavailable`. A Wi-Fi device that silently stops responding but that its integration never marks unavailable will not be caught. `quiet_scope: all` catches it, at the cost of noise from idle lights and media players.
-- **Powered-off media players show as offline.** A TV that is switched off is `unavailable` to Home Assistant, which is indistinguishable from a TV that has lost its network. Exclude them with `exclude_integrations` or `exclude_devices` if that is not useful to you.
-- **Battery-less devices only appear on the Connectivity tab**, and only when something is wrong. A healthy mains-powered device is invisible, by design.
+Rows on the Batteries tab are coloured by the battery alone and rows on the Connectivity tab by connectivity alone, using the thresholds the integration sent, so the header (computed by the integration) and the rows can never disagree.
 
 ## Architecture
 
 ```
 src/
-├── index.ts                  registers <pulse-check-card>, adds it to the card picker
+├── core/
+│   ├── types.ts            the wire shape (DeviceHealth) and the slice of hass the card reads
+│   ├── sort.ts             ordering for the Batteries and Connectivity tabs
+│   ├── grouping.ts         sections by area, integration or device type
+│   ├── thresholds.ts       battery / connectivity severity for row colours
+│   ├── summarise.ts        headline and breakdown text
+│   ├── registryOptions.ts  device lists for the editor's picker
+│   └── batteryTypes.ts     common battery sizes for the editor
 ├── card/
-│   ├── PulseCheckCardElement.ts   the HA card contract: setConfig, hass setter, sizes
-│   ├── PulseCheckCardEditor.ts    the visual editor element (fires config-changed)
-│   ├── config.ts                  CardConfig → ResolvedConfig with validation
-│   ├── navigation.ts              open a device page / more-info from a row
-│   ├── statistics.ts              recorder websocket call → drain estimates
-│   ├── lastReported.ts            REST lookup of true last_reported (rate limited)
-│   └── snoozeStore.ts             snoozes in localStorage, pure helpers + storage
-├── core/                     pure TypeScript, no React, no DOM, 100% unit-testable
-│   ├── battery.ts            detection rules 1–3
-│   ├── availability.ts       offline / last heard / quiet
-│   ├── group.ts              entities → one group per device
-│   ├── thresholds.ts         threshold resolution and severity
-│   ├── analyse.ts            the orchestrator: hass + config → DeviceHealth[]
-│   ├── drain.ts              drain rate and days-left from history samples
-│   ├── actions.ts            replace/charge jobs and the to-buy totals
-│   ├── batteryTypes.ts       standard battery sizes for the editor dropdown
-│   ├── sort.ts, summarise.ts, time.ts, fingerprint.ts
-├── enhancers/                optional per-integration extras (Enhancer interface)
-└── ui/                       React components, hooks (useNow, useDrainEstimates,
-                              useLastReported, useSnoozes), two stylesheets
+│   ├── config.ts           the presentation options, validated
+│   ├── snapshot.ts         subscription, history and service calls
+│   ├── PulseCheckCardElement.ts   the custom element HA talks to
+│   └── PulseCheckCardEditor.ts    the visual editor element
+└── ui/                     React components and hooks (useSnapshot, useHistory)
 ```
 
-**Universal core + optional enhancers.** The core uses only data every integration provides. An _enhancer_ implements one small interface and adds detail when, and only when, the data exists. Enhancers can never break the card: each call is isolated, and returning nothing is always valid. Adding one is a new file plus one line in the registry.
-
-An enhancer returns three things, all optional: `extras` (badges for the row), a better `lastHeard` timestamp, and an `offline` verdict. The core merges them with its own generic rules, so an integration that knows more can override the heuristics.
-
-| Enhancer    | Integration | What it reads                                    | What it adds                                                               |
-| ----------- | ----------- | ------------------------------------------------ | -------------------------------------------------------------------------- |
-| Z-Wave JS   | `zwave_js`  | the diagnostic _Node status_ sensor              | `Node: alive/asleep/dead` badge; a **dead** node is offline                |
-| Zigbee2MQTT | `mqtt`      | `linkquality`, and `last_seen` if enabled in Z2M | `LQI` badge (warning at ≤30); `last_seen` replaces the timestamp heuristic |
-| ZHA         | `zha`       | the optional `lqi` and `rssi` diagnostic sensors | `LQI` badge (warning at ≤30) and `RSSI` badge                              |
-
-Plain MQTT devices that aren't from Zigbee2MQTT simply get no badges.
-
-**Why React inside a custom element?** Home Assistant talks to a plain `HTMLElement`. That element owns a shadow root (CSS isolation both ways) and a React root inside it. The element decides _when_ to render: HA pushes a new `hass` object on every state change in the house, so the setter computes a cheap fingerprint of just the entities the card depends on and skips the render when it hasn't moved. React decides _what_ to render, with `useMemo` caching the analysis between tab clicks.
-
-**Single file, no runtime dependencies.** Vite's library mode bundles React and the stylesheet into one ES module. Nothing is fetched at runtime.
+The custom element owns a shadow root and a React root. `useSnapshot` subscribes once per websocket connection and unsubscribes on unmount; `useHistory` fetches sparkline points for the batteries on screen and refreshes them every six hours.
 
 ## Development
 
 ```bash
 npm install
-npm run dev          # demo page at http://localhost:5173 with mock data, no HA needed
-npm test             # Vitest unit tests
-npm run check        # typecheck + lint + format + test + build, same as CI
-npm run build        # dist/pulse-check-card.js
+npm run dev      # demo page with a fake subscription, no HA needed
+npm run check    # typecheck, lint, format check, tests, build
 ```
 
-The demo page renders the real card element with a realistic mock `hass` (Zigbee2MQTT, ZHA, Z-Wave JS, ESPHome, Shelly, Matter, phone, binary battery sensor, attribute fallback, offline and stale devices). It has a dark mode toggle and a few config scenarios, including a deliberately broken one to show error handling.
+Component tests (Testing Library) render the real React tree against a canned snapshot (`test/fixtures/snapshot.json`, 15 devices from the integration's test fixture) and check what a user sees and what the clicks send. The detection rules themselves are tested in the integration repo against a frozen golden file.
 
-The same fixture drives the unit tests, so every detection, grouping, threshold and sorting rule is pinned by a test that reads like a spec. Component tests (Testing Library on jsdom, in `test/ui/`) render the real card and editor against that fixture and check what a user sees and clicks: tabs, problems-only, row cap, snooze, the device picker and the custom element's shadow root.
-
-## Roadmap
-
-- [x] **Phase 1 (MVP):** card contract, universal detection, both tabs, config with defaults, theming, unit tests, demo page, CI
-- [x] **Phase 2:** Z-Wave JS, Zigbee2MQTT and ZHA enhancers; tap a row to open the device page (or the more-info dialog for device-less entities); header breakdown and per-row threshold hints
-- [x] **Phase 3:** "replace soon" ordering using drain rate from HA statistics; battery shopping list grouped by `battery_type`; visual config editor
-- [x] **v0.2:** charging awareness; on-demand `last_reported` lookup; snooze; visual editor rows for thresholds and overrides
-- [x] **v0.3:** trend sparklines; configurable row cap; area and integration filters; editor checkbox pickers for both
-- [x] **v0.3:** per-device settings with battery type (standard sizes + other), count and rechargeable; Actions tab replacing the shopping list; searchable device picker in the editor
-- [x] **v0.4:** problems-only switch; per-device area; history for attribute-based batteries; component tests
-- [ ] **Ideas:** translations; a notifications blueprint; replacement history; HACS default-repository submission
+To try a build on a live instance, run `npm run build` and copy `dist/pulse-check-card.js` to `config/www/`, then hard-refresh the browser.
 
 ## Licence
 

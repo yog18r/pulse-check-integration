@@ -2,46 +2,43 @@
  * The card's React root component.
  *
  * Responsibilities:
- *  - run the core analysis (memoised, so it only re-runs when inputs change)
+ *  - subscribe to the integration's snapshots (useSnapshot) and show a
+ *    plain message while connecting or when the integration is missing
  *  - show the header with title, headline and breakdown
  *  - manage which tab is selected
- *  - hand each tab its sorted list
- *  - own the three bits of browser-side state: snoozes, drain estimates
- *    and on-demand last_reported lookups
+ *  - hand each tab its sorted (and optionally grouped) list
+ *  - turn snooze / unsnooze / done into service calls
+ *
+ * Nothing is analysed here. The integration decided every device's
+ * severity, days left and so on; the card orders, groups and draws.
  *
  * React note on `useMemo`: it caches the result of a calculation and only
- * recomputes when one of the listed dependencies changes. `analyseDevices`
- * walks every entity in the house, so we do not want to run it on every
- * render (e.g. when the user merely clicks a tab).
+ * recomputes when one of the listed dependencies changes, so sorting a
+ * few hundred devices does not happen on every click.
  */
 import { useCallback, useMemo, useState } from 'react';
 import type { ResolvedConfig, TabId } from '../card/config';
-import { callPulseCheck, readIntegration } from '../card/integration';
-import type { BatteryEntity } from '../card/statistics';
+import { callPulseCheck, type Snapshot } from '../card/snapshot';
 import type { ActionKind } from '../core/actions';
-import { analyseDevices, lastReportedCandidates } from '../core/analyse';
-import { actionList } from '../core/actions';
 import { batteryList, connectivityList } from '../core/sort';
-import { settingsForDevice } from '../core/settings';
-import { breakdown, headline, summarise } from '../core/summarise';
+import { breakdown, headline } from '../core/summarise';
 import { batterySeverity, connectivitySeverity } from '../core/thresholds';
-import type { DeviceHealth, HassLike } from '../core/types';
-import type { Enhancer } from '../enhancers';
+import type { DeviceHealth, HassBox } from '../core/types';
+import { ActionsTab } from './ActionsTab';
 import { DeviceRow } from './DeviceRow';
 import { EmptyState } from './EmptyState';
 import { GroupedRows } from './GroupedRows';
-import { ActionsTab } from './ActionsTab';
-import { useDrainEstimates } from './useDrainEstimates';
-import { useLastReported } from './useLastReported';
+import { useHistory, type HistoryRequest } from './useHistory';
 import { useNow } from './useNow';
-import { useSnoozes } from './useSnoozes';
+import { useSnapshot } from './useSnapshot';
 
 export interface AppProps {
-  hass: HassLike;
+  hassBox: HassBox;
   config: ResolvedConfig;
-  enhancers: readonly Enhancer[];
   /** Called when a row is tapped. The custom element wires this to HA navigation. */
   onOpenDevice?: ((device: DeviceHealth) => void) | undefined;
+  /** Called with every snapshot, so the element can size itself. */
+  onSnapshot?: ((snapshot: Snapshot) => void) | undefined;
 }
 
 const TAB_LABELS: Record<TabId, string> = {
@@ -50,9 +47,11 @@ const TAB_LABELS: Record<TabId, string> = {
   actions: '🛠️ Actions',
 };
 
-export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
+export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
   const now = useNow();
-  const { snoozes, snooze, unsnooze } = useSnoozes();
+  const connection = hassBox.latest?.connection;
+  const { status, snapshot, error } = useSnapshot(hassBox, connection);
+  if (snapshot) onSnapshot?.(snapshot);
 
   // `useState` returns the current value and a setter. Calling the setter
   // re-renders this component with the new value.
@@ -63,132 +62,96 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
     ? selected
     : (config.show_tabs[0] ?? config.default_tab);
 
-  // Integration mode: the server already did the analysis (and holds the
-  // snoozes), so the browser only reads the sensor's attributes.
-  const integrationMode = config.source === 'integration';
-  const integration = useMemo(
-    () => (integrationMode ? readIntegration(hass, config.integration_entity) : undefined),
-    [integrationMode, hass, config.integration_entity],
+  const devices = useMemo(() => snapshot?.devices ?? [], [snapshot]);
+  const rules = useMemo(
+    () => snapshot?.config ?? { battery_warning: 30, battery_critical: 15 },
+    [snapshot],
   );
 
-  // The thresholds and per-device settings the rules run with. In
-  // integration mode they come from the integration, so rows, counts and
-  // action labels agree with the header it computed. The card's own YAML
-  // keeps only its presentation keys (title, tabs, row cap, sort, grouping).
-  const rules = useMemo<ResolvedConfig>(
-    () => (integration?.config ? { ...config, ...integration.config } : config),
-    [integration, config],
-  );
-
-  // Standalone: first pass decides which devices look quiet from frontend data alone...
-  const firstPass = useMemo(
-    () => (integrationMode ? [] : analyseDevices(hass, config, { now, enhancers, snoozes })),
-    [integrationMode, hass, config, now, enhancers, snoozes],
-  );
-  // ...those are the only entities worth asking the server about...
-  const candidates = useMemo(() => lastReportedCandidates(firstPass, hass), [firstPass, hass]);
-  const lastReported = useLastReported(hass, candidates);
-  // ...and the answers feed the real analysis. Same function, one more input.
-  const devices = useMemo(() => {
-    if (integrationMode) return integration?.devices ?? [];
-    return lastReported.size === 0
-      ? firstPass
-      : analyseDevices(hass, config, { now, enhancers, snoozes, lastReported });
-  }, [
-    integrationMode,
-    integration,
-    firstPass,
-    hass,
-    config,
-    now,
-    enhancers,
-    snoozes,
-    lastReported,
-  ]);
-
-  // Battery sensors with a numeric level are candidates for drain estimates.
-  const batteryEntities = useMemo<BatteryEntity[]>(
+  // Sparkline history for the batteries on screen, from the integration.
+  const requests = useMemo<HistoryRequest[]>(
     () =>
       devices.flatMap((d) =>
         d.battery?.level !== undefined
-          ? [
-              {
-                entityId: d.battery.entityId,
-                level: d.battery.level,
-                days:
-                  settingsForDevice(config, d.deviceId)?.sparkline_days ?? config.sparkline_days,
-              },
-            ]
+          ? [{ entityId: d.battery.entityId, days: config.sparkline_days }]
           : [],
       ),
-    [devices, config],
+    [devices, config.sparkline_days],
   );
-  const drains = useDrainEstimates(hass, batteryEntities);
+  const histories = useHistory(
+    hassBox,
+    requests,
+    config.show_sparklines || config.battery_sort === 'replace_soon',
+  );
 
-  const batteries = useMemo(() => batteryList(devices, rules, drains), [devices, rules, drains]);
+  const batteries = useMemo(
+    () => batteryList(devices, rules, config.battery_sort, histories),
+    [devices, rules, config.battery_sort, histories],
+  );
   const problemBatteries = useMemo(
     () => batteries.filter((d) => batterySeverity(d.battery, rules) !== 'ok'),
     [batteries, rules],
   );
   const shownBatteries = config.problems_only ? problemBatteries : batteries;
   const connectivity = useMemo(() => connectivityList(devices), [devices]);
-  const actions = useMemo(() => actionList(devices, rules), [devices, rules]);
-  const summary = useMemo(() => summarise(devices, rules), [devices, rules]);
   const snoozed = useMemo(() => devices.filter((d) => d.snoozedUntil), [devices]);
+  const byId = useMemo(() => new Map(devices.map((d) => [d.deviceId, d])), [devices]);
 
-  // Snoozes: browser-local in standalone mode, shared via the integration's
-  // services in integration mode (the sensor then reports them back).
+  // Snoozes and replacements are the integration's business: one service
+  // call, and the next snapshot shows the result everywhere.
   const handleSnooze = useCallback(
     (device: DeviceHealth, days: number) => {
-      if (integrationMode) {
-        void callPulseCheck(hass, 'snooze', { device_id: device.deviceId, days });
-      } else {
-        snooze(device.deviceId, days);
-      }
+      void callPulseCheck(hassBox.latest, 'snooze', { device_id: device.deviceId, days });
     },
-    [integrationMode, hass, snooze],
+    [hassBox],
   );
   const handleUnsnooze = useCallback(
     (device: DeviceHealth) => {
-      if (integrationMode) {
-        void callPulseCheck(hass, 'unsnooze', { device_id: device.deviceId });
-      } else {
-        unsnooze(device.deviceId);
-      }
+      void callPulseCheck(hassBox.latest, 'unsnooze', { device_id: device.deviceId });
     },
-    [integrationMode, hass, unsnooze],
+    [hassBox],
   );
-  // "Done" on the Actions tab records a replacement or charge. Only the
-  // integration can remember that, so standalone mode does not offer it.
   const handleDone = useCallback(
     (device: DeviceHealth, kind: ActionKind) => {
       const service = kind === 'charge' ? 'mark_charged' : 'mark_replaced';
-      void callPulseCheck(hass, service, { device_id: device.deviceId });
+      void callPulseCheck(hassBox.latest, service, { device_id: device.deviceId });
     },
-    [hass],
+    [hassBox],
   );
 
+  if (status !== 'ready' || !snapshot) {
+    return (
+      <div className="card">
+        {status === 'loading' && (
+          <EmptyState emoji="⏳" lead="Connecting to Pulse Check" detail="One moment." />
+        )}
+        {status === 'missing' && (
+          <EmptyState
+            emoji="🔌"
+            lead="Pulse Check integration not found"
+            detail="This card needs the Pulse Check integration. Install it, add it under Settings → Devices & services, then reload this page."
+          />
+        )}
+        {status === 'error' && (
+          <EmptyState
+            emoji="⚠️"
+            lead="Could not reach Pulse Check"
+            detail={error ?? 'The subscription failed.'}
+          />
+        )}
+      </div>
+    );
+  }
+
+  const { summary, actions } = snapshot;
   const tabCounts: Record<TabId, number> = {
     batteries: summary.lowBatteries,
     connectivity: connectivity.length,
     actions: actions.replace.length + actions.charge.length,
   };
-
   const headlineSeverity =
     summary.critical > 0 ? 'critical' : summary.warning > 0 ? 'warning' : 'ok';
   const detail = breakdown(summary);
-
-  if (integrationMode && integration === undefined) {
-    return (
-      <div className="card">
-        <EmptyState
-          emoji="🔌"
-          lead="Pulse Check integration not found"
-          detail={`No ${config.integration_entity}. Install the integration, or set source: standalone.`}
-        />
-      </div>
-    );
-  }
 
   const rowProps = {
     now,
@@ -257,7 +220,7 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
                   device={d}
                   severity={batterySeverity(d.battery, rules)}
                   mode="battery"
-                  history={d.battery ? drains?.get(d.battery.entityId) : undefined}
+                  history={d.battery ? histories?.get(d.battery.entityId) : undefined}
                   sparkline={config.show_sparklines}
                   {...rowProps}
                 />
@@ -291,11 +254,7 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
           ))}
 
         {activeTab === 'actions' && (
-          <ActionsTab
-            actions={actions}
-            onDone={integrationMode ? handleDone : undefined}
-            {...rowProps}
-          />
+          <ActionsTab actions={actions} devices={byId} onDone={handleDone} {...rowProps} />
         )}
       </div>
 

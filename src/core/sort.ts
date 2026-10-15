@@ -6,9 +6,9 @@
  *                     quietest. Healthy devices are left out, because a list
  *                     of 80 fine devices hides the 3 that matter.
  */
-import type { ResolvedConfig } from '../card/config';
+import type { BatterySort } from '../card/config';
 import type { DrainEstimate } from './drain';
-import { batterySeverity, SEVERITY_RANK } from './thresholds';
+import { batterySeverity, SEVERITY_RANK, type Thresholds } from './thresholds';
 import type { DeviceHealth } from './types';
 
 /**
@@ -29,17 +29,20 @@ function byName(a: DeviceHealth, b: DeviceHealth): number {
 /** Battery history (points + optional drain estimate) keyed by battery entity id. */
 export type DrainMap = ReadonlyMap<string, { estimate?: DrainEstimate | undefined }>;
 
-function drainFor(device: DeviceHealth, drains: DrainMap | undefined): DrainEstimate | undefined {
+/** Days left for "replace soon": the history's fit, else the integration's own estimate. */
+function daysLeftFor(device: DeviceHealth, drains: DrainMap | undefined): number | undefined {
   const id = device.battery?.entityId;
-  return id ? drains?.get(id)?.estimate : undefined;
+  const fitted = id ? drains?.get(id)?.estimate?.daysLeft : undefined;
+  return fitted ?? device.daysLeft;
 }
 
 export function batteryList(
   devices: DeviceHealth[],
-  config: ResolvedConfig,
+  thresholds: Thresholds,
+  sort: BatterySort = 'level',
   drains?: DrainMap,
 ): DeviceHealth[] {
-  const useDrain = config.battery_sort === 'replace_soon' && drains !== undefined;
+  const useDrain = sort === 'replace_soon';
 
   return devices
     .filter((d) => d.battery !== undefined)
@@ -47,8 +50,8 @@ export function batteryList(
       // Worst battery severity first: a critical battery is urgent whatever
       // the trend says.
       const sev =
-        SEVERITY_RANK[batterySeverity(b.battery, config)] -
-        SEVERITY_RANK[batterySeverity(a.battery, config)];
+        SEVERITY_RANK[batterySeverity(b.battery, thresholds)] -
+        SEVERITY_RANK[batterySeverity(a.battery, thresholds)];
       if (sev !== 0) return sev;
 
       // A charging device is being dealt with: after the others in its band.
@@ -59,8 +62,8 @@ export function batteryList(
       // "Replace soon": fewest days left first. Devices without an estimate
       // come after those with one, ordered by level.
       if (useDrain) {
-        const da = drainFor(a, drains)?.daysLeft;
-        const db = drainFor(b, drains)?.daysLeft;
+        const da = daysLeftFor(a, drains);
+        const db = daysLeftFor(b, drains);
         if (da !== undefined && db !== undefined && da !== db) return da - db;
         if (da !== undefined && db === undefined) return -1;
         if (da === undefined && db !== undefined) return 1;

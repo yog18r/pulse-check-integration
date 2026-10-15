@@ -6,8 +6,7 @@
  * announced as clickable. Tapping it opens the device in Home Assistant.
  * The snooze control sits beside it as a separate button.
  */
-import type { BatteryHistory } from '../card/statistics';
-import { formatDaysLeft } from '../core/drain';
+import { formatDaysLeft, type BatteryHistory } from '../core/drain';
 import { formatHours, formatRelative } from '../core/time';
 import type { DeviceHealth, Severity } from '../core/types';
 import { BatteryBar } from './BatteryBar';

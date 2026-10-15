@@ -4,10 +4,10 @@
  * the way HA uses it: create it, call setConfig, assign hass, look inside
  * the shadow root.
  */
+import { act, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act } from '@testing-library/react';
 import { PulseCheckCardElement } from '../../src/card/PulseCheckCardElement';
-import { buildHass, FIXED_NOW } from '../fixtures/hass';
+import { fakeHass } from '../fixtures/snapshot';
 
 if (!customElements.get('pulse-check-card-test')) {
   customElements.define('pulse-check-card-test', PulseCheckCardElement);
@@ -25,52 +25,53 @@ afterEach(() => {
 });
 
 describe('PulseCheckCardElement', () => {
-  it('renders into its shadow root once it has config and hass', () => {
+  it('renders the subscription into its shadow root once it has config and hass', async () => {
     const el = mount({ type: 'custom:pulse-check-card', title: 'Shadow' });
     expect(el.shadowRoot?.querySelector('.card')).toBeNull(); // no hass yet
+    const fake = fakeHass();
     act(() => {
-      el.hass = buildHass(FIXED_NOW);
+      el.hass = fake.hass;
+    });
+    await waitFor(() => {
+      expect(el.shadowRoot?.querySelectorAll('.row').length).toBeGreaterThan(0);
     });
     expect(el.shadowRoot?.querySelector('.title')?.textContent).toBe('Shadow');
-    expect(el.shadowRoot?.querySelectorAll('.row').length).toBeGreaterThan(0);
+    expect(el.getCardSize()).toBeGreaterThan(2);
   });
 
   it('throws a readable error for bad config', () => {
-    expect(() => mount({ battery_warning: 'lots' })).toThrow(/battery_warning/);
+    expect(() => mount({ group_by: 'colour' })).toThrow(/group_by/);
   });
 
-  it('does not re-render when an irrelevant entity changes', () => {
+  it('does not re-render for new hass objects on the same connection', async () => {
     const el = mount({ type: 'custom:pulse-check-card' });
-    const first = buildHass(FIXED_NOW);
+    const fake = fakeHass();
     act(() => {
-      el.hass = first;
+      el.hass = fake.hass;
     });
-    const root = el.shadowRoot!;
-    const rowsBefore = root.querySelector('.rows');
-
-    // Same registries, one unrelated template sensor ticks: same fingerprint.
-    const noise = {
-      ...first,
-      states: {
-        ...first.states,
-        'sensor.random_template': { ...first.states['sensor.random_template']!, state: '43' },
-      },
-    };
+    await waitFor(() => {
+      expect(el.shadowRoot?.querySelector('.row')).not.toBeNull();
+    });
     const renderSpy = vi.spyOn(el as unknown as { render: () => void }, 'render');
     act(() => {
-      el.hass = noise;
+      el.hass = { ...fake.hass }; // HA does this several times a second
     });
     expect(renderSpy).not.toHaveBeenCalled();
-    expect(root.querySelector('.rows')).toBe(rowsBefore);
+    expect(el.hass).not.toBe(fake.hass); // but the latest hass is kept for service calls
   });
 
-  it('reports a card size that grows with the rows', () => {
+  it('unsubscribes when removed from the page', async () => {
     const el = mount({ type: 'custom:pulse-check-card' });
-    expect(el.getCardSize()).toBe(3);
+    const fake = fakeHass();
     act(() => {
-      el.hass = buildHass(FIXED_NOW);
+      el.hass = fake.hass;
     });
-    expect(el.getCardSize()).toBeGreaterThan(3);
-    expect(el.getGridOptions()).toEqual({ columns: 12, min_columns: 6, rows: 'auto' });
+    await waitFor(() => {
+      expect(fake.subscribed()).toBe(true);
+    });
+    act(() => {
+      el.remove();
+    });
+    expect(fake.unsubscribe).toHaveBeenCalledOnce();
   });
 });

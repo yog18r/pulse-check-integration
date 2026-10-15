@@ -4,14 +4,16 @@
  *
  * HA's contract for an editor element:
  *   setConfig(config)   the current raw config
- *   hass = ...          same as the card (we don't need it, but HA sets it)
+ *   hass = ...          same as the card
  *   fire "config-changed" with { config } whenever the user changes something
  *
- * Like the card itself it is a thin shell around a React tree.
+ * Like the card itself it is a thin shell around a React tree. The
+ * presentation options go into the card's YAML through `config-changed`;
+ * the per-device settings panel talks to the integration directly.
  */
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import type { HassLike } from '../core/types';
+import type { HassLike, HassBox } from '../core/types';
 import { EditorForm } from '../ui/EditorForm';
 import styles from '../ui/editor.css?inline';
 import type { CardConfig } from './config';
@@ -20,7 +22,7 @@ export class PulseCheckCardEditor extends HTMLElement {
   private readonly mountPoint: HTMLDivElement;
   private reactRoot: Root | null = null;
   private config: CardConfig = {};
-  private _hass: HassLike | undefined = undefined;
+  private readonly hassBox: HassBox = { latest: undefined };
 
   private readonly handleChange = (config: CardConfig): void => {
     this.config = config;
@@ -50,18 +52,20 @@ export class PulseCheckCardEditor extends HTMLElement {
   }
 
   set hass(hass: HassLike | undefined) {
-    // Only the registries matter to the editor (for its pickers), and HA
-    // replaces those objects when they change, so re-render on identity.
+    const previous = this.hassBox.latest;
+    this.hassBox.latest = hass;
+    // The registries feed the device picker and HA replaces those objects
+    // when they change; the connection feeds the settings panel.
     const changed =
-      this._hass?.entities !== hass?.entities ||
-      this._hass?.devices !== hass?.devices ||
-      this._hass?.areas !== hass?.areas;
-    this._hass = hass;
+      previous?.entities !== hass?.entities ||
+      previous?.devices !== hass?.devices ||
+      previous?.areas !== hass?.areas ||
+      previous?.connection !== hass?.connection;
     if (changed) this.render();
   }
 
   get hass(): HassLike | undefined {
-    return this._hass;
+    return this.hassBox.latest;
   }
 
   connectedCallback(): void {
@@ -80,7 +84,8 @@ export class PulseCheckCardEditor extends HTMLElement {
       createElement(EditorForm, {
         config: this.config,
         onChange: this.handleChange,
-        hass: this._hass,
+        hass: this.hassBox.latest,
+        hassBox: this.hassBox,
       }),
     );
   }

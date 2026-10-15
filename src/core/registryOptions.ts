@@ -1,12 +1,21 @@
 /**
- * Option lists for the visual editor, derived from the registries.
+ * Option lists for the visual editor's device picker, derived from the
+ * registries.
  *
  * The editor gets the same `hass` object as the card, so instead of asking
- * users to paste device ids and integration names it can offer dropdowns
- * of what actually exists in their instance. Pure functions, unit tested.
+ * users to paste device ids it can offer a searchable list of what actually
+ * exists in their instance. Pure functions, unit tested.
  */
-import { isIgnorableDevice, ORPHAN_PREFIX } from './group';
-import type { HassLike } from './types';
+import { ORPHAN_PREFIX, type HassDeviceRegistryEntry, type HassLike } from './types';
+
+/**
+ * Devices we never offer:
+ *  - "service" devices are virtual (Sun, Forecast, Backup...)
+ *  - disabled devices were switched off deliberately by the user
+ */
+export function isIgnorableDevice(device: HassDeviceRegistryEntry): boolean {
+  return device.entry_type === 'service' || device.disabled_by !== null;
+}
 
 export interface IntegrationOption {
   /** The platform id used in config, e.g. "zwave_js". */

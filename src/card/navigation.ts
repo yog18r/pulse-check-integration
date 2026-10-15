@@ -9,8 +9,7 @@
  *
  * Both are plain DOM events, so the demo page can listen for them too.
  */
-import { ORPHAN_PREFIX } from '../core/group';
-import type { DeviceHealth } from '../core/types';
+import { ORPHAN_PREFIX, type DeviceHealth } from '../core/types';
 
 export function navigateTo(path: string): void {
   history.pushState(null, '', path);

@@ -1,123 +1,76 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CONFIG } from '../../src/card/config';
-import { analyseDevices } from '../../src/core/analyse';
-import { ORPHAN_PREFIX } from '../../src/core/group';
+import { parseSnapshot } from '../../src/card/snapshot';
 import { batteryList, connectivityList, sortableBatteryLevel } from '../../src/core/sort';
 import type { DeviceHealth } from '../../src/core/types';
-import { DEV, FIXED_NOW, hass } from '../fixtures/hass';
+import { SNAPSHOT_PAYLOAD } from '../fixtures/snapshot';
 
-const devices = analyseDevices(hass, DEFAULT_CONFIG, { now: FIXED_NOW });
+const snapshot = parseSnapshot(SNAPSHOT_PAYLOAD);
+const { devices, config: thresholds } = snapshot;
+const names = (list: DeviceHealth[]) => list.map((d) => d.name);
 
 describe('batteryList', () => {
-  it('includes only devices with a battery reading, lowest first', () => {
-    const ids = batteryList(devices, DEFAULT_CONFIG).map((d) => d.deviceId);
-    expect(ids).toEqual([
-      DEV.smokeAlarm, // binary low: critical, sorts above every number
-      ORPHAN_PREFIX + 'sensor.remote_battery_template', // 9%
-      DEV.z2mMotion, // 12%
-      DEV.zhaTemp, // 28%
-      DEV.matterContact, // 40%
-      DEV.legacyTracker, // 44%
-      DEV.zwaveMulti, // 55%
-      DEV.phone, // 71%
-      DEV.z2mDoor, // 87%
-      DEV.shellyHt, // 92%
-      DEV.vacuum, // 18% but charging: last in its band
+  it('shows every battery device, worst severity first, then lowest level', () => {
+    const list = names(batteryList(devices, thresholds));
+    expect(list).toEqual([
+      'Hallway Smoke Alarm', // binary low: critical, sorts above every level
+      'TV Remote Battery', // 9 %
+      'Living Room Motion', // 12 %
+      'Bedroom Temp & Humidity', // 28 %, warning
+      'Window Sensor', // 40 %
+      'Dog Collar Tracker', // 44 %
+      'Garage Multisensor', // 55 %
+      'Pixel 9', // 71 %
+      'Front Door Sensor', // 87 %
+      'Kitchen H&T', // 92 %
+      'Mr Roboto', // 18 % but charging: last
     ]);
-    // The offline lock has an unavailable battery sensor, so no reading.
-    expect(ids).not.toContain(DEV.zwaveLock);
-    expect(ids).not.toContain(DEV.esphomePlant);
-  });
-});
-
-describe('batteryList with battery_sort: replace_soon', () => {
-  const config = { ...DEFAULT_CONFIG, battery_sort: 'replace_soon' as const };
-  const drains = new Map([
-    // Window sensor (40%) will die well before the Shelly H&T (92%).
-    ['sensor.window_sensor_battery', { estimate: { ratePerDay: 4, daysLeft: 10, samples: 14 } }],
-    ['sensor.kitchen_ht_battery', { estimate: { ratePerDay: 1, daysLeft: 92, samples: 14 } }],
-    // The 87% door sensor is draining fastest of all.
-    ['sensor.front_door_battery', { estimate: { ratePerDay: 20, daysLeft: 4, samples: 14 } }],
-  ]);
-
-  it('orders healthy devices by days left, estimates before unknowns', () => {
-    const ids = batteryList(devices, config, drains).map((d) => d.deviceId);
-    const okOnly = ids.slice(4); // the four critical/warning rows stay on top
-    expect(okOnly.slice(0, 3)).toEqual([DEV.z2mDoor, DEV.matterContact, DEV.shellyHt]);
-    // Everything without an estimate follows, still by level; charging last.
-    expect(okOnly.slice(3)).toEqual([DEV.legacyTracker, DEV.zwaveMulti, DEV.phone, DEV.vacuum]);
   });
 
-  it('never reorders across severity bands', () => {
-    const ids = batteryList(devices, config, drains).map((d) => d.deviceId);
-    expect(ids.slice(0, 4)).toEqual(
-      batteryList(devices, DEFAULT_CONFIG)
-        .map((d) => d.deviceId)
-        .slice(0, 4),
-    );
+  it('replace_soon puts the fewest days left first, using the integration estimates', () => {
+    const withDays = devices.map((d) => (d.name === 'Window Sensor' ? { ...d, daysLeft: 3 } : d));
+    const list = names(batteryList(withDays, thresholds, 'replace_soon'));
+    // Critical rows stay on top; within the ok band the 40 % sensor with
+    // 3 days left now beats the 44 % tracker without an estimate.
+    expect(list.indexOf('Window Sensor')).toBeLessThan(list.indexOf('Dog Collar Tracker'));
+    expect(list.slice(0, 3)).toEqual([
+      'Hallway Smoke Alarm',
+      'TV Remote Battery',
+      'Living Room Motion',
+    ]);
   });
 
-  it('is identical to level sorting when no drain data is given', () => {
-    expect(batteryList(devices, config)).toEqual(batteryList(devices, DEFAULT_CONFIG));
+  it('prefers a fetched history estimate over the snapshot one', () => {
+    const drains = new Map([
+      ['sensor.kitchen_ht_battery', { estimate: { ratePerDay: 50, daysLeft: 1, samples: 5 } }],
+    ]);
+    const list = names(batteryList(devices, thresholds, 'replace_soon', drains));
+    expect(list[3]).toBe('Bedroom Temp & Humidity'); // still the only warning
+    expect(list[4]).toBe('Kitchen H&T'); // 1 day left beats every ok level
+  });
+
+  it('sortableBatteryLevel puts binary low first and binary ok last', () => {
+    const low = devices.find((d) => d.name === 'Hallway Smoke Alarm')!;
+    expect(sortableBatteryLevel(low)).toBe(-1);
+    expect(sortableBatteryLevel({ ...low, battery: { ...low.battery!, isLow: false } })).toBe(101);
+    const noBattery = { ...low };
+    delete noBattery.battery;
+    expect(sortableBatteryLevel(noBattery)).toBe(Number.POSITIVE_INFINITY);
   });
 });
 
 describe('connectivityList', () => {
-  it('lists only offline or quiet devices, offline first then oldest contact', () => {
-    const ids = connectivityList(devices).map((d) => d.deviceId);
-    expect(ids).toEqual([
-      DEV.zwaveLock, // offline
-      DEV.zwaveMulti, // quiet 40h
-      DEV.zhaTemp, // quiet 30h
+  it('lists only problems: offline first, then the quietest', () => {
+    expect(names(connectivityList(devices))).toEqual([
+      'Front Door Lock', // offline
+      'Garage Multisensor', // quiet 40 h
+      'Bedroom Temp & Humidity', // quiet 30 h
     ]);
-    // Mains devices (Shelly plug 72h, MQTT light 50h) are not quiet by default.
-    expect(ids).not.toContain(DEV.shellyPlug);
-    expect(ids).not.toContain(DEV.mqttLight);
   });
 
-  it('leaves snoozed devices off the list', () => {
+  it('leaves snoozed devices out', () => {
     const snoozed = devices.map((d) =>
-      d.deviceId === DEV.zwaveLock ? { ...d, snoozedUntil: new Date('2027-01-01') } : d,
+      d.name === 'Front Door Lock' ? { ...d, snoozedUntil: new Date('2027-01-01') } : d,
     );
-    expect(connectivityList(snoozed).map((d) => d.deviceId)).toEqual([DEV.zwaveMulti, DEV.zhaTemp]);
-  });
-});
-
-describe('sortableBatteryLevel', () => {
-  const base: DeviceHealth = {
-    deviceId: 'x',
-    name: 'x',
-    integration: 'zha',
-    isOffline: false,
-    isQuiet: false,
-    quietThresholdHours: 24,
-    severity: 'ok',
-    extras: [],
-    deviceType: 'other',
-    entityIds: [],
-  };
-
-  it('orders binary low < any number < binary ok < no battery', () => {
-    const low = sortableBatteryLevel({
-      ...base,
-      battery: { isLow: true, source: 'binary', entityId: 'b' },
-    });
-    const zero = sortableBatteryLevel({
-      ...base,
-      battery: { level: 0, isLow: false, source: 'sensor', entityId: 's' },
-    });
-    const full = sortableBatteryLevel({
-      ...base,
-      battery: { level: 100, isLow: false, source: 'sensor', entityId: 's' },
-    });
-    const ok = sortableBatteryLevel({
-      ...base,
-      battery: { isLow: false, source: 'binary', entityId: 'b' },
-    });
-    const none = sortableBatteryLevel(base);
-    expect(low).toBeLessThan(zero);
-    expect(zero).toBeLessThan(full);
-    expect(full).toBeLessThan(ok);
-    expect(ok).toBeLessThan(none);
+    expect(names(connectivityList(snoozed))).not.toContain('Front Door Lock');
   });
 });

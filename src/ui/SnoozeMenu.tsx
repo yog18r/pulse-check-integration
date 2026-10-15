@@ -5,7 +5,9 @@
  * a small inline menu; closes on choice, Escape or blur.
  */
 import { useState } from 'react';
-import { SNOOZE_CHOICES_DAYS } from '../card/snoozeStore';
+
+/** Options offered in the menu, in days. */
+export const SNOOZE_CHOICES_DAYS = [1, 7, 30] as const;
 
 interface Props {
   deviceName: string;

@@ -49,7 +49,7 @@ export default defineConfig({
     setupFiles: ['test/setup.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/core/**', 'src/enhancers/**', 'src/card/config.ts'],
+      include: ['src/core/**', 'src/card/**'],
     },
   },
 });

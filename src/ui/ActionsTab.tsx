@@ -4,53 +4,67 @@
  *   To buy      4 × AAA · 1 × CR2450 · 1 × unknown
  *   Replace     one row per device, "Replace 2 × AA in …"
  *   Charge      one row per rechargeable device, "Charge …"
+ *
+ * The list comes from the integration; each item names a device by id,
+ * which is looked up in the snapshot's device list for the row.
  */
-import type { ActionItem, ActionKind, ActionList } from '../core/actions';
-import { UNKNOWN_BATTERY_TYPE } from '../core/actions';
+import {
+  UNKNOWN_BATTERY_TYPE,
+  type ActionItem,
+  type ActionKind,
+  type ActionList,
+} from '../core/actions';
 import type { DeviceHealth } from '../core/types';
 import { DeviceRow } from './DeviceRow';
 import { EmptyState } from './EmptyState';
 
 interface Props {
   actions: ActionList;
+  devices: ReadonlyMap<string, DeviceHealth>;
   now: Date;
   onOpen?: ((device: DeviceHealth) => void) | undefined;
   onSnooze?: ((device: DeviceHealth, days: number) => void) | undefined;
   onUnsnooze?: ((device: DeviceHealth) => void) | undefined;
-  /** Integration mode: record a replacement or charge for this item. */
+  /** "I did it": records a replacement or charge with the integration. */
   onDone?: ((device: DeviceHealth, kind: ActionKind) => void) | undefined;
 }
 
 function Section({
   title,
   items,
+  devices,
   onDone,
   rowProps,
 }: {
   title: string;
   items: ActionItem[];
+  devices: ReadonlyMap<string, DeviceHealth>;
   onDone: Props['onDone'];
-  rowProps: Omit<Props, 'actions' | 'onDone'>;
+  rowProps: Omit<Props, 'actions' | 'devices' | 'onDone'>;
 }) {
-  if (items.length === 0) return null;
+  const rows = items.flatMap((item) => {
+    const device = devices.get(item.deviceId);
+    return device ? [{ item, device }] : [];
+  });
+  if (rows.length === 0) return null;
   return (
     <section className="group">
       <h3 className="groupTitle">
         {title}
-        <span className="count">{items.length}</span>
+        <span className="count">{rows.length}</span>
       </h3>
       <ul className="rows">
-        {items.map((item) => (
+        {rows.map(({ item, device }) => (
           <DeviceRow
-            key={item.device.deviceId}
-            device={item.device}
+            key={device.deviceId}
+            device={device}
             severity={item.severity}
             mode="battery"
             sparkline={false}
             action={item.label}
             onDone={
               onDone
-                ? (device) => {
+                ? () => {
                     onDone(device, item.kind);
                   }
                 : undefined
@@ -63,7 +77,7 @@ function Section({
   );
 }
 
-export function ActionsTab({ actions, onDone, ...rowProps }: Props) {
+export function ActionsTab({ actions, devices, onDone, ...rowProps }: Props) {
   const { replace, charge, shopping } = actions;
 
   if (replace.length === 0 && charge.length === 0) {
@@ -94,12 +108,24 @@ export function ActionsTab({ actions, onDone, ...rowProps }: Props) {
       )}
       {hasUnknown && (
         <p className="hint tobuyhint">
-          Set the battery type and count under <code>device_settings</code> (or in the visual
-          editor) to make the list exact.
+          Set the battery type and count in the card editor (Per-device settings) to make the list
+          exact.
         </p>
       )}
-      <Section title="Replace" items={replace} onDone={onDone} rowProps={rowProps} />
-      <Section title="Charge" items={charge} onDone={onDone} rowProps={rowProps} />
+      <Section
+        title="Replace"
+        items={replace}
+        devices={devices}
+        onDone={onDone}
+        rowProps={rowProps}
+      />
+      <Section
+        title="Charge"
+        items={charge}
+        devices={devices}
+        onDone={onDone}
+        rowProps={rowProps}
+      />
     </div>
   );
 }

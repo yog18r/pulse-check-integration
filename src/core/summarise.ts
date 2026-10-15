@@ -1,11 +1,9 @@
 /**
- * Header summary: the one-line verdict at the top of the card, plus a
- * breakdown of what kind of trouble it is.
+ * The header summary: the integration's counts, and the one-line verdict
+ * and breakdown the card makes from them.
  */
-import type { ResolvedConfig } from '../card/config';
-import { batterySeverity } from './thresholds';
-import type { DeviceHealth } from './types';
 
+/** The `summary` the integration sends. */
 export interface Summary {
   /** Devices that are warning or critical. */
   attention: number;
@@ -15,40 +13,25 @@ export interface Summary {
   batteryDevices: number;
   /** Battery-powered devices at or below the warning threshold (or binary low). */
   lowBatteries: number;
+  /** Battery-powered devices at or below the critical threshold (or binary low). */
+  criticalBatteries: number;
   offline: number;
   quiet: number;
   /** Devices the user has muted; they count in nothing else. */
   snoozed: number;
 }
 
-export function summarise(devices: DeviceHealth[], config: ResolvedConfig): Summary {
-  const summary: Summary = {
-    attention: 0,
-    critical: 0,
-    warning: 0,
-    batteryDevices: 0,
-    lowBatteries: 0,
-    offline: 0,
-    quiet: 0,
-    snoozed: 0,
-  };
-  for (const d of devices) {
-    if (d.snoozedUntil) {
-      summary.snoozed += 1;
-      continue;
-    }
-    if (d.severity === 'critical') summary.critical += 1;
-    if (d.severity === 'warning') summary.warning += 1;
-    if (d.severity !== 'ok') summary.attention += 1;
-    if (d.battery) {
-      summary.batteryDevices += 1;
-      if (batterySeverity(d.battery, config) !== 'ok') summary.lowBatteries += 1;
-    }
-    if (d.isOffline) summary.offline += 1;
-    if (d.isQuiet) summary.quiet += 1;
-  }
-  return summary;
-}
+export const EMPTY_SUMMARY: Summary = {
+  attention: 0,
+  critical: 0,
+  warning: 0,
+  batteryDevices: 0,
+  lowBatteries: 0,
+  criticalBatteries: 0,
+  offline: 0,
+  quiet: 0,
+  snoozed: 0,
+};
 
 /** Short and plain. Reads well in a screen reader too. */
 export function headline(summary: Summary): string {

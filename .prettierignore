@@ -1,4 +1,4 @@
 dist
 coverage
-# Generated file snapshots shared with the integration repo
+# A canned websocket snapshot used by the tests and the demo
 test/fixtures/*.json
