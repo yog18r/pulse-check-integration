@@ -234,6 +234,31 @@ burst of offline and quiet alerts that are expected and useless.
 - An issue first seen just before the end and confirmed after it is sent
   normally, not summarised.
 
+**Buttons on phone notifications.** The companion app turns a `data.actions`
+list into buttons and fires `mobile_app_notification_action` with the
+pressed button's `action` identifier.
+
+- Only legacy `notify.mobile_app_*` service targets get them; notify
+  entities have no data field, and other services would not understand it.
+  Only instant messages and reminders: a digest is about many devices.
+- Battery issues: Mark replaced / Mark charged (from the device's
+  `rechargeable` setting), plus Remind me later; offline and quiet:
+  Snooze 1 day. At most two buttons, under Android's limit of three.
+- The device id is carried in the identifier
+  (`PULSE_CHECK_<VERB>:<device id>`, split at the first colon because
+  `entity:` ids contain one). iOS `action_data` and Android's echoed data
+  fields each work on one platform only; the identifier comes back on both,
+  the docs give no length limit, and unique identifiers are what the docs
+  recommend anyway.
+- A listener, filtered to our prefix before any task is created, calls
+  the matching service with the event's context, so a button and an
+  automation behave the same and the logbook shows who pressed it. A
+  stale button for a removed device logs a warning.
+- Remind me later is a no-op by design: reminders already repeat, and
+  touching `notified_at` would shift the schedule. It is offered only when
+  reminders are on and the message is not the last reminder.
+- Checked against the companion app's documentation only, not on a phone.
+
 ## Still open
 
 - Translations beyond English; HACS default-store submission once released.

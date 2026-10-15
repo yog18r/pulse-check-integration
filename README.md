@@ -246,6 +246,19 @@ Each device has a policy: **instant** (sent at once, then a reminder every few d
 
 A digest whose time passes while Home Assistant is off, or still starting, is not lost. The integration stores when each digest was last due and dealt with, whether or not there was anything to say. When the quiet period after the next start ends, a digest that has fallen due since then is sent once, with what is wrong at that moment, however many were missed; then the normal schedule resumes. The same rules apply as at the usual time: nothing is sent when there is nothing to say, unless the weekly "all clear" is on. A new install starts counting from the moment it is set up, so it never sends a digest for a time before that.
 
+### Buttons on phone notifications
+
+A target that is a companion-app service (`notify.mobile_app_<phone>`, iOS or Android) gets buttons on instant notifications and reminders:
+
+| Problem | Buttons |
+| --- | --- |
+| Battery low or critical | **Mark replaced** (or **Mark charged** for a device set as rechargeable), **Remind me later** |
+| Offline or quiet | **Snooze 1 day** |
+
+Pressing one does what the service of the same name does, for that device, without opening the app. **Remind me later** changes nothing: the reminder comes when it was due anyway, so it is only offered when another reminder will actually follow. Digests and the maintenance summary cover many devices and have no buttons. Every other target (notify entities, e-mail, Telegram, a notify group) gets the plain message as before.
+
+The buttons follow the companion app's [actionable notifications](https://companion.home-assistant.io/docs/notifications/actionable-notifications/): each has an `action` identifier of the form `PULSE_CHECK_SNOOZE_DAY:<device id>`, and the app fires `mobile_app_notification_action` with it when pressed. Your own automations can listen for the same event.
+
 ### Maintenance mode
 
 Some jobs knock many devices over at once on purpose: moving to a new Zigbee coordinator, re-pairing a Z-Wave network, rewiring a rack. Call `pulse_check.maintenance_mode` with the number of `hours` the work should take (or leave it out for the default in the options) and Pulse Check holds every message back until then: no instant notifications, no reminders, no digests. Everything else carries on. Problems are still tracked, the event below still fires (with `maintenance: true`), the card shows a line in its header, and `binary_sensor.pulse_check_maintenance_mode` is on with the end time in its `until` attribute. Calling it again moves the end; `hours: 0` ends it now. The window is stored, so a restart in the middle of the work keeps it, and one that ends while Home Assistant is off ends at the next start.
