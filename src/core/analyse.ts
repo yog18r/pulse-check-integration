@@ -9,6 +9,7 @@ import type { ResolvedConfig } from '../card/config';
 import { applyEnhancers, type Enhancer } from '../enhancers';
 import { detectLastHeard, detectOffline, isQuiet, isStaticEntity } from './availability';
 import { detectBattery } from './battery';
+import { classifyDevice } from './deviceType';
 import {
   areaName,
   collectDeviceGroups,
@@ -171,6 +172,7 @@ export function analyseDevices(
       isQuiet: quiet,
       quietThresholdHours: quietHours,
       severity,
+      deviceType: classifyDevice(group.entities, group.states, integration),
       extras,
       entityIds: group.entities.map((e) => e.entity_id),
     };

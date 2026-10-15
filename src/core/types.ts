@@ -14,6 +14,8 @@
  * exists only at compile time; nothing is emitted to the bundle.
  */
 
+import type { DeviceType } from './deviceType';
+
 /* ------------------------------------------------------------------------ */
 /* Input: the parts of `hass` we use                                        */
 /* ------------------------------------------------------------------------ */
@@ -86,6 +88,12 @@ export interface HassLike {
   callWS?: <T>(message: Record<string, unknown>) => Promise<T>;
   /** Call HA's REST API, e.g. callApi("GET", "states/sensor.x"). Optional, like callWS. */
   callApi?: <T>(method: string, path: string) => Promise<T>;
+  /** Call a Home Assistant service. Used in integration mode for snoozes and replacements. */
+  callService?: (
+    domain: string,
+    service: string,
+    data?: Record<string, unknown>,
+  ) => Promise<unknown>;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -148,7 +156,15 @@ export interface DeviceHealth {
    */
   snoozedUntil?: Date;
   severity: Severity;
+  /** What kind of thing it is, for grouping: "lock", "motion", "phone"... */
+  deviceType: DeviceType;
   extras: EnhancerExtra[];
   /** Every entity id that belongs to this device, so the UI can drill down. */
   entityIds: string[];
+  /** Integration mode only: days until empty at the current drain rate. */
+  daysLeft?: number;
+  /** Integration mode only: when the battery was last replaced or charged. */
+  lastReplaced?: Date;
+  /** Integration mode only: a note when the battery behaves unlike its own past. */
+  unusual?: string;
 }

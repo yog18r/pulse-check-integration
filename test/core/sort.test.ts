@@ -93,6 +93,7 @@ describe('sortableBatteryLevel', () => {
     quietThresholdHours: 24,
     severity: 'ok',
     extras: [],
+    deviceType: 'other',
     entityIds: [],
   };
 

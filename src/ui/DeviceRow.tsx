@@ -32,6 +32,8 @@ interface Props {
   /** Snooze handlers. When absent the 💤 control is not rendered. */
   onSnooze?: ((device: DeviceHealth, days: number) => void) | undefined;
   onUnsnooze?: ((device: DeviceHealth) => void) | undefined;
+  /** On the Actions tab in integration mode: "I did it". Absent otherwise. */
+  onDone?: ((device: DeviceHealth) => void) | undefined;
 }
 
 function connectivityLabel(device: DeviceHealth): string {
@@ -51,8 +53,11 @@ export function DeviceRow({
   action,
   onSnooze,
   onUnsnooze,
+  onDone,
 }: Props) {
   const drain = history?.estimate;
+  // Days left: the browser's own fit when it has one, else the integration's.
+  const daysLeft = drain?.daysLeft ?? device.daysLeft;
   const lastHeard = formatRelative(device.lastHeard, now);
   const charging = device.battery?.isCharging === true;
   // Only offer snoozing where there is something to snooze.
@@ -97,6 +102,15 @@ export function DeviceRow({
                 {extra.label}: {extra.value}
               </span>
             ))}
+            {device.unusual !== undefined && (
+              <span
+                className="badge"
+                data-severity="warning"
+                title="Compared with this device's own history"
+              >
+                ⚠ {device.unusual}
+              </span>
+            )}
           </span>
         </span>
 
@@ -111,11 +125,17 @@ export function DeviceRow({
               </span>
               <span className="sub">
                 heard {lastHeard}
-                {drain && !charging && (
+                {daysLeft !== undefined && !charging && (
                   <>
                     {' · '}
-                    <span title={`Losing about ${drain.ratePerDay.toFixed(1)}% per day`}>
-                      {formatDaysLeft(drain.daysLeft)} left
+                    <span
+                      title={
+                        drain
+                          ? `Losing about ${drain.ratePerDay.toFixed(1)}% per day`
+                          : 'Estimated by the Pulse Check integration'
+                      }
+                    >
+                      {formatDaysLeft(daysLeft)} left
                     </span>
                   </>
                 )}
@@ -134,6 +154,20 @@ export function DeviceRow({
           )}
         </span>
       </button>
+
+      {onDone !== undefined && (
+        <button
+          type="button"
+          className="done"
+          aria-label={`Mark ${device.name} done`}
+          title="Record that this battery was replaced or charged"
+          onClick={() => {
+            onDone(device);
+          }}
+        >
+          ✓ Done
+        </button>
+      )}
 
       {snoozable && (
         <SnoozeMenu

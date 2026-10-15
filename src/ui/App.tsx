@@ -16,7 +16,9 @@
  */
 import { useCallback, useMemo, useState } from 'react';
 import type { ResolvedConfig, TabId } from '../card/config';
+import { callPulseCheck, readIntegration } from '../card/integration';
 import type { BatteryEntity } from '../card/statistics';
+import type { ActionKind } from '../core/actions';
 import { analyseDevices, lastReportedCandidates } from '../core/analyse';
 import { actionList } from '../core/actions';
 import { batteryList, connectivityList } from '../core/sort';
@@ -27,7 +29,7 @@ import type { DeviceHealth, HassLike } from '../core/types';
 import type { Enhancer } from '../enhancers';
 import { DeviceRow } from './DeviceRow';
 import { EmptyState } from './EmptyState';
-import { RowList } from './RowList';
+import { GroupedRows } from './GroupedRows';
 import { ActionsTab } from './ActionsTab';
 import { useDrainEstimates } from './useDrainEstimates';
 import { useLastReported } from './useLastReported';
@@ -61,22 +63,39 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
     ? selected
     : (config.show_tabs[0] ?? config.default_tab);
 
-  // First pass decides which devices look quiet from frontend data alone...
+  // Integration mode: the server already did the analysis (and holds the
+  // snoozes), so the browser only reads the sensor's attributes.
+  const integrationMode = config.source === 'integration';
+  const integration = useMemo(
+    () => (integrationMode ? readIntegration(hass, config.integration_entity) : undefined),
+    [integrationMode, hass, config.integration_entity],
+  );
+
+  // Standalone: first pass decides which devices look quiet from frontend data alone...
   const firstPass = useMemo(
-    () => analyseDevices(hass, config, { now, enhancers, snoozes }),
-    [hass, config, now, enhancers, snoozes],
+    () => (integrationMode ? [] : analyseDevices(hass, config, { now, enhancers, snoozes })),
+    [integrationMode, hass, config, now, enhancers, snoozes],
   );
   // ...those are the only entities worth asking the server about...
   const candidates = useMemo(() => lastReportedCandidates(firstPass, hass), [firstPass, hass]);
   const lastReported = useLastReported(hass, candidates);
   // ...and the answers feed the real analysis. Same function, one more input.
-  const devices = useMemo(
-    () =>
-      lastReported.size === 0
-        ? firstPass
-        : analyseDevices(hass, config, { now, enhancers, snoozes, lastReported }),
-    [firstPass, hass, config, now, enhancers, snoozes, lastReported],
-  );
+  const devices = useMemo(() => {
+    if (integrationMode) return integration?.devices ?? [];
+    return lastReported.size === 0
+      ? firstPass
+      : analyseDevices(hass, config, { now, enhancers, snoozes, lastReported });
+  }, [
+    integrationMode,
+    integration,
+    firstPass,
+    hass,
+    config,
+    now,
+    enhancers,
+    snoozes,
+    lastReported,
+  ]);
 
   // Battery sensors with a numeric level are candidates for drain estimates.
   const batteryEntities = useMemo<BatteryEntity[]>(
@@ -108,17 +127,36 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
   const summary = useMemo(() => summarise(devices, config), [devices, config]);
   const snoozed = useMemo(() => devices.filter((d) => d.snoozedUntil), [devices]);
 
+  // Snoozes: browser-local in standalone mode, shared via the integration's
+  // services in integration mode (the sensor then reports them back).
   const handleSnooze = useCallback(
     (device: DeviceHealth, days: number) => {
-      snooze(device.deviceId, days);
+      if (integrationMode) {
+        void callPulseCheck(hass, 'snooze', { device_id: device.deviceId, days });
+      } else {
+        snooze(device.deviceId, days);
+      }
     },
-    [snooze],
+    [integrationMode, hass, snooze],
   );
   const handleUnsnooze = useCallback(
     (device: DeviceHealth) => {
-      unsnooze(device.deviceId);
+      if (integrationMode) {
+        void callPulseCheck(hass, 'unsnooze', { device_id: device.deviceId });
+      } else {
+        unsnooze(device.deviceId);
+      }
     },
-    [unsnooze],
+    [integrationMode, hass, unsnooze],
+  );
+  // "Done" on the Actions tab records a replacement or charge. Only the
+  // integration can remember that, so standalone mode does not offer it.
+  const handleDone = useCallback(
+    (device: DeviceHealth, kind: ActionKind) => {
+      const service = kind === 'charge' ? 'mark_charged' : 'mark_replaced';
+      void callPulseCheck(hass, service, { device_id: device.deviceId });
+    },
+    [hass],
   );
 
   const tabCounts: Record<TabId, number> = {
@@ -130,6 +168,18 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
   const headlineSeverity =
     summary.critical > 0 ? 'critical' : summary.warning > 0 ? 'warning' : 'ok';
   const detail = breakdown(summary);
+
+  if (integrationMode && integration === undefined) {
+    return (
+      <div className="card">
+        <EmptyState
+          emoji="🔌"
+          lead="Pulse Check integration not found"
+          detail={`No ${config.integration_entity}. Install the integration, or set source: standalone.`}
+        />
+      </div>
+    );
+  }
 
   const rowProps = {
     now,
@@ -187,8 +237,9 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
               detail="Every battery is above the warning threshold."
             />
           ) : (
-            <RowList
+            <GroupedRows
               items={shownBatteries}
+              groupBy={config.group_by}
               maxRows={config.max_rows}
               resetKey="batteries"
               renderRow={(d) => (
@@ -213,8 +264,9 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
               detail="No devices are offline or unusually quiet."
             />
           ) : (
-            <RowList
+            <GroupedRows
               items={connectivity}
+              groupBy={config.group_by}
               maxRows={config.max_rows}
               resetKey="connectivity"
               renderRow={(d) => (
@@ -229,7 +281,13 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
             />
           ))}
 
-        {activeTab === 'actions' && <ActionsTab actions={actions} {...rowProps} />}
+        {activeTab === 'actions' && (
+          <ActionsTab
+            actions={actions}
+            onDone={integrationMode ? handleDone : undefined}
+            {...rowProps}
+          />
+        )}
       </div>
 
       {snoozed.length > 0 && activeTab !== 'batteries' && (

@@ -18,12 +18,15 @@ import {
   DEFAULT_CONFIG,
   QUIET_SCOPES,
   resolveConfig,
+  SOURCES,
   TAB_IDS,
   type BatterySort,
   type CardConfig,
   type QuietScope,
+  type Source,
   type TabId,
 } from '../card/config';
+import { GROUP_BYS, type GroupBy } from '../core/grouping';
 
 interface Props {
   config: CardConfig;
@@ -36,6 +39,13 @@ const TAB_LABELS: Record<TabId, string> = {
   batteries: 'Batteries',
   connectivity: 'Connectivity',
   actions: 'Actions',
+};
+
+const GROUP_LABELS: Record<GroupBy, string> = {
+  none: 'No grouping',
+  area: 'Area',
+  integration: 'Integration',
+  device_type: 'Device type',
 };
 
 /** "a, b ,c" -> ["a", "b", "c"]; blank -> undefined so the key is dropped. */
@@ -177,6 +187,55 @@ export function EditorForm({ config, onChange, hass }: Props) {
           </select>
         </label>
       </div>
+
+      <div className="grid2">
+        <label className="field">
+          <span>Data source</span>
+          <select
+            value={config.source ?? 'standalone'}
+            onChange={(e) => {
+              const v = e.target.value as Source;
+              set('source', v === 'standalone' ? undefined : v);
+            }}
+          >
+            {SOURCES.map((s) => (
+              <option key={s} value={s}>
+                {s === 'standalone' ? 'This card (standalone)' : 'Pulse Check integration'}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Group by</span>
+          <select
+            value={config.group_by ?? 'none'}
+            onChange={(e) => {
+              const v = e.target.value as GroupBy;
+              set('group_by', v === 'none' ? undefined : v);
+            }}
+          >
+            {GROUP_BYS.map((g) => (
+              <option key={g} value={g}>
+                {GROUP_LABELS[g]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {config.source === 'integration' && (
+        <label className="field">
+          <span>Integration sensor</span>
+          <input
+            type="text"
+            value={config.integration_entity ?? ''}
+            placeholder={DEFAULT_CONFIG.integration_entity}
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              set('integration_entity', v === '' ? undefined : v);
+            }}
+          />
+        </label>
+      )}
 
       <label className="field">
         <span>Battery order</span>

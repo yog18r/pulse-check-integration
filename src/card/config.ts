@@ -12,7 +12,19 @@
  * no `?? default` sprinkled through the UI.
  */
 
+import { GROUP_BYS, type GroupBy } from '../core/grouping';
+
 export const TAB_IDS = ['batteries', 'connectivity', 'actions'] as const;
+
+/**
+ * Where the device list comes from.
+ *  - standalone: analysed in the browser from `hass` (the default; no backend needed)
+ *  - integration: read from the Pulse Check integration's sensor, which also
+ *    brings days-left, replacement history and shared snoozes
+ */
+export const SOURCES = ['standalone', 'integration'] as const;
+export type Source = (typeof SOURCES)[number];
+export const DEFAULT_INTEGRATION_ENTITY = 'sensor.pulse_check_attention';
 
 /**
  * How the Batteries tab is ordered.
@@ -89,6 +101,12 @@ export interface CardConfig {
   include_integrations?: string[];
   show_tabs?: TabId[];
   default_tab?: TabId;
+  /** "standalone" (default) or "integration". See `Source`. */
+  source?: Source;
+  /** The integration's sensor to read in integration mode. */
+  integration_entity?: string;
+  /** Split the lists into sections: none, area, integration or device_type. */
+  group_by?: GroupBy;
 }
 
 /** Fully resolved config with defaults applied. */
@@ -113,6 +131,9 @@ export interface ResolvedConfig {
   include_integrations: string[];
   show_tabs: TabId[];
   default_tab: TabId;
+  source: Source;
+  integration_entity: string;
+  group_by: GroupBy;
 }
 
 export const DEFAULT_CONFIG: ResolvedConfig = {
@@ -136,6 +157,9 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
   include_integrations: [],
   show_tabs: ['batteries', 'connectivity'],
   default_tab: 'batteries',
+  source: 'standalone',
+  integration_entity: DEFAULT_INTEGRATION_ENTITY,
+  group_by: 'none',
 };
 
 /** Thrown for bad config. A separate class lets callers tell it apart from bugs. */
@@ -435,6 +459,34 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     default_tab = rawDefault;
   }
 
+  // source, integration_entity, group_by
+  let source: Source = DEFAULT_CONFIG.source;
+  if (raw.source !== undefined) {
+    if (typeof raw.source !== 'string' || !(SOURCES as readonly string[]).includes(raw.source)) {
+      throw new ConfigError(`"source" must be one of: ${SOURCES.join(', ')}.`);
+    }
+    source = raw.source as Source;
+  }
+  let integration_entity = DEFAULT_CONFIG.integration_entity;
+  if (raw.integration_entity !== undefined) {
+    if (typeof raw.integration_entity !== 'string' || !raw.integration_entity.includes('.')) {
+      throw new ConfigError(
+        '"integration_entity" must be an entity id like sensor.pulse_check_attention.',
+      );
+    }
+    integration_entity = raw.integration_entity;
+  }
+  let group_by: GroupBy = DEFAULT_CONFIG.group_by;
+  if (raw.group_by !== undefined) {
+    if (
+      typeof raw.group_by !== 'string' ||
+      !(GROUP_BYS as readonly string[]).includes(raw.group_by)
+    ) {
+      throw new ConfigError(`"group_by" must be one of: ${GROUP_BYS.join(', ')}.`);
+    }
+    group_by = raw.group_by as GroupBy;
+  }
+
   return {
     title,
     battery_warning,
@@ -456,5 +508,8 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     include_integrations,
     show_tabs,
     default_tab,
+    source,
+    integration_entity,
+    group_by,
   };
 }

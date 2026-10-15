@@ -478,3 +478,22 @@
 .tobuyhint {
   padding: 0 16px 8px;
 }
+
+/* "Done" on the Actions tab (integration mode): records a replacement. */
+.done {
+  flex: none;
+  align-self: center;
+  margin-right: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--divider-color, rgba(128, 128, 128, 0.4));
+  border-radius: 6px;
+  background: none;
+  color: var(--primary-text-color);
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+.done:hover,
+.done:focus-visible {
+  background: var(--secondary-background-color, rgba(128, 128, 128, 0.15));
+}

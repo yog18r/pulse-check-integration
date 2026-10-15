@@ -5,7 +5,7 @@
  *   Replace     one row per device, "Replace 2 × AA in …"
  *   Charge      one row per rechargeable device, "Charge …"
  */
-import type { ActionItem, ActionList } from '../core/actions';
+import type { ActionItem, ActionKind, ActionList } from '../core/actions';
 import { UNKNOWN_BATTERY_TYPE } from '../core/actions';
 import type { DeviceHealth } from '../core/types';
 import { DeviceRow } from './DeviceRow';
@@ -17,16 +17,20 @@ interface Props {
   onOpen?: ((device: DeviceHealth) => void) | undefined;
   onSnooze?: ((device: DeviceHealth, days: number) => void) | undefined;
   onUnsnooze?: ((device: DeviceHealth) => void) | undefined;
+  /** Integration mode: record a replacement or charge for this item. */
+  onDone?: ((device: DeviceHealth, kind: ActionKind) => void) | undefined;
 }
 
 function Section({
   title,
   items,
+  onDone,
   rowProps,
 }: {
   title: string;
   items: ActionItem[];
-  rowProps: Omit<Props, 'actions'>;
+  onDone: Props['onDone'];
+  rowProps: Omit<Props, 'actions' | 'onDone'>;
 }) {
   if (items.length === 0) return null;
   return (
@@ -44,6 +48,13 @@ function Section({
             mode="battery"
             sparkline={false}
             action={item.label}
+            onDone={
+              onDone
+                ? (device) => {
+                    onDone(device, item.kind);
+                  }
+                : undefined
+            }
             {...rowProps}
           />
         ))}
@@ -52,7 +63,7 @@ function Section({
   );
 }
 
-export function ActionsTab({ actions, ...rowProps }: Props) {
+export function ActionsTab({ actions, onDone, ...rowProps }: Props) {
   const { replace, charge, shopping } = actions;
 
   if (replace.length === 0 && charge.length === 0) {
@@ -87,8 +98,8 @@ export function ActionsTab({ actions, ...rowProps }: Props) {
           editor) to make the list exact.
         </p>
       )}
-      <Section title="Replace" items={replace} rowProps={rowProps} />
-      <Section title="Charge" items={charge} rowProps={rowProps} />
+      <Section title="Replace" items={replace} onDone={onDone} rowProps={rowProps} />
+      <Section title="Charge" items={charge} onDone={onDone} rowProps={rowProps} />
     </div>
   );
 }

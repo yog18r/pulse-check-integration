@@ -95,32 +95,49 @@ default_tab: batteries
 
 Prefer clicking to typing? The card has a **visual editor**: add the card from the picker, or press "Edit" on an existing one, and every option above is a form field. Areas and integrations are two lists with everything ticked; untick one to hide its devices (that writes `exclude_areas` / `exclude_integrations`; the `include_*` allow-lists are YAML-only and the editor converts them to exclusions on first change). Integration thresholds and per-device settings are rows you add and remove. The device picker is a search box (type part of a name, area or integration), the battery type is a dropdown of standard sizes with an "Other…" free-text option, and you never have to look up a device id.
 
-| Option                   | Type    | Default                     | Notes                                                              |
-| ------------------------ | ------- | --------------------------- | ------------------------------------------------------------------ |
-| `title`                  | string  | none                        | Leave out (or blank) for no title row.                             |
-| `battery_warning`        | number  | `30`                        | 0–100. Inclusive: 30% counts as a warning.                         |
-| `battery_critical`       | number  | `15`                        | 0–100. Must not exceed `battery_warning`.                          |
-| `quiet_threshold_hours`  | number  | `24`                        | Hours since the device's newest `last_updated`.                    |
-| `integration_thresholds` | mapping | `{}`                        | `platform: hours`. Platform is the integration domain (see badge). |
-| `device_settings`        | list    | `[]`                        | Each item needs `device_id`.                                       |
-| `exclude_integrations`   | list    | `[]`                        |                                                                    |
-| `exclude_devices`        | list    | `[]`                        |                                                                    |
-| `exclude_entities`       | list    | `[]`                        | Removes single entities from consideration.                        |
-| `quiet_scope`            | string  | `battery`                   | `battery` or `all`. See "Quiet" below.                             |
-| `battery_sort`           | string  | `level`                     | `level` or `replace_soon`. See \"Replace soon\" below.             |
-| `max_rows`               | number  | `12`                        | Or `all`. Applies to the Batteries and Connectivity tabs.          |
-| `show_sparklines`        | boolean | `true`                      | Needs recorder history; hidden otherwise.                          |
-| `sparkline_days`         | number  | `14`                        | 1 to 365. Per-device override in `device_settings`.                |
-| `problems_only`          | boolean | `false`                     | Batteries tab shows only warning/critical rows.                    |
-| `include_areas`          | list    | `[]`                        | Area names or ids. Devices with no area are dropped when set.      |
-| `exclude_areas`          | list    | `[]`                        |                                                                    |
-| `include_integrations`   | list    | `[]`                        | Allow-list counterpart of `exclude_integrations`.                  |
-| `show_tabs`              | list    | `[batteries, connectivity]` | Any of `batteries`, `connectivity`, `actions`.                     |
-| `default_tab`            | string  | `batteries`                 | Must be in `show_tabs`.                                            |
+| Option                   | Type    | Default                        | Notes                                                                          |
+| ------------------------ | ------- | ------------------------------ | ------------------------------------------------------------------------------ |
+| `title`                  | string  | none                           | Leave out (or blank) for no title row.                                         |
+| `battery_warning`        | number  | `30`                           | 0–100. Inclusive: 30% counts as a warning.                                     |
+| `battery_critical`       | number  | `15`                           | 0–100. Must not exceed `battery_warning`.                                      |
+| `quiet_threshold_hours`  | number  | `24`                           | Hours since the device's newest `last_updated`.                                |
+| `integration_thresholds` | mapping | `{}`                           | `platform: hours`. Platform is the integration domain (see badge).             |
+| `device_settings`        | list    | `[]`                           | Each item needs `device_id`.                                                   |
+| `exclude_integrations`   | list    | `[]`                           |                                                                                |
+| `exclude_devices`        | list    | `[]`                           |                                                                                |
+| `exclude_entities`       | list    | `[]`                           | Removes single entities from consideration.                                    |
+| `quiet_scope`            | string  | `battery`                      | `battery` or `all`. See "Quiet" below.                                         |
+| `battery_sort`           | string  | `level`                        | `level` or `replace_soon`. See \"Replace soon\" below.                         |
+| `max_rows`               | number  | `12`                           | Or `all`. Applies to the Batteries and Connectivity tabs.                      |
+| `show_sparklines`        | boolean | `true`                         | Needs recorder history; hidden otherwise.                                      |
+| `sparkline_days`         | number  | `14`                           | 1 to 365. Per-device override in `device_settings`.                            |
+| `problems_only`          | boolean | `false`                        | Batteries tab shows only warning/critical rows.                                |
+| `include_areas`          | list    | `[]`                           | Area names or ids. Devices with no area are dropped when set.                  |
+| `exclude_areas`          | list    | `[]`                           |                                                                                |
+| `include_integrations`   | list    | `[]`                           | Allow-list counterpart of `exclude_integrations`.                              |
+| `show_tabs`              | list    | `[batteries, connectivity]`    | Any of `batteries`, `connectivity`, `actions`.                                 |
+| `default_tab`            | string  | `batteries`                    | Must be in `show_tabs`.                                                        |
+| `source`                 | string  | `standalone`                   | `standalone` or `integration`. See "Using the integration" below.              |
+| `integration_entity`     | string  | `sensor.pulse_check_attention` | The integration's sensor, if renamed.                                          |
+| `group_by`               | string  | `none`                         | `none`, `area`, `integration` or `device_type`: split the lists into sections. |
 
 Invalid config shows a plain-English error on the card, for example `"battery_critical" (40) must not be higher than "battery_warning" (30).`
 
 **Finding a device id:** open the device in **Settings → Devices & services → Devices**. The id is the last part of the URL: `/config/devices/device/<device_id>`.
+
+## Using the integration
+
+The [Pulse Check integration](https://github.com/yog18r/pulse-check-integration) runs the same rules on the server, around the clock, and adds what a browser cannot: notifications, shared snoozes, per-device settings, battery replacement history and days-left estimates from the recorder. With it installed, point the card at it:
+
+```yaml
+type: custom:pulse-check-card
+source: integration
+group_by: area # optional: none, area, integration, device_type
+```
+
+In this mode the card reads `sensor.pulse_check_attention` instead of analysing in the browser. Thresholds, filters and per-device settings come from the integration's options, so the card's own `battery_warning`, `device_settings` and filter options are ignored. Snoozing calls the integration's `pulse_check.snooze` service, so a snooze made on one phone is seen everywhere, and the Actions tab gains a "Done" button that records a replacement (`pulse_check.mark_replaced`) or a charge. Rows show the integration's days-left estimate and an "unusual behaviour" note when a battery drains much faster than its own history.
+
+`group_by` works in both modes.
 
 ## How detection works
 

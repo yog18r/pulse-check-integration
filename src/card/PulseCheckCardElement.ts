@@ -24,6 +24,7 @@ import { ENHANCERS } from '../enhancers';
 import { App } from '../ui/App';
 import styles from '../ui/styles.css?inline';
 import { resolveConfig, type CardConfig, type ResolvedConfig } from './config';
+import { integrationFingerprint, readIntegration } from './integration';
 import { openDevice } from './navigation';
 
 /** Tag name of the editor element; registered alongside the card in index.ts. */
@@ -81,6 +82,15 @@ export class PulseCheckCardElement extends HTMLElement {
     this._hass = hass;
     if (!hass) return;
 
+    // In integration mode only the integration's sensor matters.
+    if (this.config?.source === 'integration') {
+      const fp = integrationFingerprint(hass, this.config.integration_entity);
+      if (fp === this.lastFingerprint) return;
+      this.lastFingerprint = fp;
+      this.render();
+      return;
+    }
+
     // Skip the (relatively) expensive path when nothing we care about moved.
     if (!registriesChanged(previous, hass)) {
       const fp = fingerprint(hass);
@@ -100,10 +110,10 @@ export class PulseCheckCardElement extends HTMLElement {
   /** Approximate height in units of ~50px, used by the masonry layout. */
   getCardSize(): number {
     if (!this.config || !this._hass) return 3;
-    const devices = analyseDevices(this._hass, this.config, {
-      now: new Date(),
-      enhancers: ENHANCERS,
-    });
+    const devices =
+      this.config.source === 'integration'
+        ? (readIntegration(this._hass, this.config.integration_entity)?.devices ?? [])
+        : analyseDevices(this._hass, this.config, { now: new Date(), enhancers: ENHANCERS });
     const rows = Math.max(
       batteryList(devices, this.config).length,
       connectivityList(devices).length,
