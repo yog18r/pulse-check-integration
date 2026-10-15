@@ -50,6 +50,7 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_BATTERY_CRITICAL,
     CONF_BATTERY_WARNING,
+    CONF_CONFIRM_MINUTES,
     CONF_DIGEST_TIME,
     CONF_DIGEST_WEEKDAY,
     CONF_EXCLUDE_AREAS,
@@ -69,9 +70,11 @@ from .const import (
     CONF_QUIET_THRESHOLD_HOURS,
     CONF_REMINDER_DAYS,
     CONF_REMINDER_MAX,
+    CONF_STARTUP_GRACE_MINUTES,
     CONF_WEEKLY_ALL_CLEAR,
     DEFAULT_BATTERY_CRITICAL,
     DEFAULT_BATTERY_WARNING,
+    DEFAULT_CONFIRM_MINUTES,
     DEFAULT_DIGEST_TIME,
     DEFAULT_DIGEST_WEEKDAY,
     DEFAULT_NOTIFY_CRITICAL,
@@ -80,6 +83,7 @@ from .const import (
     DEFAULT_QUIET_THRESHOLD_HOURS,
     DEFAULT_REMINDER_DAYS,
     DEFAULT_REMINDER_MAX,
+    DEFAULT_STARTUP_GRACE_MINUTES,
     DOMAIN,
     NOTIFY_POLICIES,
     QUIET_SCOPES,
@@ -201,6 +205,14 @@ def _hours() -> NumberSelector:
     )
 
 
+def _minutes() -> NumberSelector:
+    return NumberSelector(
+        NumberSelectorConfig(
+            min=0, max=1440, step=1, unit_of_measurement="min", mode=NumberSelectorMode.BOX
+        )
+    )
+
+
 def _integrations(platforms: list[str]) -> SelectSelector:
     """A multi-select of integrations; unknown ones can still be typed in."""
     return SelectSelector(
@@ -291,6 +303,10 @@ def _options_schema(platforms: list[str], notify_targets: list[str]) -> probatio
                 )
             ),
             probatio.Required(CONF_WEEKLY_ALL_CLEAR, default=False): BooleanSelector(),
+            probatio.Required(
+                CONF_STARTUP_GRACE_MINUTES, default=DEFAULT_STARTUP_GRACE_MINUTES
+            ): _minutes(),
+            probatio.Required(CONF_CONFIRM_MINUTES, default=DEFAULT_CONFIRM_MINUTES): _minutes(),
         }
     )
     entities = probatio.Schema(

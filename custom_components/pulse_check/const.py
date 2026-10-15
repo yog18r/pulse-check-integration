@@ -57,6 +57,10 @@ CONF_REMINDER_MAX = "reminder_max"
 CONF_DIGEST_TIME = "digest_time"
 CONF_DIGEST_WEEKDAY = "digest_weekday"
 CONF_WEEKLY_ALL_CLEAR = "weekly_all_clear"
+# Minutes after Home Assistant has started before anything is judged.
+CONF_STARTUP_GRACE_MINUTES = "startup_grace_minutes"
+# Minutes an offline or quiet state must persist before it is a transition.
+CONF_CONFIRM_MINUTES = "confirm_minutes"
 
 NOTIFY_POLICIES = ("instant", "daily", "weekly", "none")
 DEFAULT_NOTIFY_CRITICAL = "instant"
@@ -66,6 +70,8 @@ DEFAULT_REMINDER_MAX = 3
 DEFAULT_DIGEST_TIME = "09:00:00"
 WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 DEFAULT_DIGEST_WEEKDAY = "monday"
+DEFAULT_STARTUP_GRACE_MINUTES = 2
+DEFAULT_CONFIRM_MINUTES = 5
 
 EVENT_TRANSITION = "pulse_check_transition"
 

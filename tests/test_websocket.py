@@ -64,13 +64,22 @@ async def test_subscribe_sends_the_snapshot_now_and_after_each_recompute(
     await hass.services.async_call(
         DOMAIN,
         "set_device_settings",
-        {"device_id": device_ids["dev_shelly_ht"], "battery_type": "AAA", "notify_policy": "none"},
+        {
+            "device_id": device_ids["dev_shelly_ht"],
+            "battery_type": "AAA",
+            "notify_policy": "none",
+            "sparkline_days": 3,
+        },
         blocking=True,
     )
     await hass.async_block_till_done()
     third = await client.receive_json()
     assert third["event"]["device_settings"] == {
-        device_ids["dev_shelly_ht"]: {"battery_type": "AAA", "notify_policy": "none"}
+        device_ids["dev_shelly_ht"]: {
+            "battery_type": "AAA",
+            "notify_policy": "none",
+            "sparkline_days": 3,
+        }
     }
 
     await client.send_json({"id": 2, "type": "unsubscribe_events", "subscription": 1})

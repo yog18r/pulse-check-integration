@@ -37,6 +37,8 @@ DEVICE_SETTING_KEYS = (
     "battery_count",
     "rechargeable",
     "notify_policy",
+    # Only the card uses this one: its sparkline window for the device.
+    "sparkline_days",
 )
 
 

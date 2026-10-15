@@ -76,6 +76,14 @@ set_device_settings:
             - daily
             - weekly
             - none
+    sparkline_days:
+      example: 14
+      selector:
+        number:
+          min: 1
+          max: 365
+          unit_of_measurement: d
+          mode: box
 
 mark_replaced:
   fields:

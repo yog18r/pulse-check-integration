@@ -72,6 +72,9 @@ SET_DEVICE_SETTINGS_SCHEMA = probatio.Schema(
         ),
         probatio.Optional("rechargeable"): probatio.Any(None, "", cv.boolean),
         probatio.Optional("notify_policy"): probatio.Any(None, "", probatio.In(NOTIFY_POLICIES)),
+        probatio.Optional("sparkline_days"): probatio.Any(
+            None, "", probatio.All(probatio.Coerce(int), probatio.Range(min=1, max=365))
+        ),
     }
 )
 MARK_SCHEMA = probatio.Schema({**DEVICE_SCHEMA, probatio.Optional(ATTR_BATTERY_TYPE): cv.string})

@@ -5,7 +5,18 @@ when it *enters* a state (goes offline, goes quiet, drops to warning or
 critical), never on every recompute. Which states each device is in is
 remembered in the store, so a restart does not re-notify either.
 
-Per device, a *policy* decides how the notification is delivered:
+Two guards keep restarts and hiccups quiet:
+
+- Nothing is evaluated until Home Assistant has finished starting plus a
+  grace period (integrations load one after another, and most entities
+  are briefly `unavailable` meanwhile). The first evaluation after that is
+  a *baseline*: whatever is wrong right then is recorded, not announced.
+- An offline or quiet state must persist for a confirmation window before
+  it counts as a transition. A missed poll or a Zigbee hiccup that heals
+  within the window produces nothing at all. Battery levels do not
+  flicker, so battery transitions count at once.
+
+Per device, a *policy* decides how a notification is delivered:
 
   instant   straight away, then reminders while it stays unresolved
   daily     collected into the daily digest
@@ -15,9 +26,9 @@ Per device, a *policy* decides how the notification is delivered:
 The policy comes from the device's settings, or else from the options'
 default for that severity (critical -> instant, warning -> weekly).
 
-Every transition also fires a `pulse_check_transition` event on Home
-Assistant's event bus, whatever the policy, for people who prefer their
-own automations (see the blueprint in `blueprints/`).
+Every confirmed transition also fires a `pulse_check_transition` event on
+Home Assistant's event bus, whatever the policy, for people who prefer
+their own automations (see the blueprint in `blueprints/`).
 """
 
 from __future__ import annotations
@@ -27,11 +38,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import CoreState, Event, HomeAssistant, callback
+from homeassistant.helpers.event import async_call_later, async_track_time_change
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_CONFIRM_MINUTES,
     CONF_DIGEST_TIME,
     CONF_DIGEST_WEEKDAY,
     CONF_NOTIFY_CRITICAL,
@@ -39,13 +52,16 @@ from .const import (
     CONF_NOTIFY_WARNING,
     CONF_REMINDER_DAYS,
     CONF_REMINDER_MAX,
+    CONF_STARTUP_GRACE_MINUTES,
     CONF_WEEKLY_ALL_CLEAR,
+    DEFAULT_CONFIRM_MINUTES,
     DEFAULT_DIGEST_TIME,
     DEFAULT_DIGEST_WEEKDAY,
     DEFAULT_NOTIFY_CRITICAL,
     DEFAULT_NOTIFY_WARNING,
     DEFAULT_REMINDER_DAYS,
     DEFAULT_REMINDER_MAX,
+    DEFAULT_STARTUP_GRACE_MINUTES,
     EVENT_TRANSITION,
     WEEKDAYS,
 )
@@ -73,6 +89,9 @@ ISSUE_SEVERITY: dict[str, str] = {
     "battery_warning": "warning",
 }
 
+# Issues that must persist for the confirmation window before they count.
+CONFIRMED_ISSUES = frozenset({"offline", "quiet"})
+
 
 @dataclass(frozen=True, slots=True)
 class Issue:
@@ -87,6 +106,10 @@ def _hours_since(moment: datetime | None, now: datetime) -> int:
     if moment is None:
         return 0
     return int((as_utc(now) - as_utc(moment)).total_seconds() // 3600)
+
+
+def _at(iso: str) -> datetime:
+    return as_utc(datetime.fromisoformat(iso))
 
 
 def device_issues(device: DeviceHealth, config: CoreConfig, now: datetime) -> dict[str, Issue]:
@@ -127,6 +150,10 @@ class Notifier:
         self.coordinator = coordinator
         self.store = coordinator.store
         self._missing_targets: set[str] = set()
+        # When evaluation may begin: Home Assistant started + the grace period.
+        self.ready_at: datetime | None = None
+        # True until the first evaluation after `ready_at` has recorded the baseline.
+        self.baseline_pending = True
 
     # -- options -------------------------------------------------------------
 
@@ -151,34 +178,68 @@ class Notifier:
     @property
     def reminder_interval(self) -> timedelta:
         """How long an instant issue may stay unresolved before a reminder."""
-        return timedelta(
-            days=float(self.entry.options.get(CONF_REMINDER_DAYS, DEFAULT_REMINDER_DAYS))
-        )
+        days = float(self.entry.options.get(CONF_REMINDER_DAYS, DEFAULT_REMINDER_DAYS))
+        return timedelta(days=days)
 
     @property
     def reminder_max(self) -> int:
         """How many reminders at most, per issue."""
         return int(self.entry.options.get(CONF_REMINDER_MAX, DEFAULT_REMINDER_MAX))
 
+    @property
+    def startup_grace(self) -> timedelta:
+        """How long after Home Assistant has started before anything is judged."""
+        minutes = float(
+            self.entry.options.get(CONF_STARTUP_GRACE_MINUTES, DEFAULT_STARTUP_GRACE_MINUTES)
+        )
+        return timedelta(minutes=minutes)
+
+    @property
+    def confirm_window(self) -> timedelta:
+        """How long offline or quiet must persist before it is a transition."""
+        minutes = float(self.entry.options.get(CONF_CONFIRM_MINUTES, DEFAULT_CONFIRM_MINUTES))
+        return timedelta(minutes=minutes)
+
     # -- wiring --------------------------------------------------------------
 
     @callback
     def async_setup(self) -> None:
-        """Listen to coordinator updates and schedule the digest time."""
+        """Listen to coordinator updates, the start of HA, and the digest time."""
         self.entry.async_on_unload(self.coordinator.async_add_listener(self._handle_update))
-        hour, minute, _ = (
-            int(part)
-            for part in str(self.entry.options.get(CONF_DIGEST_TIME, DEFAULT_DIGEST_TIME)).split(
-                ":"
-            )
-        )
+
+        digest_time = str(self.entry.options.get(CONF_DIGEST_TIME, DEFAULT_DIGEST_TIME))
+        hour, minute = (int(part) for part in digest_time.split(":")[:2])
         self.entry.async_on_unload(
             async_track_time_change(
                 self.hass, self._handle_digest_time, hour=hour, minute=minute, second=0
             )
         )
-        # The first update already happened before we subscribed.
-        self._handle_update()
+
+        if self.hass.state is CoreState.running:
+            self._mark_started()
+        else:
+            self.entry.async_on_unload(
+                self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self._handle_started)
+            )
+
+    @callback
+    def _handle_started(self, _event: Event[Any]) -> None:
+        self._mark_started()
+
+    @callback
+    def _mark_started(self) -> None:
+        """Start the grace period, and evaluate once when it ends."""
+        self.ready_at = dt_util.utcnow() + self.startup_grace
+        self.entry.async_on_unload(
+            async_call_later(self.hass, self.startup_grace, self._handle_grace_over)
+        )
+
+    @callback
+    def _handle_grace_over(self, _now: datetime) -> None:
+        """The grace period is over: recompute now, which records the baseline."""
+        self.entry.async_create_background_task(
+            self.hass, self.coordinator.async_refresh(), "pulse_check baseline"
+        )
 
     @callback
     def _handle_update(self) -> None:
@@ -192,58 +253,95 @@ class Notifier:
             self.hass, self.async_send_due_digests(now), "pulse_check digest"
         )
 
+    def _is_ready(self) -> bool:
+        """True once Home Assistant has started and the grace period has passed."""
+        return self.ready_at is not None and dt_util.utcnow() >= self.ready_at
+
     # -- transitions ---------------------------------------------------------
 
     async def async_process(self) -> None:
         """Compare the latest result with what was last seen; act on the difference."""
         data: PulseCheckData = self.coordinator.data
         now = data.computed_at
+        if not self._is_ready():
+            return
+        baseline = self.baseline_pending
+        self.baseline_pending = False
+
         state = self.store.notify
         changed = False
-        seen_devices: set[str] = set()
-
         for device in data.devices:
-            seen_devices.add(device.device_id)
-            current = device_issues(device, data.config, now)
             stored: dict[str, dict[str, Any]] = state.get(device.device_id, {})
-
-            for key, issue in current.items():
-                if key in stored:
-                    changed |= await self._maybe_remind(device, issue, stored[key], now)
-                    continue
-                policy = self.policy_for(device.device_id, issue.severity)
-                self._fire(device, issue, "entered", policy)
-                record: dict[str, Any] = {"since": to_iso(now), "notified_at": None, "reminders": 0}
-                if policy == "instant":
-                    await self._send(issue.message)
-                    record["notified_at"] = to_iso(now)
-                stored[key] = record
-                changed = True
-
-            for key in list(stored):
-                if key in current:
-                    continue
-                severity = ISSUE_SEVERITY.get(key, "warning")
-                resolved = Issue(key, severity, f"{device.name}: {key.replace('_', ' ')} resolved")  # type: ignore[arg-type]
-                self._fire(
-                    device, resolved, "resolved", self.policy_for(device.device_id, severity)
-                )
-                del stored[key]
-                changed = True
-
+            current = device_issues(device, data.config, now)
+            changed |= await self._process_device(device, current, stored, now, baseline)
             if stored:
                 state[device.device_id] = stored
             elif device.device_id in state:
                 del state[device.device_id]
                 changed = True
 
+        seen = {device.device_id for device in data.devices}
         for device_id in list(state):
-            if device_id not in seen_devices:
+            if device_id not in seen:
                 del state[device_id]
                 changed = True
 
         if changed:
             self.store.async_save()
+
+    async def _process_device(
+        self,
+        device: DeviceHealth,
+        current: dict[str, Issue],
+        stored: dict[str, dict[str, Any]],
+        now: datetime,
+        baseline: bool,
+    ) -> bool:
+        """Update one device's records in place. Returns True when they changed."""
+        changed = False
+        for key, issue in current.items():
+            record = stored.get(key)
+            if record is None:
+                # First sighting. On the baseline it is simply recorded;
+                # otherwise it waits for confirmation (offline, quiet) or
+                # counts straight away (battery).
+                record = {"since": to_iso(now), "notified_at": None, "reminders": 0}
+                stored[key] = record
+                changed = True
+                record["confirmed"] = baseline or key not in CONFIRMED_ISSUES
+                if record["confirmed"] and not baseline:
+                    await self._announce(device, issue, record, now)
+            elif not record.get("confirmed", True):
+                if as_utc(now) - _at(record["since"]) >= self.confirm_window:
+                    record["confirmed"] = True
+                    changed = True
+                    await self._announce(device, issue, record, now)
+            else:
+                changed |= await self._maybe_remind(device, issue, record, now)
+
+        for key in list(stored):
+            if key in current:
+                continue
+            record = stored.pop(key)
+            changed = True
+            if not record.get("confirmed", True):
+                continue  # healed within the window: it never happened
+            severity = ISSUE_SEVERITY.get(key, "warning")
+            label = key.replace("_", " ")
+            resolved = Issue(key, severity, f"{device.name}: {label} resolved")  # type: ignore[arg-type]
+            policy = self.policy_for(device.device_id, severity)
+            self._fire(device, resolved, "resolved", policy)
+        return changed
+
+    async def _announce(
+        self, device: DeviceHealth, issue: Issue, record: dict[str, Any], now: datetime
+    ) -> None:
+        """A confirmed transition: fire the event and notify per policy."""
+        policy = self.policy_for(device.device_id, issue.severity)
+        self._fire(device, issue, "entered", policy)
+        if policy == "instant":
+            await self._send(issue.message)
+            record["notified_at"] = to_iso(now)
 
     async def _maybe_remind(
         self, device: DeviceHealth, issue: Issue, record: dict[str, Any], now: datetime
@@ -254,10 +352,10 @@ class Notifier:
         if record.get("reminders", 0) >= self.reminder_max:
             return False
         last = record.get("notified_at") or record.get("since")
-        last_at = as_utc(datetime.fromisoformat(last)) if last else now
+        last_at = _at(last) if last else now
         if as_utc(now) - last_at < self.reminder_interval:
             return False
-        days = (as_utc(now) - as_utc(datetime.fromisoformat(record["since"]))).days
+        days = (as_utc(now) - _at(record["since"])).days
         await self._send(f"Still unresolved after {days} days. {issue.message}")
         record["notified_at"] = to_iso(now)
         record["reminders"] = record.get("reminders", 0) + 1
@@ -294,11 +392,16 @@ class Notifier:
             await self.async_send_digest("weekly", now)
 
     async def async_send_digest(self, kind: DigestKind, now: datetime) -> None:
-        """One message listing every unresolved issue on that policy."""
+        """One message listing every confirmed, unresolved issue on that policy."""
+        if not self._is_ready():
+            return
         data: PulseCheckData = self.coordinator.data
         lines: list[str] = []
         for device in data.devices:
-            for issue in device_issues(device, data.config, now).values():
+            stored = self.store.notify.get(device.device_id, {})
+            for key, issue in device_issues(device, data.config, now).items():
+                if not stored.get(key, {}).get("confirmed", False):
+                    continue
                 if self.policy_for(device.device_id, issue.severity) == kind:
                     lines.append(issue.message)
         all_clear = kind == "weekly" and bool(self.entry.options.get(CONF_WEEKLY_ALL_CLEAR, False))
