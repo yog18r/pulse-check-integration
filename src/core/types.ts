@@ -78,6 +78,12 @@ export interface HassLike {
   entities: Record<string, HassEntityRegistryEntry>;
   devices: Record<string, HassDeviceRegistryEntry>;
   areas: Record<string, HassAreaRegistryEntry>;
+  /**
+   * Send a websocket command and await the result. Optional because the
+   * core never needs it; only the drain-rate feature does, and it degrades
+   * gracefully when absent (the demo page provides a fake).
+   */
+  callWS?: <T>(message: Record<string, unknown>) => Promise<T>;
 }
 
 /* ------------------------------------------------------------------------ */

@@ -29,6 +29,38 @@ describe('batteryList', () => {
   });
 });
 
+describe('batteryList with battery_sort: replace_soon', () => {
+  const config = { ...DEFAULT_CONFIG, battery_sort: 'replace_soon' as const };
+  const drains = new Map([
+    // Window sensor (40%) will die well before the Shelly H&T (92%).
+    ['sensor.window_sensor_battery', { ratePerDay: 4, daysLeft: 10, samples: 14 }],
+    ['sensor.kitchen_ht_battery', { ratePerDay: 1, daysLeft: 92, samples: 14 }],
+    // The 87% door sensor is draining fastest of all.
+    ['sensor.front_door_battery', { ratePerDay: 20, daysLeft: 4, samples: 14 }],
+  ]);
+
+  it('orders healthy devices by days left, estimates before unknowns', () => {
+    const ids = batteryList(devices, config, drains).map((d) => d.deviceId);
+    const okOnly = ids.slice(4); // the four critical/warning rows stay on top
+    expect(okOnly.slice(0, 3)).toEqual([DEV.z2mDoor, DEV.matterContact, DEV.shellyHt]);
+    // Everything without an estimate follows, still by level.
+    expect(okOnly.slice(3)).toEqual([DEV.legacyTracker, DEV.zwaveMulti, DEV.phone]);
+  });
+
+  it('never reorders across severity bands', () => {
+    const ids = batteryList(devices, config, drains).map((d) => d.deviceId);
+    expect(ids.slice(0, 4)).toEqual(
+      batteryList(devices, DEFAULT_CONFIG)
+        .map((d) => d.deviceId)
+        .slice(0, 4),
+    );
+  });
+
+  it('is identical to level sorting when no drain data is given', () => {
+    expect(batteryList(devices, config)).toEqual(batteryList(devices, DEFAULT_CONFIG));
+  });
+});
+
 describe('connectivityList', () => {
   it('lists only offline or quiet devices, offline first then oldest contact', () => {
     const ids = connectivityList(devices).map((d) => d.deviceId);

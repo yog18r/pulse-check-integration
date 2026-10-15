@@ -66,6 +66,21 @@ describe('resolveConfig', () => {
     expect(() => resolveConfig({ quiet_scope: 'everything' })).toThrow(/quiet_scope/);
   });
 
+  it('validates battery_sort', () => {
+    expect(resolveConfig({}).battery_sort).toBe('level');
+    expect(resolveConfig({ battery_sort: 'replace_soon' }).battery_sort).toBe('replace_soon');
+    expect(() => resolveConfig({ battery_sort: 'random' })).toThrow(/battery_sort/);
+  });
+
+  it('accepts the shopping tab', () => {
+    const resolved = resolveConfig({
+      show_tabs: ['batteries', 'shopping'],
+      default_tab: 'shopping',
+    });
+    expect(resolved.show_tabs).toEqual(['batteries', 'shopping']);
+    expect(resolved.default_tab).toBe('shopping');
+  });
+
   it('validates tabs', () => {
     expect(() => resolveConfig({ show_tabs: [] })).toThrow(/non-empty/);
     expect(() => resolveConfig({ show_tabs: ['weather'] })).toThrow(/show_tabs/);

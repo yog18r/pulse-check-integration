@@ -12,7 +12,16 @@
  * no `?? default` sprinkled through the UI.
  */
 
-export const TAB_IDS = ['batteries', 'connectivity'] as const;
+export const TAB_IDS = ['batteries', 'connectivity', 'shopping'] as const;
+
+/**
+ * How the Batteries tab is ordered.
+ *  - level: lowest percentage first (the default; needs nothing but hass)
+ *  - replace_soon: soonest to run out first, using drain rates from the
+ *    recorder's statistics. Devices without enough history fall back to level.
+ */
+export const BATTERY_SORTS = ['level', 'replace_soon'] as const;
+export type BatterySort = (typeof BATTERY_SORTS)[number];
 /** "batteries" | "connectivity", derived from the array above so they can't drift apart. */
 export type TabId = (typeof TAB_IDS)[number];
 
@@ -51,6 +60,7 @@ export interface CardConfig {
   /** Entity ids to ignore entirely, e.g. a settings sensor mis-labelled as a battery. */
   exclude_entities?: string[];
   quiet_scope?: QuietScope;
+  battery_sort?: BatterySort;
   show_tabs?: TabId[];
   default_tab?: TabId;
 }
@@ -67,6 +77,7 @@ export interface ResolvedConfig {
   exclude_devices: string[];
   exclude_entities: string[];
   quiet_scope: QuietScope;
+  battery_sort: BatterySort;
   show_tabs: TabId[];
   default_tab: TabId;
 }
@@ -82,6 +93,7 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
   exclude_devices: [],
   exclude_entities: [],
   quiet_scope: 'battery',
+  battery_sort: 'level',
   show_tabs: ['batteries', 'connectivity'],
   default_tab: 'batteries',
 };
@@ -246,6 +258,16 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     quiet_scope = rawScope as QuietScope;
   }
 
+  // battery_sort
+  let battery_sort: BatterySort = DEFAULT_CONFIG.battery_sort;
+  const rawSort = raw.battery_sort;
+  if (rawSort !== undefined) {
+    if (typeof rawSort !== 'string' || !(BATTERY_SORTS as readonly string[]).includes(rawSort)) {
+      throw new ConfigError(`"battery_sort" must be one of: ${BATTERY_SORTS.join(', ')}.`);
+    }
+    battery_sort = rawSort as BatterySort;
+  }
+
   // show_tabs
   let show_tabs: TabId[] = DEFAULT_CONFIG.show_tabs;
   const rawTabs = raw.show_tabs;
@@ -284,6 +306,7 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     exclude_devices,
     exclude_entities,
     quiet_scope,
+    battery_sort,
     show_tabs,
     default_tab,
   };

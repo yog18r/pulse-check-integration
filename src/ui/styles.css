@@ -304,3 +304,36 @@
     transition: none;
   }
 }
+
+/* ---- shopping list ---------------------------------------------------- */
+
+.group + .group {
+  border-top: 1px solid var(--divider-color, #e0e0e0);
+}
+
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 16px 4px;
+  font-size: 0.95em;
+  font-weight: 500;
+  color: var(--secondary-text-color, #727272);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.group .hint {
+  margin: 0;
+  padding: 0 16px 4px;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+}
+
+.group .hint code {
+  font-size: 0.95em;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--secondary-background-color, #f0f0f0);
+}

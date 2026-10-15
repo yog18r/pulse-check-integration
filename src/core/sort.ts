@@ -7,6 +7,7 @@
  *                     of 80 fine devices hides the 3 that matter.
  */
 import type { ResolvedConfig } from '../card/config';
+import type { DrainEstimate } from './drain';
 import { batterySeverity, SEVERITY_RANK } from './thresholds';
 import type { DeviceHealth } from './types';
 
@@ -25,15 +26,41 @@ function byName(a: DeviceHealth, b: DeviceHealth): number {
   return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
 }
 
-export function batteryList(devices: DeviceHealth[], config: ResolvedConfig): DeviceHealth[] {
+/** Drain estimates keyed by the battery entity id they were computed for. */
+export type DrainMap = ReadonlyMap<string, DrainEstimate>;
+
+function drainFor(device: DeviceHealth, drains: DrainMap | undefined): DrainEstimate | undefined {
+  const id = device.battery?.entityId;
+  return id ? drains?.get(id) : undefined;
+}
+
+export function batteryList(
+  devices: DeviceHealth[],
+  config: ResolvedConfig,
+  drains?: DrainMap,
+): DeviceHealth[] {
+  const useDrain = config.battery_sort === 'replace_soon' && drains !== undefined;
+
   return devices
     .filter((d) => d.battery !== undefined)
     .sort((a, b) => {
-      // Worst battery severity first, then lowest level, then name for stability.
+      // Worst battery severity first: a critical battery is urgent whatever
+      // the trend says.
       const sev =
         SEVERITY_RANK[batterySeverity(b.battery, config)] -
         SEVERITY_RANK[batterySeverity(a.battery, config)];
       if (sev !== 0) return sev;
+
+      // "Replace soon": fewest days left first. Devices without an estimate
+      // come after those with one, ordered by level.
+      if (useDrain) {
+        const da = drainFor(a, drains)?.daysLeft;
+        const db = drainFor(b, drains)?.daysLeft;
+        if (da !== undefined && db !== undefined && da !== db) return da - db;
+        if (da !== undefined && db === undefined) return -1;
+        if (da === undefined && db !== undefined) return 1;
+      }
+
       const level = sortableBatteryLevel(a) - sortableBatteryLevel(b);
       if (level !== 0) return level;
       return byName(a, b);

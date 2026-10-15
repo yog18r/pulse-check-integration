@@ -14,7 +14,9 @@
  */
 import { useMemo, useState } from 'react';
 import type { ResolvedConfig, TabId } from '../card/config';
+import type { BatteryEntity } from '../card/statistics';
 import { analyseDevices } from '../core/analyse';
+import { shoppingList } from '../core/shopping';
 import { batteryList, connectivityList } from '../core/sort';
 import { breakdown, headline, summarise } from '../core/summarise';
 import { batterySeverity, connectivitySeverity } from '../core/thresholds';
@@ -22,6 +24,8 @@ import type { DeviceHealth, HassLike } from '../core/types';
 import type { Enhancer } from '../enhancers';
 import { DeviceRow } from './DeviceRow';
 import { EmptyState } from './EmptyState';
+import { ShoppingTab } from './ShoppingTab';
+import { useDrainEstimates } from './useDrainEstimates';
 import { useNow } from './useNow';
 
 export interface AppProps {
@@ -35,6 +39,7 @@ export interface AppProps {
 const TAB_LABELS: Record<TabId, string> = {
   batteries: '🔋 Batteries',
   connectivity: '📡 Connectivity',
+  shopping: '🛒 Shopping',
 };
 
 export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
@@ -52,13 +57,28 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
     () => analyseDevices(hass, config, { now, enhancers }),
     [hass, config, now, enhancers],
   );
-  const batteries = useMemo(() => batteryList(devices, config), [devices, config]);
+
+  // Battery sensors with a numeric level are candidates for drain estimates.
+  const batteryEntities = useMemo<BatteryEntity[]>(
+    () =>
+      devices.flatMap((d) =>
+        d.battery?.level !== undefined
+          ? [{ entityId: d.battery.entityId, level: d.battery.level }]
+          : [],
+      ),
+    [devices],
+  );
+  const drains = useDrainEstimates(hass, batteryEntities);
+
+  const batteries = useMemo(() => batteryList(devices, config, drains), [devices, config, drains]);
   const connectivity = useMemo(() => connectivityList(devices), [devices]);
+  const shopping = useMemo(() => shoppingList(devices, config), [devices, config]);
   const summary = useMemo(() => summarise(devices, config), [devices, config]);
 
   const tabCounts: Record<TabId, number> = {
     batteries: summary.lowBatteries,
     connectivity: connectivity.length,
+    shopping: shopping.reduce((n, g) => n + g.devices.length, 0),
   };
 
   const headlineSeverity =
@@ -116,6 +136,7 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
                   severity={batterySeverity(d.battery, config)}
                   mode="battery"
                   now={now}
+                  drain={d.battery ? drains?.get(d.battery.entityId) : undefined}
                   onOpen={onOpenDevice}
                 />
               ))}
@@ -143,6 +164,10 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
               ))}
             </ul>
           ))}
+
+        {activeTab === 'shopping' && (
+          <ShoppingTab groups={shopping} config={config} now={now} onOpen={onOpenDevice} />
+        )}
       </div>
     </div>
   );

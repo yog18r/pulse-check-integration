@@ -5,6 +5,7 @@
  * The whole row is a <button>, so it is keyboard reachable and announced
  * as clickable. Tapping it opens the device in Home Assistant.
  */
+import { formatDaysLeft, type DrainEstimate } from '../core/drain';
 import { formatHours, formatRelative } from '../core/time';
 import type { DeviceHealth, Severity } from '../core/types';
 import { BatteryBar } from './BatteryBar';
@@ -18,6 +19,8 @@ interface Props {
   now: Date;
   /** Called when the row is activated. Optional so the row works without HA. */
   onOpen?: ((device: DeviceHealth) => void) | undefined;
+  /** Drain estimate for the battery, when the recorder had enough history. */
+  drain?: DrainEstimate | undefined;
 }
 
 function connectivityLabel(device: DeviceHealth): string {
@@ -26,7 +29,7 @@ function connectivityLabel(device: DeviceHealth): string {
   return 'Online';
 }
 
-export function DeviceRow({ device, severity, mode, now, onOpen }: Props) {
+export function DeviceRow({ device, severity, mode, now, onOpen, drain }: Props) {
   const lastHeard = formatRelative(device.lastHeard, now);
 
   return (
@@ -58,7 +61,17 @@ export function DeviceRow({ device, severity, mode, now, onOpen }: Props) {
           {mode === 'battery' && device.battery ? (
             <>
               <BatteryBar battery={device.battery} severity={severity} />
-              <span className="sub">heard {lastHeard}</span>
+              <span className="sub">
+                heard {lastHeard}
+                {drain && (
+                  <>
+                    {' · '}
+                    <span title={`Losing about ${drain.ratePerDay.toFixed(1)}% per day`}>
+                      {formatDaysLeft(drain.daysLeft)} left
+                    </span>
+                  </>
+                )}
+              </span>
             </>
           ) : (
             <>
