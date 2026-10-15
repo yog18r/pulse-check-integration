@@ -1,4 +1,4 @@
 dist
 coverage
-node_modules
-package-lock.json
+# Generated file snapshots shared with the integration repo
+test/fixtures/*.json
