@@ -71,3 +71,6 @@ WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", 
 DEFAULT_DIGEST_WEEKDAY = "monday"
 
 EVENT_TRANSITION = "pulse_check_transition"
+
+# Entities (phase 4).
+CONF_PER_DEVICE_SENSORS = "per_device_sensors"

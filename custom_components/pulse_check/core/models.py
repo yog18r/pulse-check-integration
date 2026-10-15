@@ -254,6 +254,8 @@ class DeviceHealth:
     # The threshold that applied to this device, after overrides, in hours.
     quiet_threshold_hours: float
     severity: Severity
+    # What kind of thing it is: "lock", "motion", "phone"... (see device_type.py).
+    device_type: str = "other"
     extras: list[EnhancerExtra] = field(default_factory=list)
     entity_ids: list[str] = field(default_factory=list)
     area: str | None = None
@@ -283,6 +285,7 @@ class DeviceHealth:
             "isQuiet": self.is_quiet,
             "quietThresholdHours": plain_number(self.quiet_threshold_hours),
             "severity": self.severity,
+            "deviceType": self.device_type,
             "extras": [extra.to_dict() for extra in self.extras],
             "entityIds": list(self.entity_ids),
         }

@@ -64,6 +64,7 @@ from .const import (
     CONF_NOTIFY_CRITICAL,
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_WARNING,
+    CONF_PER_DEVICE_SENSORS,
     CONF_QUIET_SCOPE,
     CONF_QUIET_THRESHOLD_HOURS,
     CONF_REMINDER_DAYS,
@@ -96,6 +97,7 @@ if TYPE_CHECKING:
 SECTION_THRESHOLDS = "thresholds"
 SECTION_FILTERS = "filters"
 SECTION_NOTIFICATIONS = "notifications"
+SECTION_ENTITIES = "entities"
 THRESHOLD_KEYS = (
     CONF_BATTERY_WARNING,
     CONF_BATTERY_CRITICAL,
@@ -121,10 +123,12 @@ NOTIFICATION_KEYS = (
     CONF_DIGEST_WEEKDAY,
     CONF_WEEKLY_ALL_CLEAR,
 )
+ENTITY_KEYS = (CONF_PER_DEVICE_SENSORS,)
 SECTIONS = {
     SECTION_THRESHOLDS: THRESHOLD_KEYS,
     SECTION_FILTERS: FILTER_KEYS,
     SECTION_NOTIFICATIONS: NOTIFICATION_KEYS,
+    SECTION_ENTITIES: ENTITY_KEYS,
 }
 
 MAX_QUIET_HOURS = 24 * 365
@@ -289,11 +293,15 @@ def _options_schema(platforms: list[str], notify_targets: list[str]) -> probatio
             probatio.Required(CONF_WEEKLY_ALL_CLEAR, default=False): BooleanSelector(),
         }
     )
+    entities = probatio.Schema(
+        {probatio.Required(CONF_PER_DEVICE_SENSORS, default=False): BooleanSelector()}
+    )
     return probatio.Schema(
         {
             probatio.Optional(SECTION_THRESHOLDS): section(thresholds, {"collapsed": False}),
             probatio.Optional(SECTION_FILTERS): section(filters, {"collapsed": False}),
             probatio.Optional(SECTION_NOTIFICATIONS): section(notifications, {"collapsed": True}),
+            probatio.Optional(SECTION_ENTITIES): section(entities, {"collapsed": True}),
         }
     )
 

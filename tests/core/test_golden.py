@@ -44,7 +44,17 @@ def _run(
     devices = analyse_devices(typed, config, now, enhancers=ENHANCERS, snoozes=snoozes)
     actions = action_list(devices, config).to_dict()
     summary = summarise(devices, config).to_dict()
-    return [d.to_dict() for d in devices], actions, summary
+    return [_comparable(d.to_dict()) for d in devices], actions, summary
+
+
+def _comparable(device: dict[str, Any]) -> dict[str, Any]:
+    """Drop fields the card's golden file does not carry yet."""
+    return {k: v for k, v in device.items() if k not in CARD_LACKS}
+
+
+# Added on the Python side first; the card gains them in phase 5, after
+# which the golden file is regenerated and this set shrinks to nothing.
+CARD_LACKS = frozenset({"deviceType"})
 
 
 @pytest.fixture(scope="module")

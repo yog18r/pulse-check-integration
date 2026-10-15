@@ -38,6 +38,9 @@ SUDDEN_DROP_POINTS = 20
 UNUSUAL_RATE_FACTOR = 2.0
 # Cycles shorter than this are too noisy to learn a rate from.
 MIN_CYCLE_DAYS = 1.0
+# After a manual "replaced", wait this long for the sensor to show the new
+# battery before accepting whatever level it reports as the cycle's start.
+SETTLE_SECONDS = 6 * 3600
 
 
 class ReplacementTracker:
@@ -146,9 +149,17 @@ class ReplacementTracker:
 
             last = self.last_event(device.device_id)
             if last is not None and last.get("level_after") is None:
-                # First reading after an event: that is the new cycle's start level.
+                # The first reading that shows the new battery is the cycle's
+                # start level. Sleepy sensors can keep reporting the old level
+                # for hours, so wait for a rise, but not forever.
                 before = last.get("level_before")
-                if not isinstance(before, int | float) or level > before or last.get("auto"):
+                settled = (as_utc(now) - as_utc(datetime.fromisoformat(last["at"]))).total_seconds()
+                if (
+                    not isinstance(before, int | float)
+                    or level > before
+                    or last.get("auto")
+                    or settled >= SETTLE_SECONDS
+                ):
                     last["level_after"] = level
                     changed = True
 

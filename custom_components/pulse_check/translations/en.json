@@ -69,6 +69,16 @@
               "reminder_days": "Days an instant notification may stay unresolved before it is sent again.",
               "reminder_max": "0 turns reminders off."
             }
+          },
+          "entities": {
+            "name": "Entities",
+            "description": "Optional extra entities.",
+            "data": {
+              "per_device_sensors": "Per-device battery sensors"
+            },
+            "data_description": {
+              "per_device_sensors": "Adds a diagnostic \"Battery days left\" and \"Battery last replaced\" sensor to every battery device."
+            }
           }
         }
       }
@@ -238,6 +248,12 @@
       },
       "next_to_run_out": {
         "name": "Next to run out"
+      },
+      "device_days_left": {
+        "name": "Battery days left"
+      },
+      "device_last_replaced": {
+        "name": "Battery last replaced"
       }
     }
   }

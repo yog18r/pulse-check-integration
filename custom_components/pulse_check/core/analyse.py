@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from .availability import detect_last_heard, detect_offline, is_quiet
 from .battery import detect_battery
+from .device_type import classify_device
 from .enhancers import apply_enhancers
 from .group import (
     DeviceGroup,
@@ -185,6 +186,7 @@ def analyse_devices(
                 is_quiet=quiet,
                 quiet_threshold_hours=quiet_hours,
                 severity=severity,
+                device_type=classify_device(group.entities, group.states, integration),
                 extras=enhanced.extras,
                 entity_ids=[e["entity_id"] for e in group.entities],
                 area=settings.area if settings and settings.area else area_name(group, snapshot),
