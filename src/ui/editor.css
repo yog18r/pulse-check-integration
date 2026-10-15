@@ -84,3 +84,67 @@
   background: color-mix(in srgb, var(--error-color, #db4437) 12%, transparent);
   color: var(--error-color, #db4437);
 }
+
+/* ---- repeating rows (thresholds, overrides) --------------------------- */
+
+.hint {
+  margin: 0;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+}
+
+.listrow {
+  display: grid;
+  grid-template-columns: 1fr 88px auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.listrow.device {
+  grid-template-columns: 1fr 88px 110px auto;
+}
+
+.listrow select,
+.listrow input {
+  min-width: 0;
+}
+
+.listrow .unit {
+  color: var(--secondary-text-color, #727272);
+}
+
+.remove,
+.add {
+  appearance: none;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  border-radius: 6px;
+  background: none;
+  color: var(--secondary-text-color, #727272);
+  font: inherit;
+  cursor: pointer;
+  padding: 6px 10px;
+}
+
+.remove:hover,
+.add:hover {
+  color: var(--primary-text-color, #212121);
+  border-color: var(--primary-text-color, #212121);
+}
+
+.add {
+  justify-self: start;
+  color: var(--primary-color, #03a9f4);
+  border-color: var(--primary-color, #03a9f4);
+}
+
+.add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (max-width: 480px) {
+  .listrow,
+  .listrow.device {
+    grid-template-columns: 1fr 1fr;
+  }
+}

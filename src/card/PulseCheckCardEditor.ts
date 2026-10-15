@@ -50,7 +50,14 @@ export class PulseCheckCardEditor extends HTMLElement {
   }
 
   set hass(hass: HassLike | undefined) {
+    // Only the registries matter to the editor (for its pickers), and HA
+    // replaces those objects when they change, so re-render on identity.
+    const changed =
+      this._hass?.entities !== hass?.entities ||
+      this._hass?.devices !== hass?.devices ||
+      this._hass?.areas !== hass?.areas;
     this._hass = hass;
+    if (changed) this.render();
   }
 
   get hass(): HassLike | undefined {
@@ -70,7 +77,11 @@ export class PulseCheckCardEditor extends HTMLElement {
     if (!this.isConnected) return;
     this.reactRoot ??= createRoot(this.mountPoint);
     this.reactRoot.render(
-      createElement(EditorForm, { config: this.config, onChange: this.handleChange }),
+      createElement(EditorForm, {
+        config: this.config,
+        onChange: this.handleChange,
+        hass: this._hass,
+      }),
     );
   }
 }

@@ -75,7 +75,7 @@ show_tabs: [batteries, connectivity] # add "shopping" for the battery shopping l
 default_tab: batteries
 ```
 
-Prefer clicking to typing? The card has a **visual editor**: add the card from the picker, or press "Edit" on an existing one, and every option above except the two per-integration/per-device mappings is a form field.
+Prefer clicking to typing? The card has a **visual editor**: add the card from the picker, or press "Edit" on an existing one, and every option above is a form field. Integration thresholds and device overrides are rows you add and remove, with dropdowns of the integrations and devices that actually exist in your instance, so you never have to look up a device id.
 
 | Option                   | Type    | Default                     | Notes                                                              |
 | ------------------------ | ------- | --------------------------- | ------------------------------------------------------------------ |

@@ -155,6 +155,7 @@ function withWS(h: HassLike): HassLike {
 
 interface EditorLike extends HTMLElement {
   setConfig(config: CardConfig): void;
+  hass: HassLike;
 }
 
 /** Render the visual editor next to the card and echo what it emits. */
@@ -164,6 +165,7 @@ function mountEditor(config: CardConfig) {
   editorHost.replaceChildren();
   const editor = document.createElement('pulse-check-card-editor') as EditorLike;
   editor.setConfig(config);
+  editor.hass = withWS(buildHass(new Date()));
   editor.addEventListener('config-changed', (event) => {
     const detail = (event as CustomEvent<{ config: CardConfig }>).detail;
     output.textContent = JSON.stringify(detail.config, null, 2);

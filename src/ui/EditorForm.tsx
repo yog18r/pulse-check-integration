@@ -10,8 +10,11 @@
  * props, and typing calls `onChange` to produce a new config object, which
  * flows back down as the new value. One-way data flow, no hidden state.
  */
+import type { HassLike } from '../core/types';
+import { DeviceOverrideRows, IntegrationThresholdRows } from './EditorLists';
 import {
   BATTERY_SORTS,
+  DEFAULT_CONFIG,
   QUIET_SCOPES,
   resolveConfig,
   TAB_IDS,
@@ -24,6 +27,8 @@ import {
 interface Props {
   config: CardConfig;
   onChange: (config: CardConfig) => void;
+  /** Lets the pickers offer real integration and device names. */
+  hass?: HassLike | undefined;
 }
 
 const TAB_LABELS: Record<TabId, string> = {
@@ -47,7 +52,7 @@ function parseNumber(text: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-export function EditorForm({ config, onChange }: Props) {
+export function EditorForm({ config, onChange, hass }: Props) {
   /** Set one key, dropping it entirely when the value is undefined. */
   function set<K extends keyof CardConfig>(key: K, value: CardConfig[K] | undefined) {
     // Rebuild without the key, then add it back only if it has a value, so
@@ -239,10 +244,22 @@ export function EditorForm({ config, onChange }: Props) {
         />
       </label>
 
-      <p className="note">
-        Per-integration thresholds, per-device overrides and battery types are set in the YAML
-        editor (<code>integration_thresholds</code>, <code>device_overrides</code>).
-      </p>
+      <IntegrationThresholdRows
+        value={config.integration_thresholds ?? {}}
+        defaultHours={config.quiet_threshold_hours ?? DEFAULT_CONFIG.quiet_threshold_hours}
+        hass={hass}
+        onChange={(v) => {
+          set('integration_thresholds', v);
+        }}
+      />
+
+      <DeviceOverrideRows
+        value={config.device_overrides ?? []}
+        hass={hass}
+        onChange={(v) => {
+          set('device_overrides', v);
+        }}
+      />
 
       {error && (
         <p className="error" role="alert">
