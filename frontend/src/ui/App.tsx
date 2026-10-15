@@ -24,6 +24,7 @@ import { filterDevices } from '../core/filters';
 import { batteryList, connectivityList } from '../core/sort';
 import { breakdown, headline, summarise } from '../core/summarise';
 import { batterySeverity, connectivitySeverity } from '../core/thresholds';
+import { formatClock } from '../core/time';
 import type { DeviceHealth, HassBox } from '../core/types';
 import { ActionsTab } from './ActionsTab';
 import { DeviceRow } from './DeviceRow';
@@ -198,6 +199,13 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
           {detail && <p className="breakdown">{detail}</p>}
         </div>
       </header>
+
+      {snapshot.maintenanceUntil && snapshot.maintenanceUntil > now && (
+        <p className="maintenance" role="status">
+          🔧 Maintenance mode until {formatClock(snapshot.maintenanceUntil, now)}. Notifications are
+          held back.
+        </p>
+      )}
 
       {config.show_tabs.length > 1 && (
         <div className="tabs" role="tablist" aria-label="Device health views">

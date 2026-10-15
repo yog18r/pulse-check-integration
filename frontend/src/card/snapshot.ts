@@ -68,6 +68,8 @@ export interface Snapshot {
   /** Device id -> settings. Device-less batteries are keyed `entity:<entity_id>`. */
   deviceSettings: Record<string, DeviceSettings>;
   computedAt?: Date;
+  /** Set while maintenance mode holds notifications back: when it ends. */
+  maintenanceUntil?: Date;
 }
 
 /* ---- small parsers ----------------------------------------------------- */
@@ -311,6 +313,8 @@ export function parseSnapshot(raw: unknown): Snapshot {
   };
   const computedAt = date(record.computed_at);
   if (computedAt) snapshot.computedAt = computedAt;
+  const maintenanceUntil = date(record.maintenance_until);
+  if (maintenanceUntil) snapshot.maintenanceUntil = maintenanceUntil;
   return snapshot;
 }
 

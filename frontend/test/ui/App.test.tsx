@@ -62,6 +62,16 @@ describe('App', () => {
     expect(onOpenDevice.mock.calls[0]?.[0]).toMatchObject({ deviceId: 'dev_z2m_motion' });
   });
 
+  it('says so while maintenance mode holds notifications back', async () => {
+    const { emit } = renderApp();
+    await screen.findByText('⚠️ 7 devices need attention');
+    expect(screen.queryByText(/Maintenance mode/)).not.toBeInTheDocument();
+    emit({ ...SNAPSHOT_PAYLOAD, maintenance_until: '2026-10-15T12:00:00.000Z' });
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      /Maintenance mode until .*12.00.*Notifications are held back/,
+    );
+  });
+
   it('re-renders when the subscription sends a new snapshot', async () => {
     const { emit } = renderApp();
     await screen.findByText('⚠️ 7 devices need attention');

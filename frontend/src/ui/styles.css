@@ -71,6 +71,16 @@
   color: var(--warning-color, #ffa600);
 }
 
+/* While maintenance mode holds notifications back. */
+.maintenance {
+  margin: 0 16px 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--secondary-background-color, #f2f2f2);
+  color: var(--primary-text-color, #212121);
+  font-size: 0.85em;
+}
+
 /* ---- tabs ------------------------------------------------------------ */
 
 .tabs {

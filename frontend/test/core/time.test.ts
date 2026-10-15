@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatHours, formatRelative } from '../../src/core/time';
+import { formatClock, formatHours, formatRelative } from '../../src/core/time';
 import { FIXED_NOW, hoursAgo, minutesAgo } from '../fixtures/hass';
 
 const now = FIXED_NOW;
@@ -26,5 +26,16 @@ describe('formatHours', () => {
     expect(formatHours(48)).toBe('2d');
     expect(formatHours(72)).toBe('3d');
     expect(formatHours(50)).toBe('50h');
+  });
+});
+
+describe('formatClock', () => {
+  it('drops the date today and names the day within a week', () => {
+    const later = new Date(now.getTime() + 4.5 * 60 * 60 * 1000);
+    expect(formatClock(later, now, 'en-GB')).toBe('14:30');
+    const friday = new Date('2026-10-16T08:00:00Z');
+    expect(formatClock(friday, now, 'en-GB')).toBe('Fri 08:00');
+    const far = new Date('2026-11-02T08:00:00Z');
+    expect(formatClock(far, now, 'en-GB')).toBe('2 Nov, 08:00');
   });
 });

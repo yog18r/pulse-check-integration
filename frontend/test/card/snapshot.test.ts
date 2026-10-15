@@ -32,6 +32,10 @@ describe('parseSnapshot', () => {
       dev_zha_temp: { battery_type: 'CR2450', battery_count: 2 },
     });
     expect(snapshot.computedAt?.toISOString()).toBe('2026-10-15T10:00:00.000Z');
+    expect(snapshot.maintenanceUntil).toBeUndefined();
+    expect(
+      parseSnapshot({ maintenance_until: '2026-10-15T12:00:00.000Z' }).maintenanceUntil,
+    ).toEqual(new Date('2026-10-15T12:00:00.000Z'));
 
     const motion = snapshot.devices.find((d) => d.name === 'Living Room Motion')!;
     expect(motion.lastHeard?.toISOString()).toBe('2026-10-15T09:20:00.000Z');

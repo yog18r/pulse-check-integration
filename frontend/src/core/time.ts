@@ -27,3 +27,19 @@ export function formatHours(hours: number): string {
   const days = hours / 24;
   return Number.isInteger(days) ? `${String(days)}d` : `${String(hours)}h`;
 }
+
+/**
+ * A coming moment as a clock time: "14:30" today, "Fri 14:30" within a
+ * week, a date beyond that. In the browser's time zone and `locale`.
+ */
+export function formatClock(date: Date, now: Date, locale?: string): string {
+  const time: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString(locale, time);
+  }
+  const withinWeek = date.getTime() - now.getTime() < 6 * DAY;
+  return date.toLocaleString(locale, {
+    ...time,
+    ...(withinWeek ? { weekday: 'short' } : { day: 'numeric', month: 'short' }),
+  });
+}
