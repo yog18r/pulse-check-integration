@@ -119,6 +119,7 @@ The option keys match the card's YAML (`battery_warning`, `exclude_entities`, `i
 | Weekly "all clear" | off | Send the weekly digest even when there is nothing to report |
 | Quiet period after start | 5 min | Nothing is judged until Home Assistant has started plus this long. Integrations load one by one and most devices look unavailable meanwhile; what is still wrong at the end is recorded as the starting point, not announced |
 | Confirm offline or quiet after | 5 min | An offline or quiet state must persist this long before it counts. A missed poll that heals within the window sends nothing. Battery levels count at once |
+| Maintenance mode length | 2 h | How long `pulse_check.maintenance_mode` holds notifications back when it is called without `hours` |
 
 A device's own `notify_policy` (set with the `set_device_settings` service) overrides the defaults: `instant`, `daily`, `weekly` or `none`. A leak detector can be instant while the blinds wait for the weekly digest.
 
@@ -135,6 +136,7 @@ A device's own `notify_policy` (set with the `set_device_settings` service) over
 - **🛠️ Actions** (optional tab): "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", a to-buy total, and a **Done** button that records the replacement
 - **Snooze** a device for 1, 7 or 30 days. Snoozes live in the integration, so every dashboard, phone and notification agrees
 - **Group by** area, integration or device type. Tap a row to open the device in Home Assistant
+- A line under the header while **maintenance mode** holds notifications back, with its end time
 
 The card shows what the integration computed; it analyses nothing itself. What counts as low, how long a device may stay quiet, which devices are ignored and which notifications go out are the integration's options (above). The card's own options are about presentation only, and the visual editor covers all of them:
 
@@ -182,6 +184,7 @@ The visual editor also has a **Per-device settings** panel: display name, area, 
 | `sensor.pulse_check_quiet` | Devices not heard from within their threshold | |
 | `sensor.pulse_check_next_to_run_out` | Name of the battery device with the fewest days left (`unknown` until there is enough history) | `days_left`, `device_id`, `entity_id`, `level` |
 | `binary_sensor.pulse_check_problem` | On when anything needs attention | |
+| `binary_sensor.pulse_check_maintenance_mode` | On while maintenance mode holds notifications back | `until`: when it ends |
 
 Snoozed devices count in nothing. With the per-device option on, every battery device also gets `sensor.<device>_battery_days_left` and `sensor.<device>_battery_last_replaced` (diagnostic), the latter with the device's cycle statistics as attributes.
 
@@ -198,7 +201,8 @@ This is the contract between the integration and the card. The card, or anything
   "actions": { "replace": [...], "charge": [...], "shopping": [{ "batteryType": "CR2450", "count": 2, "devices": 1 }] },
   "config": { "battery_warning": 30, "battery_critical": 15, "quiet_threshold_hours": 24, "quiet_scope": "battery", "integration_thresholds": {}, "device_settings": [...] },
   "device_settings": { "<device id>": { "battery_type": "CR2450", "battery_count": 2, "notify_policy": "weekly" } },
-  "computed_at": "2026-10-15T10:00:00.000Z"
+  "computed_at": "2026-10-15T10:00:00.000Z",
+  "maintenance_until": null
 }
 ```
 
@@ -242,7 +246,15 @@ Each device has a policy: **instant** (sent at once, then a reminder every few d
 
 A digest whose time passes while Home Assistant is off, or still starting, is not lost. The integration stores when each digest was last due and dealt with, whether or not there was anything to say. When the quiet period after the next start ends, a digest that has fallen due since then is sent once, with what is wrong at that moment, however many were missed; then the normal schedule resumes. The same rules apply as at the usual time: nothing is sent when there is nothing to say, unless the weekly "all clear" is on. A new install starts counting from the moment it is set up, so it never sends a digest for a time before that.
 
-Every transition also fires a `pulse_check_transition` event with `device_id`, `name`, `area`, `integration`, `issue` (`offline`, `quiet`, `battery_warning`, `battery_critical`), `kind` (`entered` or `resolved`), `severity`, `message`, `policy` and `level`. The blueprint in [`blueprints/automation/pulse_check/transition_notify.yaml`](https://github.com/yog18r/pulse-check-integration/blob/main/blueprints/automation/pulse_check/transition_notify.yaml) turns those into notifications of your own design; import it from Settings → Automations → Blueprints with the file's GitHub URL.
+### Maintenance mode
+
+Some jobs knock many devices over at once on purpose: moving to a new Zigbee coordinator, re-pairing a Z-Wave network, rewiring a rack. Call `pulse_check.maintenance_mode` with the number of `hours` the work should take (or leave it out for the default in the options) and Pulse Check holds every message back until then: no instant notifications, no reminders, no digests. Everything else carries on. Problems are still tracked, the event below still fires (with `maintenance: true`), the card shows a line in its header, and `binary_sensor.pulse_check_maintenance_mode` is on with the end time in its `until` attribute. Calling it again moves the end; `hours: 0` ends it now. The window is stored, so a restart in the middle of the work keeps it, and one that ends while Home Assistant is off ends at the next start.
+
+When it ends nothing is replayed. Pulse Check compares what is wrong now with what was already wrong when the window began and sends one message listing the problems that appeared during it and are still there, such as a sensor that never re-paired. Only devices on the instant policy are listed; daily and weekly ones appear in their next digest as usual, and a digest whose time fell inside the window is skipped, not caught up. Reminders for older problems resume where they left off. If nothing new is wrong, nothing is sent.
+
+### The event
+
+Every transition also fires a `pulse_check_transition` event with `device_id`, `name`, `area`, `integration`, `issue` (`offline`, `quiet`, `battery_warning`, `battery_critical`), `kind` (`entered` or `resolved`), `severity`, `message`, `policy`, `level` and `maintenance` (true while maintenance mode is on). The blueprint in [`blueprints/automation/pulse_check/transition_notify.yaml`](https://github.com/yog18r/pulse-check-integration/blob/main/blueprints/automation/pulse_check/transition_notify.yaml) turns those into notifications of your own design; import it from Settings → Automations → Blueprints with the file's GitHub URL. By default it stays quiet during maintenance mode too.
 
 ## Services
 
@@ -254,6 +266,7 @@ Every transition also fires a `pulse_check_transition` event with `device_id`, `
 | `pulse_check.mark_replaced` | Record a replacement now (optional `battery_type`), closing the current cycle |
 | `pulse_check.mark_charged` | The same for a charge |
 | `pulse_check.refresh` | Recompute now and re-read battery history |
+| `pulse_check.maintenance_mode` | Hold every notification back for `hours` (default from the options; 0 ends it now). See [Maintenance mode](#maintenance-mode) |
 
 `device_id` is the device registry id, or the entity id of a battery sensor that has no device (`sensor.remote_battery_template` or `entity:sensor.remote_battery_template`). Everything is stored in `.storage/pulse_check.data`.
 

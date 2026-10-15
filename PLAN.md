@@ -111,7 +111,7 @@ past cycles like for like, or on a sudden 20-point drop.
   statistics.
 - **Entities**: attention count with a summary attribute; low, critical,
   offline and quiet counts; next to run out; a problem binary sensor;
-  optional per-device diagnostic sensors. Nothing time-stamped goes on an
+  a maintenance mode binary sensor; optional per-device diagnostic sensors. Nothing time-stamped goes on an
   entity, so an unchanged result writes no recorder row.
 - **Notifications**: once per transition (enters warning, enters critical,
   goes offline, goes quiet), never per update. Per-device policy `instant`,
@@ -121,9 +121,10 @@ past cycles like for like, or on a sudden 20-point drop.
   blueprint. On startup: a baseline, a grace period, and a
   confirmation window; a device must have been seen online since startup
   before it can be reported offline, so slow-starting integrations do not
-  produce a flood of false alarms after a restart.
+  produce a flood of false alarms after a restart. Maintenance mode holds
+  messages back for a set time and ends with one summary.
 - **Services**: `snooze`, `unsnooze`, `set_device_settings`,
-  `mark_replaced`, `mark_charged`, `refresh`.
+  `mark_replaced`, `mark_charged`, `refresh`, `maintenance_mode`.
 - **Websocket API**: `pulse_check/subscribe` streams the snapshot (devices,
   summary, actions, config, device settings) and re-sends it after every
   recompute, option change or service call; `pulse_check/history` returns a
@@ -136,7 +137,8 @@ past cycles like for like, or on a sudden 20-point drop.
 
 - Config entry with an options flow: thresholds, quiet scope, per-integration
   thresholds, filters, notify targets, policies, reminders, digest schedule,
-  startup grace and confirmation minutes, per-device sensors.
+  startup grace and confirmation minutes, maintenance length, per-device
+  sensors.
 - A `DataUpdateCoordinator` listening to `state_changed`. Only changes that
   can alter the result get through (availability, battery and charging
   values, node status, `battery_level` attributes, a new battery entity
@@ -210,6 +212,27 @@ change (`sensor.garden_soil_moisture` in the fixture).
 - The card's device picker offers them for per-device settings; the
   integration resolves `entity:<id>` for Done, snooze and history as for
   any device-less battery.
+
+**Maintenance mode.** Planned work (a coordinator migration) would send a
+burst of offline and quiet alerts that are expected and useless.
+
+- `pulse_check.maintenance_mode` with `hours` (options default, 0 ends it).
+  The store keeps `started_at`, `until` and the issues already confirmed
+  per device at the start; calling it again moves only `until`.
+- Inside the window only *messages* stop. Transitions are still recorded
+  and confirmed, the event fires with `maintenance: true` (the blueprint
+  skips those by default), and a digest slot counts as judged, so it is
+  neither sent nor caught up later.
+- The end is a timer that triggers a recompute; the notifier sends the
+  summary from there, after its startup baseline if Home Assistant was
+  restarted, so a window that ends while it is off is still summarised.
+- The summary is not a replay: it lists instant-policy issues confirmed
+  now, never notified, and not already known at the start. Each listed
+  issue counts as notified at the end, so its reminders run from there;
+  overdue reminders of older issues follow on the next recompute. Digest
+  issues wait for their digest; nothing new means no message.
+- An issue first seen just before the end and confirmed after it is sent
+  normally, not summarised.
 
 ## Still open
 
