@@ -29,7 +29,7 @@ export function resolveQuietThreshold(
   integration: string,
   deviceId: string,
 ): number {
-  const override = config.device_overrides.find((o) => o.device_id === deviceId);
+  const override = config.device_settings.find((o) => o.device_id === deviceId);
   if (override?.quiet_threshold_hours !== undefined) return override.quiet_threshold_hours;
 
   const perIntegration = config.integration_thresholds[integration];

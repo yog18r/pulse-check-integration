@@ -2,7 +2,8 @@
  * The two repeating-row sections of the visual editor:
  *
  *   integration_thresholds   { platform: hours }
- *   device_overrides         [{ device_id, quiet_threshold_hours?, battery_type? }]
+ *   device_settings          [{ device_id, quiet_threshold_hours?, battery_type?,
+ *                               battery_count?, rechargeable? }]
  *
  * When the editor has a `hass`, the platform and device pickers are
  * dropdowns of what actually exists in the instance. Without one (never in
@@ -12,9 +13,12 @@
  * own copy of the rows; every edit calls `onChange` with the new value and
  * the parent re-renders them with it.
  */
-import type { DeviceOverride } from '../card/config';
-import { deviceLabel, listDevices, listIntegrations } from '../core/registryOptions';
+import { useState } from 'react';
+import type { DeviceSettings } from '../card/config';
+import { BATTERY_TYPE_GROUPS, isKnownBatteryType, OTHER_BATTERY_TYPE } from '../core/batteryTypes';
+import { listDevices, listIntegrations } from '../core/registryOptions';
 import type { HassLike } from '../core/types';
+import { DevicePicker } from './DevicePicker';
 
 /* ------------------------------------------------------------------------ */
 /* Integration thresholds                                                   */
@@ -115,13 +119,13 @@ export function IntegrationThresholdRows({
 }
 
 /* ------------------------------------------------------------------------ */
-/* Device overrides                                                         */
+/* Per-device settings                                                      */
 /* ------------------------------------------------------------------------ */
 
 interface DeviceRowsProps {
-  value: DeviceOverride[];
+  value: DeviceSettings[];
   hass: HassLike | undefined;
-  onChange: (value: DeviceOverride[] | undefined) => void;
+  onChange: (value: DeviceSettings[] | undefined) => void;
 }
 
 function parseOptionalNumber(text: string): number | undefined {
@@ -130,71 +134,117 @@ function parseOptionalNumber(text: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-export function DeviceOverrideRows({ value, hass, onChange }: DeviceRowsProps) {
+// `undefined` in a patch means "clear this field", which Partial<> does
+// not allow under exactOptionalPropertyTypes, hence the explicit type.
+interface SettingsPatch {
+  device_id?: string;
+  quiet_threshold_hours?: number | undefined;
+  battery_type?: string | undefined;
+  battery_count?: number | undefined;
+  rechargeable?: boolean | undefined;
+}
+
+function applyPatch(row: DeviceSettings, patch: SettingsPatch): DeviceSettings {
+  const next: DeviceSettings = { device_id: patch.device_id ?? row.device_id };
+  const hours =
+    'quiet_threshold_hours' in patch ? patch.quiet_threshold_hours : row.quiet_threshold_hours;
+  if (hours !== undefined) next.quiet_threshold_hours = hours;
+  const type = 'battery_type' in patch ? patch.battery_type : row.battery_type;
+  if (type !== undefined && type !== '') next.battery_type = type;
+  const count = 'battery_count' in patch ? patch.battery_count : row.battery_count;
+  if (count !== undefined && count >= 1) next.battery_count = Math.floor(count);
+  const rechargeable = 'rechargeable' in patch ? patch.rechargeable : row.rechargeable;
+  if (rechargeable) next.rechargeable = true;
+  return next;
+}
+
+/** Battery type dropdown with an "Other…" escape hatch into free text. */
+function BatteryTypeField({
+  value,
+  onChange,
+}: {
+  value: string | undefined;
+  onChange: (type: string | undefined) => void;
+}) {
+  const known = value !== undefined && isKnownBatteryType(value);
+  const [other, setOther] = useState(value !== undefined && !known);
+  const selectValue = other ? OTHER_BATTERY_TYPE : (value ?? '');
+
+  return (
+    <span className="typefield">
+      <select
+        aria-label="Battery type"
+        value={selectValue}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === OTHER_BATTERY_TYPE) {
+            setOther(true);
+            onChange(undefined);
+          } else {
+            setOther(false);
+            onChange(v === '' ? undefined : v);
+          }
+        }}
+      >
+        <option value="">Battery type…</option>
+        {BATTERY_TYPE_GROUPS.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.types.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+        <option value={OTHER_BATTERY_TYPE}>Other…</option>
+      </select>
+      {other && (
+        <input
+          type="text"
+          aria-label="Other battery type"
+          placeholder="e.g. 2CR5"
+          value={value ?? ''}
+          onChange={(e) => {
+            onChange(e.target.value === '' ? undefined : e.target.value);
+          }}
+        />
+      )}
+    </span>
+  );
+}
+
+export function DeviceSettingsRows({ value, hass, onChange }: DeviceRowsProps) {
   const devices = hass ? listDevices(hass) : [];
   const used = new Set(value.map((o) => o.device_id));
   const unused = devices.filter((d) => !used.has(d.id));
 
-  function emit(next: DeviceOverride[]) {
+  function emit(next: DeviceSettings[]) {
     onChange(next.length > 0 ? next : undefined);
   }
 
-  // `undefined` in a patch means "clear this field", which Partial<> does
-  // not allow under exactOptionalPropertyTypes, hence the explicit type.
-  interface OverridePatch {
-    device_id?: string;
-    quiet_threshold_hours?: number | undefined;
-    battery_type?: string | undefined;
-  }
-
-  function update(index: number, patch: OverridePatch) {
-    emit(
-      value.map((row, i) => {
-        if (i !== index) return row;
-        const next: DeviceOverride = { device_id: patch.device_id ?? row.device_id };
-        const hours =
-          'quiet_threshold_hours' in patch
-            ? patch.quiet_threshold_hours
-            : row.quiet_threshold_hours;
-        if (hours !== undefined) next.quiet_threshold_hours = hours;
-        const type = 'battery_type' in patch ? patch.battery_type : row.battery_type;
-        if (type !== undefined && type !== '') next.battery_type = type;
-        return next;
-      }),
-    );
+  function update(index: number, patch: SettingsPatch) {
+    emit(value.map((row, i) => (i === index ? applyPatch(row, patch) : row)));
   }
 
   return (
     <fieldset className="field">
-      <legend>Per-device overrides</legend>
-      {value.length === 0 && (
-        <p className="hint">None. Add one to set a quiet threshold or battery type for a device.</p>
-      )}
-      {value.map((row, index) => {
-        const knownDevice = devices.some((d) => d.id === row.device_id);
-        return (
-          <div key={index} className="listrow device">
+      <legend>Per-device settings</legend>
+      <p className="hint">
+        Battery type and count feed the Actions tab; tick rechargeable for devices you charge rather
+        than replace. Quiet hours overrides the threshold for that one device.
+      </p>
+      {value.map((row, index) => (
+        <div key={index} className="settingsrow">
+          <div className="settingsline">
             {devices.length > 0 ? (
-              <select
-                aria-label="Device"
+              <DevicePicker
                 value={row.device_id}
-                onChange={(e) => {
-                  update(index, { device_id: e.target.value });
+                options={devices}
+                disabledIds={used}
+                onChange={(id) => {
+                  update(index, { device_id: id });
                 }}
-              >
-                {!knownDevice && (
-                  <option value={row.device_id}>{row.device_id || 'Choose a device'}</option>
-                )}
-                {devices.map((d) => (
-                  <option
-                    key={d.id}
-                    value={d.id}
-                    disabled={d.id !== row.device_id && used.has(d.id)}
-                  >
-                    {deviceLabel(d)}
-                  </option>
-                ))}
-              </select>
+              />
             ) : (
               <input
                 type="text"
@@ -206,29 +256,10 @@ export function DeviceOverrideRows({ value, hass, onChange }: DeviceRowsProps) {
                 }}
               />
             )}
-            <input
-              type="number"
-              aria-label="Quiet hours"
-              min={0}
-              placeholder="quiet h"
-              value={row.quiet_threshold_hours ?? ''}
-              onChange={(e) => {
-                update(index, { quiet_threshold_hours: parseOptionalNumber(e.target.value) });
-              }}
-            />
-            <input
-              type="text"
-              aria-label="Battery type"
-              placeholder="e.g. CR2032"
-              value={row.battery_type ?? ''}
-              onChange={(e) => {
-                update(index, { battery_type: e.target.value });
-              }}
-            />
             <button
               type="button"
               className="remove"
-              aria-label="Remove device override"
+              aria-label="Remove device settings"
               onClick={() => {
                 emit(value.filter((_, i) => i !== index));
               }}
@@ -236,8 +267,53 @@ export function DeviceOverrideRows({ value, hass, onChange }: DeviceRowsProps) {
               ✕
             </button>
           </div>
-        );
-      })}
+          <div className="settingsline details">
+            <BatteryTypeField
+              value={row.battery_type}
+              onChange={(type) => {
+                update(index, { battery_type: type });
+              }}
+            />
+            <label className="inline">
+              <span>×</span>
+              <input
+                type="number"
+                aria-label="Battery count"
+                min={1}
+                placeholder="1"
+                value={row.battery_count ?? ''}
+                onChange={(e) => {
+                  update(index, { battery_count: parseOptionalNumber(e.target.value) });
+                }}
+              />
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={row.rechargeable === true}
+                onChange={(e) => {
+                  update(index, { rechargeable: e.target.checked });
+                }}
+              />
+              Rechargeable
+            </label>
+            <label className="inline">
+              <span>Quiet</span>
+              <input
+                type="number"
+                aria-label="Quiet hours"
+                min={0}
+                placeholder="hours"
+                value={row.quiet_threshold_hours ?? ''}
+                onChange={(e) => {
+                  update(index, { quiet_threshold_hours: parseOptionalNumber(e.target.value) });
+                }}
+              />
+              <span>h</span>
+            </label>
+          </div>
+        </div>
+      ))}
       <button
         type="button"
         className="add"

@@ -27,14 +27,14 @@ const CONFIGS: Record<Scenario, unknown> = {
   } satisfies CardConfig,
   shopping: {
     type: 'custom:pulse-check-card',
-    title: 'Battery Shop',
+    title: 'Battery Jobs',
     battery_sort: 'replace_soon',
-    show_tabs: ['batteries', 'shopping'],
-    default_tab: 'shopping',
-    device_overrides: [
+    show_tabs: ['batteries', 'actions'],
+    default_tab: 'actions',
+    device_settings: [
       { device_id: 'dev_z2m_motion', battery_type: 'CR2450' },
-      { device_id: 'dev_zha_temp', battery_type: 'CR2032' },
-      { device_id: 'dev_smoke_alarm', battery_type: 'CR2032' },
+      { device_id: 'dev_zha_temp', battery_type: 'AAA', battery_count: 2 },
+      { device_id: 'dev_smoke_alarm', battery_type: 'Built-in rechargeable', rechargeable: true },
     ],
   } satisfies CardConfig,
   healthy: { type: 'custom:pulse-check-card', title: 'All good' } satisfies CardConfig,

@@ -462,3 +462,14 @@
 .spark[data-severity='critical'] path {
   stroke: var(--error-color, #db4437);
 }
+
+/* ---- actions tab ------------------------------------------------------ */
+
+.tobuy {
+  margin: 0;
+  padding: 12px 16px 4px;
+}
+
+.tobuyhint {
+  padding: 0 16px 8px;
+}

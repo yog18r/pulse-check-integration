@@ -22,7 +22,7 @@ describe('resolveConfig', () => {
     expect(resolved.title).toBe('Health');
     expect(resolved.battery_warning).toBe(40);
     expect(resolved.integration_thresholds).toEqual({ zwave_js: 48 });
-    expect(resolved.device_overrides[0]?.battery_type).toBe('CR2032');
+    expect(resolved.device_settings[0]?.battery_type).toBe('CR2032');
     expect(resolved.show_tabs).toEqual(['connectivity']);
     expect(resolved.default_tab).toBe('connectivity');
   });
@@ -72,13 +72,37 @@ describe('resolveConfig', () => {
     expect(() => resolveConfig({ battery_sort: 'random' })).toThrow(/battery_sort/);
   });
 
-  it('accepts the shopping tab', () => {
+  it('accepts the actions tab, and "shopping" as its old name', () => {
+    const resolved = resolveConfig({ show_tabs: ['batteries', 'actions'], default_tab: 'actions' });
+    expect(resolved.show_tabs).toEqual(['batteries', 'actions']);
+    expect(resolved.default_tab).toBe('actions');
+    const legacy = resolveConfig({ show_tabs: ['shopping'], default_tab: 'shopping' });
+    expect(legacy.show_tabs).toEqual(['actions']);
+    expect(legacy.default_tab).toBe('actions');
+  });
+
+  it('parses device_settings with count and rechargeable, merging legacy device_overrides', () => {
     const resolved = resolveConfig({
-      show_tabs: ['batteries', 'shopping'],
-      default_tab: 'shopping',
+      device_overrides: [
+        { device_id: 'old', battery_type: 'AA' },
+        { device_id: 'both', battery_type: 'AAA' },
+      ],
+      device_settings: [
+        { device_id: 'both', battery_type: 'CR2032', battery_count: 2, rechargeable: false },
+        { device_id: 'blind', rechargeable: true, battery_type: 'Built-in rechargeable' },
+      ],
     });
-    expect(resolved.show_tabs).toEqual(['batteries', 'shopping']);
-    expect(resolved.default_tab).toBe('shopping');
+    expect(resolved.device_settings).toEqual([
+      { device_id: 'old', battery_type: 'AA' },
+      { device_id: 'both', battery_type: 'CR2032', battery_count: 2, rechargeable: false },
+      { device_id: 'blind', rechargeable: true, battery_type: 'Built-in rechargeable' },
+    ]);
+    expect(() =>
+      resolveConfig({ device_settings: [{ device_id: 'a', battery_count: 0 }] }),
+    ).toThrow(/battery_count/);
+    expect(() =>
+      resolveConfig({ device_settings: [{ device_id: 'a', rechargeable: 'yes' }] }),
+    ).toThrow(/rechargeable/);
   });
 
   it('validates max_rows, sparklines and the new filters', () => {

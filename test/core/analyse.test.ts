@@ -187,7 +187,7 @@ describe('analyseDevices', () => {
 
   it('honours per-device quiet thresholds', () => {
     const { byId } = run({
-      device_overrides: [{ device_id: DEV.shellyPlug, quiet_threshold_hours: 100 }],
+      device_settings: [{ device_id: DEV.shellyPlug, quiet_threshold_hours: 100 }],
     });
     expect(byId.get(DEV.shellyPlug)?.isQuiet).toBe(false);
   });

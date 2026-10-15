@@ -27,6 +27,8 @@ interface Props {
   history?: BatteryHistory | undefined;
   /** Draw the trend line next to the bar. */
   sparkline?: boolean;
+  /** On the Actions tab: the instruction shown in place of the device name. */
+  action?: string | undefined;
   /** Snooze handlers. When absent the 💤 control is not rendered. */
   onSnooze?: ((device: DeviceHealth, days: number) => void) | undefined;
   onUnsnooze?: ((device: DeviceHealth) => void) | undefined;
@@ -46,6 +48,7 @@ export function DeviceRow({
   onOpen,
   history,
   sparkline = true,
+  action,
   onSnooze,
   onUnsnooze,
 }: Props) {
@@ -74,7 +77,7 @@ export function DeviceRow({
 
         <span className="main">
           <span className="name" title={device.name}>
-            {device.name}
+            {action ?? device.name}
           </span>
           <span className="meta">
             {device.area && <span>{device.area}</span>}

@@ -23,7 +23,7 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 
 - **🔋 Batteries**: every battery-powered device, lowest first, with a coloured bar
 - **📡 Connectivity**: anything offline or not heard from within a threshold
-- **🛒 Shopping** (optional tab): which batteries to buy, grouped by type
+- **🛠️ Actions** (optional tab): "Replace 2 × AA in Kitchen Mini Switch", "Charge Office 1 Large", plus a to-buy total
 - **Snooze** a device for 1, 7 or 30 days when you already know about it
 - **Trend sparklines** next to each battery bar, from the same 14-day history
 - **Row cap** with "show more", and **area and integration filters** for per-room cards
@@ -66,10 +66,12 @@ quiet_threshold_hours: 24 # no update for this long = "quiet"
 integration_thresholds: # per-integration overrides for quiet_threshold_hours
   zwave_js: 48 # sleeping Z-Wave sensors report rarely
   mqtt: 12
-device_overrides: # per-device overrides
+device_settings: # per-device settings
   - device_id: abc123
-    quiet_threshold_hours: 72
-    battery_type: CR2032 # free text, used by the upcoming shopping list
+    battery_type: CR2032 # any text; the editor offers the standard sizes
+    battery_count: 2 # cells to replace; default 1
+    rechargeable: false # true = "charge it" instead of "replace it"
+    quiet_threshold_hours: 72 # per-device quiet limit
 exclude_integrations: [mobile_app] # hide phones
 exclude_devices: [] # device ids (or an entity id for device-less entities)
 exclude_entities: [] # entity ids to ignore, e.g. a settings sensor labelled as a battery
@@ -80,32 +82,32 @@ show_sparklines: true # 14-day trend line next to each battery bar
 include_areas: [] # only devices in these areas (names or ids); empty = all
 exclude_areas: []
 include_integrations: [] # only these integrations; empty = all
-show_tabs: [batteries, connectivity] # add "shopping" for the battery shopping list
+show_tabs: [batteries, connectivity] # add "actions" for the to-do list
 default_tab: batteries
 ```
 
-Prefer clicking to typing? The card has a **visual editor**: add the card from the picker, or press "Edit" on an existing one, and every option above is a form field. Integration thresholds and device overrides are rows you add and remove, with dropdowns of the integrations and devices that actually exist in your instance, so you never have to look up a device id.
+Prefer clicking to typing? The card has a **visual editor**: add the card from the picker, or press "Edit" on an existing one, and every option above is a form field. Integration thresholds and per-device settings are rows you add and remove. The device picker is a search box (type part of a name, area or integration), the battery type is a dropdown of standard sizes with an "Other…" free-text option, and you never have to look up a device id.
 
-| Option                   | Type    | Default                     | Notes                                                              |
-| ------------------------ | ------- | --------------------------- | ------------------------------------------------------------------ |
-| `title`                  | string  | `Pulse Check`               |                                                                    |
-| `battery_warning`        | number  | `30`                        | 0–100. Inclusive: 30% counts as a warning.                         |
-| `battery_critical`       | number  | `15`                        | 0–100. Must not exceed `battery_warning`.                          |
-| `quiet_threshold_hours`  | number  | `24`                        | Hours since the device's newest `last_updated`.                    |
-| `integration_thresholds` | mapping | `{}`                        | `platform: hours`. Platform is the integration domain (see badge). |
-| `device_overrides`       | list    | `[]`                        | Each item needs `device_id`.                                       |
-| `exclude_integrations`   | list    | `[]`                        |                                                                    |
-| `exclude_devices`        | list    | `[]`                        |                                                                    |
-| `exclude_entities`       | list    | `[]`                        | Removes single entities from consideration.                        |
-| `quiet_scope`            | string  | `battery`                   | `battery` or `all`. See "Quiet" below.                             |
-| `battery_sort`           | string  | `level`                     | `level` or `replace_soon`. See \"Replace soon\" below.             |
-| `max_rows`               | number  | `12`                        | Or `all`. Applies to the Batteries and Connectivity tabs.          |
-| `show_sparklines`        | boolean | `true`                      | Needs recorder history; hidden otherwise.                          |
-| `include_areas`          | list    | `[]`                        | Area names or ids. Devices with no area are dropped when set.      |
-| `exclude_areas`          | list    | `[]`                        |                                                                    |
-| `include_integrations`   | list    | `[]`                        | Allow-list counterpart of `exclude_integrations`.                  |
-| `show_tabs`              | list    | `[batteries, connectivity]` | Any of `batteries`, `connectivity`, `shopping`.                    |
-| `default_tab`            | string  | `batteries`                 | Must be in `show_tabs`.                                            |
+| Option                   | Type    | Default                     | Notes                                                                    |
+| ------------------------ | ------- | --------------------------- | ------------------------------------------------------------------------ |
+| `title`                  | string  | `Pulse Check`               |                                                                          |
+| `battery_warning`        | number  | `30`                        | 0–100. Inclusive: 30% counts as a warning.                               |
+| `battery_critical`       | number  | `15`                        | 0–100. Must not exceed `battery_warning`.                                |
+| `quiet_threshold_hours`  | number  | `24`                        | Hours since the device's newest `last_updated`.                          |
+| `integration_thresholds` | mapping | `{}`                        | `platform: hours`. Platform is the integration domain (see badge).       |
+| `device_settings`        | list    | `[]`                        | Each item needs `device_id`. `device_overrides` still works as an alias. |
+| `exclude_integrations`   | list    | `[]`                        |                                                                          |
+| `exclude_devices`        | list    | `[]`                        |                                                                          |
+| `exclude_entities`       | list    | `[]`                        | Removes single entities from consideration.                              |
+| `quiet_scope`            | string  | `battery`                   | `battery` or `all`. See "Quiet" below.                                   |
+| `battery_sort`           | string  | `level`                     | `level` or `replace_soon`. See \"Replace soon\" below.                   |
+| `max_rows`               | number  | `12`                        | Or `all`. Applies to the Batteries and Connectivity tabs.                |
+| `show_sparklines`        | boolean | `true`                      | Needs recorder history; hidden otherwise.                                |
+| `include_areas`          | list    | `[]`                        | Area names or ids. Devices with no area are dropped when set.            |
+| `exclude_areas`          | list    | `[]`                        |                                                                          |
+| `include_integrations`   | list    | `[]`                        | Allow-list counterpart of `exclude_integrations`.                        |
+| `show_tabs`              | list    | `[batteries, connectivity]` | Any of `batteries`, `connectivity`, `actions` (`shopping` = alias).      |
+| `default_tab`            | string  | `batteries`                 | Must be in `show_tabs`.                                                  |
 
 Invalid config shows a plain-English error on the card, for example `"battery_critical" (40) must not be higher than "battery_warning" (30).`
 
@@ -141,7 +143,7 @@ By default only **battery-powered devices** can be quiet (`quiet_scope: battery`
 
 **Row cap and filters:** `max_rows` (default 12, or `all`) limits each of the Batteries and Connectivity tabs, with a "Show N more" control so nothing is hidden silently. `include_areas` / `exclude_areas` and `include_integrations` / `exclude_integrations` scope the card, which is how you put a per-room card on a sections dashboard: `include_areas: [Office]`. Area filters accept the name shown in Home Assistant or the area id, case-insensitively.
 
-**Shopping list** (`show_tabs` including `shopping`): every device at or below the warning threshold, grouped by the `battery_type` you set in `device_overrides`. There is no reliable way to know from Home Assistant's data that a sensor takes a CR2032, so untyped devices sit in an "Unknown type" group until you tell the card.
+**Actions** (`show_tabs` including `actions`): every device at or below the warning threshold becomes a job. Devices marked `rechargeable` in `device_settings` go under **Charge** ("Charge Office 1 Large"); everything else goes under **Replace** ("Replace 2 × AAA in Bedroom Sensor"), with a **To buy** line totalling cells per battery type across devices. There is no reliable way to know from Home Assistant's data that a sensor takes a CR2032 or two AAAs, so untyped devices read "Replace the battery in …" and count as "unknown" until you set them. Charging and snoozed devices are left out.
 
 **Charging:** a device that says it is charging is never flagged for battery, whatever its level, and sorts last within its band. The card recognises the standard `battery_charging` binary sensor, companion-app "battery state" sensors reading charging/full, a vacuum that is `docked`, and the `is_charging` / `charging` / `battery_state` attributes some integrations use.
 
@@ -177,7 +179,8 @@ src/
 │   ├── thresholds.ts         threshold resolution and severity
 │   ├── analyse.ts            the orchestrator: hass + config → DeviceHealth[]
 │   ├── drain.ts              drain rate and days-left from history samples
-│   ├── shopping.ts           batteries to buy, grouped by type
+│   ├── actions.ts            replace/charge jobs and the to-buy totals
+│   ├── batteryTypes.ts       standard battery sizes for the editor dropdown
 │   ├── sort.ts, summarise.ts, time.ts, fingerprint.ts
 ├── enhancers/                optional per-integration extras (Enhancer interface)
 └── ui/                       React components, hooks (useNow, useDrainEstimates,
@@ -221,6 +224,7 @@ The same fixture drives the unit tests, so every detection, grouping, threshold 
 - [x] **Phase 3:** "replace soon" ordering using drain rate from HA statistics; battery shopping list grouped by `battery_type`; visual config editor
 - [x] **v0.2:** charging awareness; on-demand `last_reported` lookup; snooze; visual editor rows for thresholds and overrides
 - [x] **v0.3:** trend sparklines; configurable row cap; area and integration filters; editor checkbox pickers for both
+- [x] **v0.3:** per-device settings with battery type (standard sizes + other), count and rechargeable; Actions tab replacing the shopping list; searchable device picker in the editor
 - [ ] **Ideas:** a problems-only toggle on the Batteries tab; translations; HACS default-repository submission
 
 ## Licence

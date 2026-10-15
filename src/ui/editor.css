@@ -148,3 +148,127 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ---- per-device settings rows ---------------------------------------- */
+
+.settingsrow {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid var(--divider-color, #e0e0e0);
+}
+
+.settingsline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.settingsline.details {
+  grid-template-columns: minmax(0, 2fr) auto auto auto;
+  align-items: center;
+}
+
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.inline input[type='number'] {
+  width: 64px;
+}
+
+.typefield {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.typefield select,
+.typefield input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+/* ---- searchable device picker ----------------------------------------- */
+
+.picker {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.picker input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.picker .results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 3;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  border-radius: 8px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.picker .results li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.picker .results li.active {
+  background: var(--secondary-background-color, #f0f0f0);
+}
+
+.picker .results li[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.picker .results li.noresults {
+  color: var(--secondary-text-color, #727272);
+  cursor: default;
+  font-size: 0.85em;
+}
+
+.picker .pmeta {
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .settingsline.details {
+    grid-template-columns: 1fr 1fr;
+  }
+}

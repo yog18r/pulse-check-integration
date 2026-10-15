@@ -12,7 +12,9 @@
  * no `?? default` sprinkled through the UI.
  */
 
-export const TAB_IDS = ['batteries', 'connectivity', 'shopping'] as const;
+export const TAB_IDS = ['batteries', 'connectivity', 'actions'] as const;
+/** Older names still accepted in YAML. */
+const TAB_ALIASES: Record<string, string> = { shopping: 'actions' };
 
 /**
  * How the Batteries tab is ordered.
@@ -35,12 +37,20 @@ export type TabId = (typeof TAB_IDS)[number];
 export const QUIET_SCOPES = ['battery', 'all'] as const;
 export type QuietScope = (typeof QUIET_SCOPES)[number];
 
-export interface DeviceOverride {
+/** Per-device settings: what this device needs and how patient to be with it. */
+export interface DeviceSettings {
   device_id: string;
   quiet_threshold_hours?: number;
-  /** Free text, e.g. "CR2032" or "2x AA". Used for the shopping list (phase 3). */
+  /** Free text, usually a standard size: "CR2032", "AA", "Built-in rechargeable". */
   battery_type?: string;
+  /** How many cells the device takes. Defaults to 1 on the Actions tab. */
+  battery_count?: number;
+  /** Charge it rather than replace it. */
+  rechargeable?: boolean;
 }
+
+/** @deprecated Older name for DeviceSettings; still accepted in YAML as `device_overrides`. */
+export type DeviceOverride = DeviceSettings;
 
 /** Raw user input. All optional. */
 export interface CardConfig {
@@ -54,7 +64,9 @@ export interface CardConfig {
   quiet_threshold_hours?: number;
   /** Per-integration quiet thresholds, keyed by platform, e.g. { zwave_js: 48 }. */
   integration_thresholds?: Record<string, number>;
-  device_overrides?: DeviceOverride[];
+  device_settings?: DeviceSettings[];
+  /** @deprecated Use device_settings. Merged in when both are present. */
+  device_overrides?: DeviceSettings[];
   exclude_integrations?: string[];
   exclude_devices?: string[];
   /** Entity ids to ignore entirely, e.g. a settings sensor mis-labelled as a battery. */
@@ -80,7 +92,7 @@ export interface ResolvedConfig {
   battery_critical: number;
   quiet_threshold_hours: number;
   integration_thresholds: Record<string, number>;
-  device_overrides: DeviceOverride[];
+  device_settings: DeviceSettings[];
   exclude_integrations: string[];
   exclude_devices: string[];
   exclude_entities: string[];
@@ -101,7 +113,7 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
   battery_critical: 15,
   quiet_threshold_hours: 24,
   integration_thresholds: {},
-  device_overrides: [],
+  device_settings: [],
   exclude_integrations: [],
   exclude_devices: [],
   exclude_entities: [],
@@ -217,21 +229,20 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     }
   }
 
-  // device_overrides: list of { device_id, quiet_threshold_hours?, battery_type? }
-  const device_overrides: DeviceOverride[] = [];
-  const rawOverrides = raw.device_overrides;
-  if (rawOverrides !== undefined) {
-    if (!Array.isArray(rawOverrides)) {
-      throw new ConfigError('"device_overrides" must be a list.');
-    }
-    rawOverrides.forEach((item: unknown, i) => {
-      const where = `device_overrides[${String(i)}]`;
+  // device_settings (and the older device_overrides): one entry per device
+  const device_settings: DeviceSettings[] = [];
+  const seenDevices = new Set<string>();
+  const parseSettingsList = (rawList: unknown, key: string) => {
+    if (rawList === undefined) return;
+    if (!Array.isArray(rawList)) throw new ConfigError(`"${key}" must be a list.`);
+    rawList.forEach((item: unknown, i) => {
+      const where = `${key}[${String(i)}]`;
       if (!isRecord(item) || typeof item.device_id !== 'string' || item.device_id === '') {
         throw new ConfigError(`${where} needs a "device_id".`);
       }
-      const override: DeviceOverride = { device_id: item.device_id };
+      const entry: DeviceSettings = { device_id: item.device_id };
       if (item.quiet_threshold_hours !== undefined) {
-        override.quiet_threshold_hours = numberOrDefault(
+        entry.quiet_threshold_hours = numberOrDefault(
           item.quiet_threshold_hours,
           `${where}.quiet_threshold_hours`,
           quiet_threshold_hours,
@@ -243,11 +254,34 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
         if (typeof item.battery_type !== 'string') {
           throw new ConfigError(`${where}.battery_type must be text, e.g. "CR2032".`);
         }
-        override.battery_type = item.battery_type;
+        if (item.battery_type.trim() !== '') entry.battery_type = item.battery_type.trim();
       }
-      device_overrides.push(override);
+      if (item.battery_count !== undefined) {
+        const n = item.battery_count;
+        if (typeof n !== 'number' || !Number.isInteger(n) || n < 1) {
+          throw new ConfigError(`${where}.battery_count must be a whole number of at least 1.`);
+        }
+        entry.battery_count = n;
+      }
+      if (item.rechargeable !== undefined) {
+        if (typeof item.rechargeable !== 'boolean') {
+          throw new ConfigError(`${where}.rechargeable must be true or false.`);
+        }
+        entry.rechargeable = item.rechargeable;
+      }
+      // Later entries for the same device win, so device_settings beats
+      // device_overrides and duplicates don't pile up.
+      if (seenDevices.has(entry.device_id)) {
+        const at = device_settings.findIndex((d) => d.device_id === entry.device_id);
+        device_settings[at] = entry;
+      } else {
+        seenDevices.add(entry.device_id);
+        device_settings.push(entry);
+      }
     });
-  }
+  };
+  parseSettingsList(raw.device_overrides, 'device_overrides');
+  parseSettingsList(raw.device_settings, 'device_settings');
 
   const exclude_integrations = stringArrayOrDefault(
     raw.exclude_integrations,
@@ -326,7 +360,9 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
 
   // show_tabs
   let show_tabs: TabId[] = DEFAULT_CONFIG.show_tabs;
-  const rawTabs = raw.show_tabs;
+  const rawTabs = Array.isArray(raw.show_tabs)
+    ? raw.show_tabs.map((t: unknown) => (typeof t === 'string' ? (TAB_ALIASES[t] ?? t) : t))
+    : raw.show_tabs;
   if (rawTabs !== undefined) {
     if (!Array.isArray(rawTabs) || rawTabs.length === 0 || !rawTabs.every(isTabId)) {
       throw new ConfigError(
@@ -340,7 +376,10 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
   let default_tab: TabId = show_tabs.includes(DEFAULT_CONFIG.default_tab)
     ? DEFAULT_CONFIG.default_tab
     : (show_tabs[0] ?? DEFAULT_CONFIG.default_tab);
-  const rawDefault = raw.default_tab;
+  const rawDefault =
+    typeof raw.default_tab === 'string'
+      ? (TAB_ALIASES[raw.default_tab] ?? raw.default_tab)
+      : raw.default_tab;
   if (rawDefault !== undefined) {
     if (!isTabId(rawDefault)) {
       throw new ConfigError(`"default_tab" must be one of: ${TAB_IDS.join(', ')}.`);
@@ -357,7 +396,7 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     battery_critical,
     quiet_threshold_hours,
     integration_thresholds,
-    device_overrides,
+    device_settings,
     exclude_integrations,
     exclude_devices,
     exclude_entities,

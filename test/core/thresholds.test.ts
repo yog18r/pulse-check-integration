@@ -11,7 +11,7 @@ import {
 const config: ResolvedConfig = {
   ...DEFAULT_CONFIG,
   integration_thresholds: { zwave_js: 48 },
-  device_overrides: [{ device_id: 'special', quiet_threshold_hours: 72 }],
+  device_settings: [{ device_id: 'special', quiet_threshold_hours: 72 }],
 };
 
 describe('resolveQuietThreshold', () => {

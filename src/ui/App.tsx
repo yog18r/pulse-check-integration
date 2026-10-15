@@ -18,7 +18,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { ResolvedConfig, TabId } from '../card/config';
 import type { BatteryEntity } from '../card/statistics';
 import { analyseDevices, lastReportedCandidates } from '../core/analyse';
-import { shoppingList } from '../core/shopping';
+import { actionList } from '../core/actions';
 import { batteryList, connectivityList } from '../core/sort';
 import { breakdown, headline, summarise } from '../core/summarise';
 import { batterySeverity, connectivitySeverity } from '../core/thresholds';
@@ -27,7 +27,7 @@ import type { Enhancer } from '../enhancers';
 import { DeviceRow } from './DeviceRow';
 import { EmptyState } from './EmptyState';
 import { RowList } from './RowList';
-import { ShoppingTab } from './ShoppingTab';
+import { ActionsTab } from './ActionsTab';
 import { useDrainEstimates } from './useDrainEstimates';
 import { useLastReported } from './useLastReported';
 import { useNow } from './useNow';
@@ -44,7 +44,7 @@ export interface AppProps {
 const TAB_LABELS: Record<TabId, string> = {
   batteries: '🔋 Batteries',
   connectivity: '📡 Connectivity',
-  shopping: '🛒 Shopping',
+  actions: '🛠️ Actions',
 };
 
 export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
@@ -91,7 +91,7 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
 
   const batteries = useMemo(() => batteryList(devices, config, drains), [devices, config, drains]);
   const connectivity = useMemo(() => connectivityList(devices), [devices]);
-  const shopping = useMemo(() => shoppingList(devices, config), [devices, config]);
+  const actions = useMemo(() => actionList(devices, config), [devices, config]);
   const summary = useMemo(() => summarise(devices, config), [devices, config]);
   const snoozed = useMemo(() => devices.filter((d) => d.snoozedUntil), [devices]);
 
@@ -111,7 +111,7 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
   const tabCounts: Record<TabId, number> = {
     batteries: summary.lowBatteries,
     connectivity: connectivity.length,
-    shopping: shopping.reduce((n, g) => n + g.devices.length, 0),
+    actions: actions.replace.length + actions.charge.length,
   };
 
   const headlineSeverity =
@@ -210,9 +210,7 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
             />
           ))}
 
-        {activeTab === 'shopping' && (
-          <ShoppingTab groups={shopping} config={config} now={now} onOpen={onOpenDevice} />
-        )}
+        {activeTab === 'actions' && <ActionsTab actions={actions} {...rowProps} />}
       </div>
 
       {snoozed.length > 0 && activeTab !== 'batteries' && (
