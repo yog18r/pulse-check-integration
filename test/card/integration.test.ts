@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   callPulseCheck,
   integrationFingerprint,
+  parseConfig,
   parseDevice,
   readIntegration,
 } from '../../src/card/integration';
@@ -73,6 +74,44 @@ describe('readIntegration', () => {
     )!;
     expect(source.devices).toHaveLength(goldenDevices.length);
     expect(source.computedAt?.toISOString()).toBe('2026-10-15T10:00:00.000Z');
+  });
+
+  it('reads the thresholds and device settings the integration used', () => {
+    const source = readIntegration(
+      hassWithSensor({
+        devices: [],
+        config: {
+          battery_warning: 50,
+          battery_critical: 20,
+          quiet_threshold_hours: 24,
+          device_settings: [
+            {
+              device_id: 'dev_zha_temp',
+              battery_type: 'CR2450',
+              battery_count: 2,
+              name: 'Bedroom',
+            },
+            { device_id: 'dev_phone', rechargeable: true },
+            { not: 'a setting' },
+          ],
+        },
+      }),
+      'sensor.pulse_check_attention',
+    )!;
+    expect(source.config).toEqual({
+      battery_warning: 50,
+      battery_critical: 20,
+      device_settings: [
+        { device_id: 'dev_zha_temp', battery_type: 'CR2450', battery_count: 2, name: 'Bedroom' },
+        { device_id: 'dev_phone', rechargeable: true },
+      ],
+    });
+    expect(parseConfig(undefined)).toBeUndefined();
+    expect(parseConfig({ battery_warning: 'high' })).toBeUndefined();
+    // An older integration without the attribute: the card falls back to its own YAML.
+    expect(
+      readIntegration(hassWithSensor({ devices: [] }), 'sensor.pulse_check_attention')?.config,
+    ).toBeUndefined();
   });
 
   it('is undefined when the sensor is missing or unavailable', () => {

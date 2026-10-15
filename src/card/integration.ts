@@ -23,13 +23,28 @@ import type {
   HassLike,
   Severity,
 } from '../core/types';
+import type { DeviceSettings } from './config';
 
 export const DEFAULT_INTEGRATION_ENTITY = 'sensor.pulse_check_attention';
+
+/**
+ * The rule inputs the integration used. In integration mode the card
+ * colours rows, counts problems and builds action labels with these, so
+ * the header (computed by the integration) and the rows (computed here)
+ * can never disagree, whatever the card's own YAML says.
+ */
+export interface IntegrationConfig {
+  battery_warning: number;
+  battery_critical: number;
+  device_settings: DeviceSettings[];
+}
 
 export interface IntegrationSource {
   devices: DeviceHealth[];
   /** When the integration last computed the list. */
   computedAt?: Date;
+  /** Absent on integration versions that do not publish it yet. */
+  config?: IntegrationConfig;
 }
 
 const SEVERITIES = new Set<string>(['ok', 'warning', 'critical']);
@@ -136,6 +151,43 @@ export function parseDevice(raw: unknown): DeviceHealth | undefined {
   return device;
 }
 
+function parseDeviceSettings(raw: unknown): DeviceSettings[] {
+  if (!Array.isArray(raw)) return [];
+  const settings: DeviceSettings[] = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const deviceId = str(item.device_id);
+    if (deviceId === undefined) continue;
+    const entry: DeviceSettings = { device_id: deviceId };
+    const quiet = num(item.quiet_threshold_hours);
+    if (quiet !== undefined) entry.quiet_threshold_hours = quiet;
+    const type = str(item.battery_type);
+    if (type !== undefined) entry.battery_type = type;
+    const count = num(item.battery_count);
+    if (count !== undefined) entry.battery_count = count;
+    if (typeof item.rechargeable === 'boolean') entry.rechargeable = item.rechargeable;
+    const name = str(item.name);
+    if (name !== undefined) entry.name = name;
+    const area = str(item.area);
+    if (area !== undefined) entry.area = area;
+    settings.push(entry);
+  }
+  return settings;
+}
+
+/** The integration's `config` attribute, or undefined if it is missing or malformed. */
+export function parseConfig(raw: unknown): IntegrationConfig | undefined {
+  if (!isRecord(raw)) return undefined;
+  const warning = num(raw.battery_warning);
+  const critical = num(raw.battery_critical);
+  if (warning === undefined || critical === undefined) return undefined;
+  return {
+    battery_warning: warning,
+    battery_critical: critical,
+    device_settings: parseDeviceSettings(raw.device_settings),
+  };
+}
+
 /** The integration's device list, or undefined when the sensor is not there. */
 export function readIntegration(hass: HassLike, entityId: string): IntegrationSource | undefined {
   const state = hass.states[entityId];
@@ -147,6 +199,8 @@ export function readIntegration(hass: HassLike, entityId: string): IntegrationSo
   const source: IntegrationSource = { devices };
   const computedAt = parseTimestamp(state.attributes.computed_at);
   if (computedAt) source.computedAt = computedAt;
+  const config = parseConfig(state.attributes.config);
+  if (config) source.config = config;
   return source;
 }
 

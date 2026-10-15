@@ -15,7 +15,11 @@ import { buildHass, FIXED_NOW } from '../fixtures/hass';
 
 const SENSOR = 'sensor.pulse_check_attention';
 
-function hassFromIntegration(devices: unknown[], callService = vi.fn()): HassLike {
+function hassFromIntegration(
+  devices: unknown[],
+  callService = vi.fn(),
+  config?: Record<string, unknown>,
+): HassLike {
   const base = buildHass(FIXED_NOW);
   return {
     ...base,
@@ -25,7 +29,7 @@ function hassFromIntegration(devices: unknown[], callService = vi.fn()): HassLik
       [SENSOR]: {
         entity_id: SENSOR,
         state: '6',
-        attributes: { devices },
+        attributes: { devices, config },
         last_changed: FIXED_NOW.toISOString(),
         last_updated: FIXED_NOW.toISOString(),
       },
@@ -93,6 +97,47 @@ describe('App in integration mode', () => {
     expect(callService).toHaveBeenCalledWith('pulse_check', 'mark_replaced', {
       device_id: 'dev_z2m_motion',
     });
+  });
+
+  it("uses the integration's thresholds and device settings, not the card's YAML", () => {
+    // The card says 50/20 and knows nothing about battery types; the
+    // integration computed the list with 30/15 and a CR2450 setting.
+    const devices = golden.cases[0]!.devices;
+    const hass = hassFromIntegration(devices, vi.fn(), {
+      battery_warning: 30,
+      battery_critical: 15,
+      device_settings: [{ device_id: 'dev_zha_temp', battery_type: 'CR2450', battery_count: 2 }],
+    });
+    renderApp(hass, {
+      battery_warning: 50,
+      battery_critical: 20,
+      device_settings: [{ device_id: 'dev_zha_temp', battery_type: 'AA' }],
+      show_tabs: ['batteries', 'actions'],
+      problems_only: true,
+    });
+    // Window Sensor at 40 % is below the card's 50 % but fine by the integration's 30 %.
+    expect(screen.queryByText('Window Sensor')).not.toBeInTheDocument();
+    // The header and the Batteries tab count agree: 4 low batteries, as the integration said.
+    expect(screen.getByText('4 low batteries · 1 offline · 2 quiet')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Batteries/ })).toHaveTextContent('4');
+    expect(screen.getAllByRole('listitem')).toHaveLength(4);
+  });
+
+  it("builds action labels from the integration's device settings", async () => {
+    const devices = golden.cases[0]!.devices;
+    const hass = hassFromIntegration(devices, vi.fn(), {
+      battery_warning: 30,
+      battery_critical: 15,
+      device_settings: [{ device_id: 'dev_zha_temp', battery_type: 'CR2450', battery_count: 2 }],
+    });
+    renderApp(hass, {
+      device_settings: [{ device_id: 'dev_zha_temp', battery_type: 'AA' }],
+      show_tabs: ['actions'],
+      default_tab: 'actions',
+    });
+    expect(screen.getByText('Replace 2 × CR2450 in Bedroom Temp & Humidity')).toBeInTheDocument();
+    expect(screen.queryByText(/AA in Bedroom/)).not.toBeInTheDocument();
+    await Promise.resolve();
   });
 
   it('groups rows when asked', () => {

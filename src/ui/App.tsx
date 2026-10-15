@@ -71,6 +71,15 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
     [integrationMode, hass, config.integration_entity],
   );
 
+  // The thresholds and per-device settings the rules run with. In
+  // integration mode they come from the integration, so rows, counts and
+  // action labels agree with the header it computed. The card's own YAML
+  // keeps only its presentation keys (title, tabs, row cap, sort, grouping).
+  const rules = useMemo<ResolvedConfig>(
+    () => (integration?.config ? { ...config, ...integration.config } : config),
+    [integration, config],
+  );
+
   // Standalone: first pass decides which devices look quiet from frontend data alone...
   const firstPass = useMemo(
     () => (integrationMode ? [] : analyseDevices(hass, config, { now, enhancers, snoozes })),
@@ -116,15 +125,15 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
   );
   const drains = useDrainEstimates(hass, batteryEntities);
 
-  const batteries = useMemo(() => batteryList(devices, config, drains), [devices, config, drains]);
+  const batteries = useMemo(() => batteryList(devices, rules, drains), [devices, rules, drains]);
   const problemBatteries = useMemo(
-    () => batteries.filter((d) => batterySeverity(d.battery, config) !== 'ok'),
-    [batteries, config],
+    () => batteries.filter((d) => batterySeverity(d.battery, rules) !== 'ok'),
+    [batteries, rules],
   );
   const shownBatteries = config.problems_only ? problemBatteries : batteries;
   const connectivity = useMemo(() => connectivityList(devices), [devices]);
-  const actions = useMemo(() => actionList(devices, config), [devices, config]);
-  const summary = useMemo(() => summarise(devices, config), [devices, config]);
+  const actions = useMemo(() => actionList(devices, rules), [devices, rules]);
+  const summary = useMemo(() => summarise(devices, rules), [devices, rules]);
   const snoozed = useMemo(() => devices.filter((d) => d.snoozedUntil), [devices]);
 
   // Snoozes: browser-local in standalone mode, shared via the integration's
@@ -246,7 +255,7 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
                 <DeviceRow
                   key={d.deviceId}
                   device={d}
-                  severity={batterySeverity(d.battery, config)}
+                  severity={batterySeverity(d.battery, rules)}
                   mode="battery"
                   history={d.battery ? drains?.get(d.battery.entityId) : undefined}
                   sparkline={config.show_sparklines}

@@ -135,7 +135,7 @@ source: integration
 group_by: area # optional: none, area, integration, device_type
 ```
 
-In this mode the card reads `sensor.pulse_check_attention` instead of analysing in the browser. Thresholds, filters and per-device settings come from the integration's options, so the card's own `battery_warning`, `device_settings` and filter options are ignored. Snoozing calls the integration's `pulse_check.snooze` service, so a snooze made on one phone is seen everywhere, and the Actions tab gains a "Done" button that records a replacement (`pulse_check.mark_replaced`) or a charge. Rows show the integration's days-left estimate and an "unusual behaviour" note when a battery drains much faster than its own history.
+In this mode the card reads `sensor.pulse_check_attention` instead of analysing in the browser. The device list, its severities, the thresholds and the per-device settings all come from the integration (it publishes the values it used on the sensor's `config` attribute), so the card's own `battery_warning`, `battery_critical`, `quiet_*`, `device_settings` and filter options have no effect. The card keeps its presentation options: `title`, `show_tabs`, `max_rows`, `battery_sort`, `group_by`, `problems_only`, `sparkline_days`. Snoozing calls the integration's `pulse_check.snooze` service, so a snooze made on one phone is seen everywhere, and the Actions tab gains a "Done" button that records a replacement (`pulse_check.mark_replaced`) or a charge. Rows show the integration's days-left estimate and an "unusual behaviour" note when a battery drains much faster than its own history.
 
 `group_by` works in both modes.
 
