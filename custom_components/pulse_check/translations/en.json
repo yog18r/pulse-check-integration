@@ -3,17 +3,97 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "Pulse Check watches every device's battery and connectivity using the state Home Assistant already has. It never contacts the devices themselves. Thresholds, filters and notifications can be set later from the integration's options."
+        "description": "Pulse Check watches every device's battery and connectivity using the state Home Assistant already has. It never contacts the devices themselves. Thresholds and filters can be set afterwards with Configure."
       }
     },
     "abort": {
       "single_instance_allowed": "Pulse Check is already set up. One instance watches everything."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Pulse Check options",
+        "sections": {
+          "thresholds": {
+            "name": "Thresholds",
+            "description": "When a battery counts as low, and how long a device can stay silent.",
+            "data": {
+              "battery_warning": "Battery warning level",
+              "battery_critical": "Battery critical level",
+              "quiet_threshold_hours": "Quiet after",
+              "quiet_scope": "Which devices can be quiet",
+              "integration_thresholds": "Quiet threshold per integration"
+            },
+            "data_description": {
+              "battery_warning": "A battery at or below this percentage is a warning.",
+              "battery_critical": "A battery at or below this percentage is critical.",
+              "quiet_threshold_hours": "Hours without any report before a device is quiet.",
+              "quiet_scope": "Battery devices announce themselves; mains devices usually go unavailable instead.",
+              "integration_thresholds": "Integrations whose devices report less often, such as Z-Wave sleepers or blinds, can have a longer threshold."
+            }
+          },
+          "filters": {
+            "name": "Filters",
+            "description": "Leave everything empty to watch every device.",
+            "data": {
+              "include_areas": "Only these areas",
+              "exclude_areas": "Ignore these areas",
+              "include_integrations": "Only these integrations",
+              "exclude_integrations": "Ignore these integrations",
+              "exclude_devices": "Ignore these devices",
+              "exclude_entities": "Ignore these entities"
+            },
+            "data_description": {
+              "include_areas": "Devices without an area are left out when this is set.",
+              "exclude_entities": "For example a settings sensor an integration labels as a battery."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "critical_above_warning": "The critical level must not be higher than the warning level."
+    }
+  },
+  "selector": {
+    "quiet_scope": {
+      "options": {
+        "battery": "Battery devices only",
+        "all": "All devices"
+      }
+    },
+    "integration_thresholds": {
+      "fields": {
+        "integration": "Integration",
+        "hours": "Hours"
+      }
+    }
+  },
   "entity": {
+    "binary_sensor": {
+      "problem": {
+        "name": "Problem"
+      }
+    },
     "sensor": {
       "attention": {
         "name": "Attention"
+      },
+      "low_batteries": {
+        "name": "Low batteries"
+      },
+      "critical_batteries": {
+        "name": "Critical batteries"
+      },
+      "offline": {
+        "name": "Offline"
+      },
+      "quiet": {
+        "name": "Quiet"
+      },
+      "next_to_run_out": {
+        "name": "Next to run out"
       }
     }
   }
