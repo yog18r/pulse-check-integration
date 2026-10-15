@@ -7,6 +7,7 @@
  */
 import { PulseCheckCardEditor } from './card/PulseCheckCardEditor';
 import { EDITOR_TAG, PulseCheckCardElement } from './card/PulseCheckCardElement';
+import { translator } from './i18n';
 
 export const CARD_TAG = 'pulse-check-card';
 /** The integration's version, read from its manifest.json at build time. */
@@ -36,12 +37,16 @@ declare global {
   }
 }
 
+// The bundle loads before any card has a `hass`, so the picker entry takes
+// the page's language, which Home Assistant's frontend sets on <html lang>.
+const pickerText = translator(document.documentElement.lang || navigator.language);
+
 window.customCards ??= [];
 if (!window.customCards.some((c) => c.type === CARD_TAG)) {
   window.customCards.push({
     type: CARD_TAG,
-    name: 'Pulse Check Card',
-    description: 'Battery levels, offline and gone-quiet devices across every integration.',
+    name: pickerText.t('card.name'),
+    description: pickerText.t('card.description'),
     preview: true,
     documentationURL: 'https://github.com/yog18r/pulse-check-integration',
   });

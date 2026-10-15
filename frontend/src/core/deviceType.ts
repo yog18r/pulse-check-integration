@@ -6,6 +6,8 @@
  * the card only groups and labels.
  */
 
+import { EN, type Translator } from '../i18n';
+
 export const DEVICE_TYPES = [
   'lock',
   'cover',
@@ -26,21 +28,7 @@ export function isDeviceType(value: unknown): value is DeviceType {
   return typeof value === 'string' && (DEVICE_TYPES as readonly string[]).includes(value);
 }
 
-const LABELS: Record<DeviceType, string> = {
-  lock: 'Locks',
-  cover: 'Covers and blinds',
-  vacuum: 'Vacuums',
-  phone: 'Phones and trackers',
-  media: 'Media players',
-  remote: 'Remotes',
-  climate: 'Climate',
-  motion: 'Motion sensors',
-  contact: 'Contact sensors',
-  light: 'Lights',
-  switch: 'Switches',
-  other: 'Other',
-};
-
-export function deviceTypeLabel(type: DeviceType): string {
-  return LABELS[type];
+/** "Locks", "Motion sensors": a group heading, in the user's language. */
+export function deviceTypeLabel(type: DeviceType, t: Translator = EN): string {
+  return t.t(`type.${type}`);
 }

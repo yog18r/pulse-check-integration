@@ -111,7 +111,7 @@ past cycles like for like, or on a sudden 20-point drop.
   statistics.
 - **Entities**: attention count with a summary attribute; low, critical,
   offline and quiet counts; next to run out; a problem binary sensor;
-  optional per-device diagnostic sensors. Nothing time-stamped goes on an
+  a maintenance mode binary sensor; optional per-device diagnostic sensors. Nothing time-stamped goes on an
   entity, so an unchanged result writes no recorder row.
 - **Notifications**: once per transition (enters warning, enters critical,
   goes offline, goes quiet), never per update. Per-device policy `instant`,
@@ -121,9 +121,10 @@ past cycles like for like, or on a sudden 20-point drop.
   blueprint. On startup: a baseline, a grace period, and a
   confirmation window; a device must have been seen online since startup
   before it can be reported offline, so slow-starting integrations do not
-  produce a flood of false alarms after a restart.
+  produce a flood of false alarms after a restart. Maintenance mode holds
+  messages back for a set time and ends with one summary.
 - **Services**: `snooze`, `unsnooze`, `set_device_settings`,
-  `mark_replaced`, `mark_charged`, `refresh`.
+  `mark_replaced`, `mark_charged`, `refresh`, `maintenance_mode`.
 - **Websocket API**: `pulse_check/subscribe` streams the snapshot (devices,
   summary, actions, config, device settings) and re-sends it after every
   recompute, option change or service call; `pulse_check/history` returns a
@@ -136,7 +137,8 @@ past cycles like for like, or on a sudden 20-point drop.
 
 - Config entry with an options flow: thresholds, quiet scope, per-integration
   thresholds, filters, notify targets, policies, reminders, digest schedule,
-  startup grace and confirmation minutes, per-device sensors.
+  startup grace and confirmation minutes, maintenance length, per-device
+  sensors.
 - A `DataUpdateCoordinator` listening to `state_changed`. Only changes that
   can alter the result get through (availability, battery and charging
   values, node status, `battery_level` attributes, a new battery entity
@@ -211,6 +213,88 @@ change (`sensor.garden_soil_moisture` in the fixture).
   integration resolves `entity:<id>` for Done, snooze and history as for
   any device-less battery.
 
+**Maintenance mode.** Planned work (a coordinator migration) would send a
+burst of offline and quiet alerts that are expected and useless.
+
+- `pulse_check.maintenance_mode` with `hours` (options default, 0 ends it).
+  The store keeps `started_at`, `until` and the issues already confirmed
+  per device at the start; calling it again moves only `until`.
+- Inside the window only *messages* stop. Transitions are still recorded
+  and confirmed, the event fires with `maintenance: true` (the blueprint
+  skips those by default), and a digest slot counts as judged, so it is
+  neither sent nor caught up later.
+- The end is a timer that triggers a recompute; the notifier sends the
+  summary from there, after its startup baseline if Home Assistant was
+  restarted, so a window that ends while it is off is still summarised.
+- The summary is not a replay: it lists instant-policy issues confirmed
+  now, never notified, and not already known at the start. Each listed
+  issue counts as notified at the end, so its reminders run from there;
+  overdue reminders of older issues follow on the next recompute. Digest
+  issues wait for their digest; nothing new means no message.
+- An issue first seen just before the end and confirmed after it is sent
+  normally, not summarised.
+
+**Buttons on phone notifications.** The companion app turns a `data.actions`
+list into buttons and fires `mobile_app_notification_action` with the
+pressed button's `action` identifier.
+
+- Only legacy `notify.mobile_app_*` service targets get them; notify
+  entities have no data field, and other services would not understand it.
+  Only instant messages and reminders: a digest is about many devices.
+- Battery issues: Mark replaced / Mark charged (from the device's
+  `rechargeable` setting), plus Remind me later; offline and quiet:
+  Snooze 1 day. At most two buttons, under Android's limit of three.
+- The device id is carried in the identifier
+  (`PULSE_CHECK_<VERB>:<device id>`, split at the first colon because
+  `entity:` ids contain one). iOS `action_data` and Android's echoed data
+  fields each work on one platform only; the identifier comes back on both,
+  the docs give no length limit, and unique identifiers are what the docs
+  recommend anyway.
+- A listener, filtered to our prefix before any task is created, calls
+  the matching service with the event's context, so a button and an
+  automation behave the same and the logbook shows who pressed it. A
+  stale button for a removed device logs a warning.
+- Remind me later is a no-op by design: reminders already repeat, and
+  touching `notified_at` would shift the schedule. It is offered only when
+  reminders are on and the message is not the last reminder.
+- Checked against the companion app's documentation only, not on a phone.
+
+**Translations.** English plus `de`, `fr`, `es`, `nl`, `it`, `pt-BR`,
+`pl`, `zh-Hans` and `cs`, machine-made and labelled as such in the README.
+
+- *Dialogs, entities, services*: `translations/<code>.json`, Home
+  Assistant's own mechanism, structurally identical to `strings.json`
+  (a test compares keys and placeholders).
+- *Notification text*: Home Assistant's loader only serves the categories
+  hassfest's schema allows, so composed messages (issues, reminders,
+  digests, the maintenance summary, button labels) live in
+  `messages/<code>.json`, read once at setup in the executor. Each message
+  is worded in `hass.config.language` when it is sent. Fallback: exact
+  code, base language, a regional variant of the base, English; a missing
+  key reads English. Counts use CLDR plural categories from a small
+  integer rule table in `messages.py` (no Babel dependency); that fixed
+  "after 1 days".
+- *The card*: `frontend/src/i18n/<code>.ts`, typed against `en.ts`, so a
+  missing key fails the type check; a test checks plural forms per
+  `Intl.PluralRules` and placeholders. Language from `hass.locale.language`,
+  then `hass.language`, then English; the element re-renders when it
+  changes. Relative times come from `Intl.RelativeTimeFormat` (narrow
+  style, short for French, whose narrow form is "-5 min"); duration
+  abbreviations are catalog entries because `Intl`'s narrow units are
+  ambiguous (English "5m" is minutes and months).
+- The integration still sends some English the card shows: the action
+  `label`, an estimate's `basis` and a battery's `unusual` note. The card
+  words the action itself from the item's fields, and translates `basis`
+  and `unusual` by matching the complete set of server phrases
+  (`serverText.ts`), passing anything unknown through. Structured keys on
+  the wire would be cleaner but would change the frozen golden output;
+  not worth it for five phrases.
+- Card config errors carry a key and parameters (`ConfigError`), so the
+  editor and the card show them translated; the English `message` stays
+  for logs. The card picker entry is registered before any `hass` exists,
+  so it uses `<html lang>`, which Home Assistant's frontend sets.
+
 ## Still open
 
-- Translations beyond English; HACS default-store submission once released.
+- A native-speaker review of the translations; HACS default-store
+  submission once released.

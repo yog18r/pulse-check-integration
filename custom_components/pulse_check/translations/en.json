@@ -62,7 +62,8 @@
               "digest_weekday": "Weekly digest day",
               "weekly_all_clear": "Weekly \"all clear\" when there is nothing to report",
               "startup_grace_minutes": "Quiet period after start",
-              "confirm_minutes": "Confirm offline or quiet after"
+              "confirm_minutes": "Confirm offline or quiet after",
+              "maintenance_hours": "Maintenance mode length"
             },
             "data_description": {
               "notify_targets": "Notify services (notify.mobile_app_…) or notify entities.",
@@ -71,7 +72,8 @@
               "reminder_days": "Days an instant notification may stay unresolved before it is sent again.",
               "reminder_max": "0 turns reminders off.",
               "startup_grace_minutes": "Minutes after Home Assistant has started before anything is judged; integrations load one by one and most devices look unavailable meanwhile. What is wrong at the end of it is recorded, not announced.",
-              "confirm_minutes": "Minutes an offline or quiet state must persist before it counts. A missed poll that heals within this time sends nothing. Battery levels count at once."
+              "confirm_minutes": "Minutes an offline or quiet state must persist before it counts. A missed poll that heals within this time sends nothing. Battery levels count at once.",
+              "maintenance_hours": "How long pulse_check.maintenance_mode silences notifications when it is called without hours."
             }
           },
           "entities": {
@@ -222,6 +224,16 @@
     "refresh": {
       "name": "Refresh",
       "description": "Recompute now and re-read battery history from the recorder."
+    },
+    "maintenance_mode": {
+      "name": "Maintenance mode",
+      "description": "Hold back every notification for a while, for work that would otherwise set off a burst of alerts, such as moving to a new Zigbee coordinator. Problems are still tracked and the event still fires. When it ends, one message lists the problems that appeared meanwhile and are still there.",
+      "fields": {
+        "hours": {
+          "name": "Hours",
+          "description": "How long, from now. 0 ends maintenance mode now. Leave out for the default in the options."
+        }
+      }
     }
   },
   "exceptions": {
@@ -236,6 +248,14 @@
     "binary_sensor": {
       "problem": {
         "name": "Problem"
+      },
+      "maintenance_mode": {
+        "name": "Maintenance mode",
+        "state_attributes": {
+          "until": {
+            "name": "Until"
+          }
+        }
       }
     },
     "sensor": {

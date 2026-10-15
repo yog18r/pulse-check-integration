@@ -14,6 +14,7 @@
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { HassLike, HassBox } from '../core/types';
+import { languageOf } from '../i18n';
 import { EditorForm } from '../ui/EditorForm';
 import styles from '../ui/editor.css?inline';
 import type { CardConfig } from './config';
@@ -60,7 +61,8 @@ export class PulseCheckCardEditor extends HTMLElement {
       previous?.entities !== hass?.entities ||
       previous?.devices !== hass?.devices ||
       previous?.areas !== hass?.areas ||
-      previous?.connection !== hass?.connection;
+      previous?.connection !== hass?.connection ||
+      languageOf(previous) !== languageOf(hass);
     if (changed) this.render();
   }
 

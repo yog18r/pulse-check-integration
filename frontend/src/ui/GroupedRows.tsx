@@ -6,6 +6,7 @@
 import type { ReactNode } from 'react';
 import { groupDevices, type GroupBy } from '../core/grouping';
 import type { DeviceHealth } from '../core/types';
+import { useT } from './i18n';
 import { integrationLabel } from './labels';
 import { RowList } from './RowList';
 
@@ -18,10 +19,16 @@ interface Props {
 }
 
 export function GroupedRows({ items, groupBy, maxRows, renderRow, resetKey }: Props) {
+  const t = useT();
   if (groupBy === 'none') {
     return <RowList items={items} maxRows={maxRows} renderRow={renderRow} resetKey={resetKey} />;
   }
-  const groups = groupDevices(items, groupBy, { integration: integrationLabel });
+  const groups = groupDevices(
+    items,
+    groupBy,
+    { integration: (platform) => integrationLabel(platform, t) },
+    t,
+  );
   return (
     <>
       {groups.map((group) => (

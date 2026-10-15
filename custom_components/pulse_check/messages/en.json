@@ -1,0 +1,24 @@
+{
+  "issue_offline": "{name}: offline",
+  "issue_quiet": "{name}: not heard from for {hours} h",
+  "issue_battery_critical": "{name}: battery critical ({level})",
+  "issue_battery_warning": "{name}: battery low ({level})",
+  "level_percent": "{level} %",
+  "level_low": "reports low",
+  "resolved_offline": "{name}: offline resolved",
+  "resolved_quiet": "{name}: quiet resolved",
+  "resolved_battery_critical": "{name}: battery critical resolved",
+  "resolved_battery_warning": "{name}: battery warning resolved",
+  "reminder": {
+    "one": "Still unresolved after {count} day. {message}",
+    "other": "Still unresolved after {count} days. {message}"
+  },
+  "digest_daily": "Pulse Check daily digest",
+  "digest_weekly": "Pulse Check weekly digest",
+  "digest_all_clear": "All devices OK.",
+  "maintenance_summary": "Maintenance mode is over. New since it began:",
+  "action_mark_replaced": "Mark replaced",
+  "action_mark_charged": "Mark charged",
+  "action_remind_later": "Remind me later",
+  "action_snooze_day": "Snooze 1 day"
+}

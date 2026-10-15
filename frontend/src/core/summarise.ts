@@ -2,6 +2,7 @@
  * The header summary: the counts, and the one-line verdict and breakdown
  * the card makes from them.
  */
+import { EN, type Translator } from '../i18n';
 import { batterySeverity, type Thresholds } from './thresholds';
 import type { DeviceHealth } from './types';
 
@@ -63,22 +64,16 @@ export function summarise(devices: DeviceHealth[], thresholds: Thresholds): Summ
 }
 
 /** Short and plain. Reads well in a screen reader too. */
-export function headline(summary: Summary): string {
-  if (summary.attention === 0) return '✅ All devices OK';
-  if (summary.attention === 1) return '⚠️ 1 device needs attention';
-  return `⚠️ ${String(summary.attention)} devices need attention`;
-}
-
-function plural(n: number, singular: string, pluralForm = `${singular}s`): string {
-  return `${String(n)} ${n === 1 ? singular : pluralForm}`;
+export function headline(summary: Summary, t: Translator = EN): string {
+  if (summary.attention === 0) return `✅ ${t.t('headline.ok')}`;
+  return `⚠️ ${t.tn('headline.attention', summary.attention)}`;
 }
 
 /** "2 low batteries · 1 offline · 3 quiet", or an empty string when all is well. */
-export function breakdown(summary: Summary): string {
+export function breakdown(summary: Summary, t: Translator = EN): string {
   const parts: string[] = [];
-  if (summary.lowBatteries > 0)
-    parts.push(plural(summary.lowBatteries, 'low battery', 'low batteries'));
-  if (summary.offline > 0) parts.push(`${String(summary.offline)} offline`);
-  if (summary.quiet > 0) parts.push(`${String(summary.quiet)} quiet`);
+  if (summary.lowBatteries > 0) parts.push(t.tn('breakdown.low', summary.lowBatteries));
+  if (summary.offline > 0) parts.push(t.tn('breakdown.offline', summary.offline));
+  if (summary.quiet > 0) parts.push(t.tn('breakdown.quiet', summary.quiet));
   return parts.join(' · ');
 }

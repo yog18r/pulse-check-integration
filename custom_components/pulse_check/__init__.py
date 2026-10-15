@@ -31,6 +31,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from .card import async_remove_card_resource, async_setup_card
 from .const import DOMAIN, SIGNAL_SNAPSHOT
 from .coordinator import PulseCheckCoordinator
+from .messages import async_load_messages
 from .notify import Notifier
 from .services import async_setup_services
 from .websocket import async_setup_websocket
@@ -69,7 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Notifications react to every recompute from here on.
-    notifier = Notifier(hass, entry, coordinator)
+    notifier = Notifier(hass, entry, coordinator, await async_load_messages(hass))
     notifier.async_setup()
 
     # Tell websocket subscribers about every recompute, and about this one.

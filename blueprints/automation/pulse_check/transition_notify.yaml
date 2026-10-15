@@ -36,6 +36,14 @@ blueprint:
           options:
             - critical
             - warning
+    during_maintenance:
+      name: Send during maintenance mode
+      description: >
+        Pulse Check holds its own messages back while maintenance mode is on.
+        Leave this off to do the same here.
+      default: false
+      selector:
+        boolean:
 
 triggers:
   - trigger: event
@@ -44,11 +52,13 @@ triggers:
 conditions:
   - condition: template
     value_template: >
-      {{ trigger.event.data.kind in kinds and trigger.event.data.severity in severities }}
+      {{ trigger.event.data.kind in kinds and trigger.event.data.severity in severities
+         and (during_maintenance or not (trigger.event.data.maintenance | default(false))) }}
 
 variables:
   kinds: !input kinds
   severities: !input severities
+  during_maintenance: !input during_maintenance
 
 actions:
   - action: !input notify_action

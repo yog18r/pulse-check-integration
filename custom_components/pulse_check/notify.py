@@ -33,12 +33,23 @@ default for that severity (critical -> instant, warning -> weekly).
 
 Every confirmed transition also fires a `pulse_check_transition` event on
 Home Assistant's event bus, whatever the policy, for people who prefer
-their own automations (see the blueprint in `blueprints/`).
+their own automations (see the blueprint in `blueprints/`). Instant
+messages and reminders to a companion-app phone carry buttons (mark
+replaced, snooze) that act on the device; see `notify_actions.py`.
 
 Digests go out at a fixed time. The store remembers when each kind was
 last judged (sent, or found to have nothing to say), so a slot missed
 because Home Assistant was off or still starting is caught up once, at
 the end of the next startup grace period.
+
+Maintenance mode (`pulse_check.maintenance_mode`) silences everything for
+a few hours while someone works on the house: migrating a Zigbee
+coordinator would otherwise produce a burst of offline and quiet alerts.
+Transitions are still tracked and the event still fires; only messages
+are held back, and a digest slot inside the window counts as judged. When
+the window ends nothing is replayed: one summary lists the instant
+problems that appeared during it and are still there, and from then on
+everything runs as usual.
 """
 
 from __future__ import annotations
@@ -49,8 +60,12 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import CoreState, Event, HomeAssistant, callback
-from homeassistant.helpers.event import async_call_later, async_track_time_change
+from homeassistant.core import CALLBACK_TYPE, CoreState, Event, HomeAssistant, callback
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_point_in_utc_time,
+    async_track_time_change,
+)
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -77,6 +92,18 @@ from .const import (
 )
 from .core.models import as_utc, to_iso
 from .core.thresholds import battery_severity
+from .messages import Catalog, Messages
+from .notify_actions import (
+    EVENT_NOTIFICATION_ACTION,
+    MARK_CHARGED,
+    MARK_REPLACED,
+    REMIND_LATER,
+    SNOOZE_DAY,
+    async_handle_action,
+    is_mobile_app_target,
+    is_our_action,
+    notification_actions,
+)
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -87,6 +114,14 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 TITLE = "Pulse Check"
+
+# Button verb -> message key of its label.
+ACTION_TITLE_KEYS = {
+    MARK_REPLACED: "action_mark_replaced",
+    MARK_CHARGED: "action_mark_charged",
+    REMIND_LATER: "action_remind_later",
+    SNOOZE_DAY: "action_snooze_day",
+}
 
 type IssueKey = Literal["offline", "quiet", "battery_critical", "battery_warning"]
 type Policy = Literal["instant", "daily", "weekly", "none"]
@@ -140,29 +175,32 @@ def last_digest_slot(now: datetime, hour: int, minute: int, weekday: int | None 
     return slot
 
 
-def device_issues(device: DeviceHealth, config: CoreConfig, now: datetime) -> dict[str, Issue]:
-    """The issues a device currently has. A snoozed device has none."""
+def device_issues(
+    device: DeviceHealth, config: CoreConfig, now: datetime, text: Catalog
+) -> dict[str, Issue]:
+    """The issues a device currently has, worded by `text`. A snoozed device has none."""
     if device.snoozed_until is not None:
         return {}
     issues: dict[str, Issue] = {}
     name = device.name
     if device.is_offline:
-        issues["offline"] = Issue("offline", "critical", f"{name}: offline")
+        issues["offline"] = Issue("offline", "critical", text("issue_offline", name=name))
     elif device.is_quiet:
         hours = _hours_since(device.last_heard, now)
-        issues["quiet"] = Issue("quiet", "warning", f"{name}: not heard from for {hours} h")
+        issues["quiet"] = Issue("quiet", "warning", text("issue_quiet", name=name, hours=hours))
     battery = device.battery
     if battery is not None:
         severity = battery_severity(battery, config)
-        level = f"{battery.level} %" if battery.level is not None else "reports low"
+        if battery.level is not None:
+            level = text("level_percent", level=battery.level)
+        else:
+            level = text("level_low")
         if severity == "critical":
-            issues["battery_critical"] = Issue(
-                "battery_critical", "critical", f"{name}: battery critical ({level})"
-            )
+            message = text("issue_battery_critical", name=name, level=level)
+            issues["battery_critical"] = Issue("battery_critical", "critical", message)
         elif severity == "warning":
-            issues["battery_warning"] = Issue(
-                "battery_warning", "warning", f"{name}: battery low ({level})"
-            )
+            message = text("issue_battery_warning", name=name, level=level)
+            issues["battery_warning"] = Issue("battery_warning", "warning", message)
     return issues
 
 
@@ -170,10 +208,15 @@ class Notifier:
     """Watches coordinator updates and sends what the policies allow."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, coordinator: PulseCheckCoordinator
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        coordinator: PulseCheckCoordinator,
+        messages: Messages,
     ) -> None:
         """Keep references; nothing happens until `async_setup`."""
         self.hass = hass
+        self.messages = messages
         self.entry = entry
         self.coordinator = coordinator
         self.store = coordinator.store
@@ -184,8 +227,16 @@ class Notifier:
         self.baseline_pending = True
         # Devices seen online (not offline) at least once in this run.
         self._seen_online: set[str] = set()
+        # The timer that ends maintenance mode, and the end time it is set for.
+        self._maintenance_timer: CALLBACK_TYPE | None = None
+        self._maintenance_timer_at: datetime | None = None
 
     # -- options -------------------------------------------------------------
+
+    @property
+    def text(self) -> Catalog:
+        """Messages in Home Assistant's language, looked up as they are sent."""
+        return self.messages.catalog(self.hass.config.language)
 
     @property
     def targets(self) -> list[str]:
@@ -256,6 +307,13 @@ class Notifier:
             )
         )
         self._start_digest_record()
+        self._schedule_maintenance_end()
+        self.entry.async_on_unload(self._cancel_maintenance_timer)
+        self.entry.async_on_unload(
+            self.hass.bus.async_listen(
+                EVENT_NOTIFICATION_ACTION, self._handle_action, event_filter=is_our_action
+            )
+        )
 
         if self.hass.state is CoreState.running:
             self._mark_started()
@@ -300,8 +358,49 @@ class Notifier:
 
     @callback
     def _handle_update(self) -> None:
+        # The maintenance service changes the store, then recomputes.
+        self._schedule_maintenance_end()
         self.entry.async_create_background_task(
             self.hass, self.async_process(), "pulse_check notifications"
+        )
+
+    @callback
+    def _handle_action(self, event: Event[Any]) -> None:
+        """A button on one of our phone notifications was pressed."""
+        self.entry.async_create_background_task(
+            self.hass, async_handle_action(self.hass, event), "pulse_check notification action"
+        )
+
+    @callback
+    def _schedule_maintenance_end(self) -> None:
+        """Keep one timer at the end of the maintenance window, if there is one.
+
+        The timer only triggers a recompute; the summary is sent by the
+        processing that follows, which also covers a window that ended while
+        Home Assistant was off.
+        """
+        until = self.store.maintenance_until
+        if until == self._maintenance_timer_at:
+            return
+        self._cancel_maintenance_timer()
+        self._maintenance_timer_at = until
+        if until is not None and until > dt_util.utcnow():
+            self._maintenance_timer = async_track_point_in_utc_time(
+                self.hass, self._handle_maintenance_over, until
+            )
+
+    @callback
+    def _cancel_maintenance_timer(self) -> None:
+        if self._maintenance_timer is not None:
+            self._maintenance_timer()
+            self._maintenance_timer = None
+        self._maintenance_timer_at = None
+
+    @callback
+    def _handle_maintenance_over(self, _now: datetime) -> None:
+        self._maintenance_timer = None
+        self.entry.async_create_background_task(
+            self.hass, self.coordinator.async_refresh(), "pulse_check maintenance over"
         )
 
     @callback
@@ -334,7 +433,7 @@ class Notifier:
         changed = False
         for device in data.devices:
             stored: dict[str, dict[str, Any]] = state.get(device.device_id, {})
-            current = device_issues(device, data.config, now)
+            current = device_issues(device, data.config, now, self.text)
             if device.device_id not in self._seen_online:
                 # Not loaded yet: its battery can still be judged, but
                 # offline and quiet mean nothing until it has come up once.
@@ -355,6 +454,8 @@ class Notifier:
         if changed:
             self.store.async_save()
 
+        if self.store.maintenance and not self.store.in_maintenance(now):
+            await self._end_maintenance(now)
         if baseline:
             await self._catch_up_digests(now)
 
@@ -396,8 +497,8 @@ class Notifier:
             if not record.get("confirmed", True):
                 continue  # healed within the window: it never happened
             severity = ISSUE_SEVERITY.get(key, "warning")
-            label = key.replace("_", " ")
-            resolved = Issue(key, severity, f"{device.name}: {label} resolved")  # type: ignore[arg-type]
+            message = self.text(f"resolved_{key}", name=device.name)
+            resolved = Issue(key, severity, message)  # type: ignore[arg-type]
             policy = self.policy_for(device.device_id, severity)
             self._fire(device, resolved, "resolved", policy)
         return changed
@@ -408,8 +509,10 @@ class Notifier:
         """A confirmed transition: fire the event and notify per policy."""
         policy = self.policy_for(device.device_id, issue.severity)
         self._fire(device, issue, "entered", policy)
-        if policy == "instant":
-            await self._send(issue.message)
+        # In maintenance mode `notified_at` stays empty: the summary at the
+        # end of the window picks the issue up from there.
+        if policy == "instant" and not self.store.in_maintenance(now):
+            await self._send(issue.message, self._actions(device, issue, reminders_sent=0))
             record["notified_at"] = to_iso(now)
 
     async def _maybe_remind(
@@ -418,6 +521,8 @@ class Notifier:
         """Send a reminder for an unresolved instant issue when it is due."""
         if self.policy_for(device.device_id, issue.severity) != "instant":
             return False
+        if self.store.in_maintenance(now):
+            return False  # due reminders wait for the end of the window
         if record.get("reminders", 0) >= self.reminder_max:
             return False
         last = record.get("notified_at") or record.get("since")
@@ -425,10 +530,32 @@ class Notifier:
         if as_utc(now) - last_at < self.reminder_interval:
             return False
         days = (as_utc(now) - _at(record["since"])).days
-        await self._send(f"Still unresolved after {days} days. {issue.message}")
+        reminders = record.get("reminders", 0) + 1
+        await self._send(
+            self.text("reminder", count=days, message=issue.message),
+            self._actions(device, issue, reminders_sent=reminders),
+        )
         record["notified_at"] = to_iso(now)
-        record["reminders"] = record.get("reminders", 0) + 1
+        record["reminders"] = reminders
         return True
+
+    def _actions(
+        self, device: DeviceHealth, issue: Issue, reminders_sent: int
+    ) -> list[dict[str, str]]:
+        """Companion-app buttons for a message about one issue.
+
+        "Remind me later" is offered only when a reminder will really
+        follow: reminders are on and this message is not the last one.
+        """
+        settings = self.store.device_settings.get(device.device_id, {})
+        text = self.text
+        return notification_actions(
+            issue.key,
+            device.device_id,
+            rechargeable=bool(settings.get("rechargeable")),
+            another_reminder=reminders_sent < self.reminder_max,
+            titles={verb: text(key) for verb, key in ACTION_TITLE_KEYS.items()},
+        )
 
     @callback
     def _fire(
@@ -448,8 +575,45 @@ class Notifier:
                 "message": issue.message,
                 "policy": policy,
                 "level": device.battery.level if device.battery else None,
+                "maintenance": self.store.in_maintenance(dt_util.utcnow()),
             },
         )
+
+    # -- maintenance mode ----------------------------------------------------
+
+    async def _end_maintenance(self, now: datetime) -> None:
+        """The window is over: one summary of what appeared during it and remains.
+
+        Only instant problems are listed: a daily or weekly one goes into
+        its next digest anyway, and `none` means never. An issue counts as
+        new unless it was already confirmed when the window began and has
+        been present ever since. Each listed issue counts as notified now,
+        so its reminders run from the summary.
+        """
+        window = self.store.maintenance
+        started_at = _at(window["started_at"])
+        known: dict[str, list[str]] = window.get("known", {})
+        data: PulseCheckData = self.coordinator.data
+        lines: list[str] = []
+        for device in data.devices:
+            stored = self.store.notify.get(device.device_id, {})
+            for key, issue in device_issues(device, data.config, now, self.text).items():
+                record = stored.get(key)
+                if record is None or not record.get("confirmed", True):
+                    continue
+                if record.get("notified_at") is not None:
+                    continue  # already announced, after the window closed
+                if key in known.get(device.device_id, []) and _at(record["since"]) <= started_at:
+                    continue  # there before the work began
+                if self.policy_for(device.device_id, issue.severity) != "instant":
+                    continue
+                lines.append(issue.message)
+                record["notified_at"] = to_iso(now)
+        self.store.clear_maintenance()
+        _LOGGER.debug("Maintenance mode over; %d new problems", len(lines))
+        if lines:
+            body = "\n".join(f"- {line}" for line in lines)
+            await self._send(f"{self.text('maintenance_summary')}\n{body}")
 
     # -- digests -------------------------------------------------------------
 
@@ -491,30 +655,39 @@ class Notifier:
         lines: list[str] = []
         for device in data.devices:
             stored = self.store.notify.get(device.device_id, {})
-            for key, issue in device_issues(device, data.config, now).items():
+            for key, issue in device_issues(device, data.config, now, self.text).items():
                 if not stored.get(key, {}).get("confirmed", False):
                     continue
                 if self.policy_for(device.device_id, issue.severity) == kind:
                     lines.append(issue.message)
         all_clear = kind == "weekly" and bool(self.entry.options.get(CONF_WEEKLY_ALL_CLEAR, False))
-        if lines or all_clear:
-            heading = f"{TITLE} {kind} digest"
-            body = "\n".join(f"- {line}" for line in lines) if lines else "All devices OK."
+        if self.store.in_maintenance(now):
+            _LOGGER.debug("Skipping the %s digest: maintenance mode", kind)
+        elif lines or all_clear:
+            heading = self.text(f"digest_{kind}")
+            body = (
+                "\n".join(f"- {line}" for line in lines) if lines else self.text("digest_all_clear")
+            )
             await self._send(f"{heading}\n{body}")
         self.store.digests[kind] = to_iso(now)
         self.store.async_save()
 
     # -- sending -------------------------------------------------------------
 
-    async def _send(self, message: str) -> None:
-        """Deliver to every target: a legacy `notify.<name>` service or a notify entity."""
+    async def _send(self, message: str, actions: list[dict[str, str]] | None = None) -> None:
+        """Deliver to every target: a legacy `notify.<name>` service or a notify entity.
+
+        `actions` become buttons for companion-app targets only; every
+        other target gets the title and message alone, as it always has.
+        """
         for target in self.targets:
             domain, _, name = target.partition(".")
             try:
                 if domain == "notify" and self.hass.services.has_service("notify", name):
-                    await self.hass.services.async_call(
-                        "notify", name, {"title": TITLE, "message": message}, blocking=True
-                    )
+                    data: dict[str, Any] = {"title": TITLE, "message": message}
+                    if actions and is_mobile_app_target(target):
+                        data["data"] = {"actions": actions}
+                    await self.hass.services.async_call("notify", name, data, blocking=True)
                 elif domain == "notify" and self.hass.states.get(target) is not None:
                     await self.hass.services.async_call(
                         "notify",

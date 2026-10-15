@@ -92,6 +92,10 @@ export interface HassLike {
   connection?: HassConnection;
   /** Send a websocket command and await the result (used for history). */
   callWS?: <T>(message: Record<string, unknown>) => Promise<T>;
+  /** The user's language and formats; `language` is the code, e.g. "de" or "pt-BR". */
+  locale?: { language?: string };
+  /** The user's language on older Home Assistant versions. */
+  language?: string;
   /** Call a Home Assistant service (snooze, mark replaced, device settings). */
   callService?: (
     domain: string,

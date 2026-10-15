@@ -8,6 +8,7 @@
  * (the trailing comma stops the parser reading `<T>` as a JSX tag).
  */
 import { useState, type ReactNode } from 'react';
+import { useT } from './i18n';
 
 interface Props<T> {
   items: T[];
@@ -18,6 +19,7 @@ interface Props<T> {
 }
 
 export function RowList<T>({ items, maxRows, renderRow, resetKey = '' }: Props<T>) {
+  const t = useT();
   const [expandedFor, setExpandedFor] = useState<string | null>(null);
   const expanded = expandedFor === resetKey;
 
@@ -37,7 +39,7 @@ export function RowList<T>({ items, maxRows, renderRow, resetKey = '' }: Props<T
             setExpandedFor(expanded ? null : resetKey);
           }}
         >
-          {expanded ? 'Show less' : `Show ${String(hidden)} more`}
+          {expanded ? t.t('rows.show_less') : t.tn('rows.show_more', hidden)}
         </button>
       )}
     </>

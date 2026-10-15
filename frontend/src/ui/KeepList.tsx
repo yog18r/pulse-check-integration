@@ -7,6 +7,8 @@
  * entries with a "?", so switching to the visual editor never silently
  * drops them.
  */
+import { useT } from './i18n';
+
 export interface KeepOption {
   id: string;
   label: string;
@@ -24,6 +26,7 @@ interface Props {
 const lower = (v: string) => v.trim().toLowerCase();
 
 export function KeepList({ legend, hint, options, value, onChange }: Props) {
+  const t = useT();
   const list = value ?? [];
   const all = list.length === 0;
   const wanted = new Set(list.map(lower));
@@ -58,7 +61,7 @@ export function KeepList({ legend, hint, options, value, onChange }: Props) {
           </label>
         ))}
         {strays.map((v) => (
-          <label key={`stray:${v}`} className="check" title="From YAML; not found in this instance">
+          <label key={`stray:${v}`} className="check" title={t.t('keep.stray_title')}>
             <input
               type="checkbox"
               checked

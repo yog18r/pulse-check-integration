@@ -1,0 +1,24 @@
+{
+  "issue_offline": "{name}: offline",
+  "issue_quiet": "{name}: al {hours} u niets van gehoord",
+  "issue_battery_critical": "{name}: batterij kritiek ({level})",
+  "issue_battery_warning": "{name}: batterij laag ({level})",
+  "level_percent": "{level}%",
+  "level_low": "meldt laag",
+  "resolved_offline": "{name}: weer online",
+  "resolved_quiet": "{name}: meldt zich weer",
+  "resolved_battery_critical": "{name}: batterij niet meer kritiek",
+  "resolved_battery_warning": "{name}: batterijwaarschuwing opgelost",
+  "reminder": {
+    "one": "Na {count} dag nog niet opgelost. {message}",
+    "other": "Na {count} dagen nog niet opgelost. {message}"
+  },
+  "digest_daily": "Pulse Check dagelijks overzicht",
+  "digest_weekly": "Pulse Check wekelijks overzicht",
+  "digest_all_clear": "Alle apparaten OK.",
+  "maintenance_summary": "De onderhoudsmodus is voorbij. Nieuw sinds het begin:",
+  "action_mark_replaced": "Als vervangen markeren",
+  "action_mark_charged": "Als opgeladen markeren",
+  "action_remind_later": "Later herinneren",
+  "action_snooze_day": "1 dag pauzeren"
+}

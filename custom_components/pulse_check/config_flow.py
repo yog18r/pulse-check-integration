@@ -62,6 +62,7 @@ from .const import (
     CONF_INCLUDE_INTEGRATIONS,
     CONF_INTEGRATION,
     CONF_INTEGRATION_THRESHOLDS,
+    CONF_MAINTENANCE_HOURS,
     CONF_NOTIFY_CRITICAL,
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_WARNING,
@@ -77,6 +78,7 @@ from .const import (
     DEFAULT_CONFIRM_MINUTES,
     DEFAULT_DIGEST_TIME,
     DEFAULT_DIGEST_WEEKDAY,
+    DEFAULT_MAINTENANCE_HOURS,
     DEFAULT_NOTIFY_CRITICAL,
     DEFAULT_NOTIFY_WARNING,
     DEFAULT_QUIET_SCOPE,
@@ -85,6 +87,7 @@ from .const import (
     DEFAULT_REMINDER_MAX,
     DEFAULT_STARTUP_GRACE_MINUTES,
     DOMAIN,
+    MAX_MAINTENANCE_HOURS,
     NOTIFY_POLICIES,
     QUIET_SCOPES,
     WEEKDAYS,
@@ -126,6 +129,7 @@ NOTIFICATION_KEYS = (
     CONF_DIGEST_TIME,
     CONF_DIGEST_WEEKDAY,
     CONF_WEEKLY_ALL_CLEAR,
+    CONF_MAINTENANCE_HOURS,
 )
 ENTITY_KEYS = (CONF_PER_DEVICE_SENSORS,)
 SECTIONS = {
@@ -307,6 +311,17 @@ def _options_schema(platforms: list[str], notify_targets: list[str]) -> probatio
                 CONF_STARTUP_GRACE_MINUTES, default=DEFAULT_STARTUP_GRACE_MINUTES
             ): _minutes(),
             probatio.Required(CONF_CONFIRM_MINUTES, default=DEFAULT_CONFIRM_MINUTES): _minutes(),
+            probatio.Required(
+                CONF_MAINTENANCE_HOURS, default=DEFAULT_MAINTENANCE_HOURS
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0.25,
+                    max=MAX_MAINTENANCE_HOURS,
+                    step=0.25,
+                    unit_of_measurement="h",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
         }
     )
     entities = probatio.Schema(

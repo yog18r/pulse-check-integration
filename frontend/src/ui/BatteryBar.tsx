@@ -5,6 +5,7 @@
  * Accessibility: the bar is a `meter` so screen readers announce the value.
  */
 import type { BatteryReading, Severity } from '../core/types';
+import { useT } from './i18n';
 
 interface Props {
   battery: BatteryReading;
@@ -12,10 +13,11 @@ interface Props {
 }
 
 export function BatteryBar({ battery, severity }: Props) {
+  const t = useT();
   if (battery.level === undefined) {
     return (
       <span className="label" data-severity={severity}>
-        {battery.isLow ? 'Low' : 'OK'}
+        {battery.isLow ? t.t('battery.low') : t.t('battery.ok')}
       </span>
     );
   }
@@ -26,7 +28,7 @@ export function BatteryBar({ battery, severity }: Props) {
       <div
         className="bar"
         role="meter"
-        aria-label="Battery level"
+        aria-label={t.t('battery.level')}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={pct}

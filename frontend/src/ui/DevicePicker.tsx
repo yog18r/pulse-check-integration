@@ -13,6 +13,7 @@
  */
 import { useId, useState } from 'react';
 import { deviceLabel, type DeviceOption } from '../core/registryOptions';
+import { useT } from './i18n';
 
 interface Props {
   value: string;
@@ -33,6 +34,7 @@ function matches(option: DeviceOption, query: string): boolean {
 }
 
 export function DevicePicker({ value, options, disabledIds, onChange, placeholder }: Props) {
+  const t = useT();
   const [query, setQuery] = useState<string | null>(null); // null = not editing
   const [highlight, setHighlight] = useState(0);
   const listId = useId();
@@ -55,8 +57,8 @@ export function DevicePicker({ value, options, disabledIds, onChange, placeholde
         aria-expanded={editing}
         aria-controls={listId}
         aria-autocomplete="list"
-        aria-label="Device"
-        placeholder={placeholder ?? 'Search devices…'}
+        aria-label={t.t('picker.device')}
+        placeholder={placeholder ?? t.t('picker.search')}
         value={editing ? query : selected ? deviceLabel(selected) : value}
         onFocus={() => {
           setQuery('');
@@ -90,7 +92,7 @@ export function DevicePicker({ value, options, disabledIds, onChange, placeholde
       />
       {editing && (
         <ul className="results" id={listId} role="listbox">
-          {results.length === 0 && <li className="noresults">No devices match</li>}
+          {results.length === 0 && <li className="noresults">{t.t('picker.none')}</li>}
           {results.map((o, i) => {
             const disabled = disabledIds?.has(o.id) === true && o.id !== value;
             return (
@@ -118,7 +120,7 @@ export function DevicePicker({ value, options, disabledIds, onChange, placeholde
             );
           })}
           {options.length > MAX_RESULTS && results.length === MAX_RESULTS && (
-            <li className="noresults">Keep typing to narrow it down</li>
+            <li className="noresults">{t.t('picker.more')}</li>
           )}
         </ul>
       )}

@@ -19,9 +19,16 @@
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { DeviceHealth, HassLike, HassBox } from '../core/types';
+import { languageOf, translator } from '../i18n';
 import { App } from '../ui/App';
 import styles from '../ui/styles.css?inline';
-import { resolveConfig, type CardConfig, type ResolvedConfig } from './config';
+import {
+  ConfigError,
+  configErrorText,
+  resolveConfig,
+  type CardConfig,
+  type ResolvedConfig,
+} from './config';
 import { openDevice } from './navigation';
 import type { Snapshot } from './snapshot';
 
@@ -72,8 +79,18 @@ export class PulseCheckCardElement extends HTMLElement {
 
   setConfig(config: unknown): void {
     // resolveConfig throws ConfigError with a readable message; HA catches
-    // whatever we throw here and shows it on the card.
-    this.config = resolveConfig(config);
+    // whatever we throw here and shows it on the card, so it is reworded in
+    // the user's language when hass has already told us which that is.
+    try {
+      this.config = resolveConfig(config);
+    } catch (err) {
+      if (err instanceof ConfigError && this.hassBox.latest) {
+        throw new Error(configErrorText(err, translator(languageOf(this.hassBox.latest))), {
+          cause: err,
+        });
+      }
+      throw err;
+    }
     this.render();
   }
 
@@ -81,9 +98,12 @@ export class PulseCheckCardElement extends HTMLElement {
     const previous = this.hassBox.latest;
     this.hassBox.latest = hass;
     if (!hass) return;
-    // Only a new connection (first hass, or a reconnect) needs a render:
-    // the subscription is tied to it. Everything else is read on demand.
-    if (previous?.connection !== hass.connection) this.render();
+    // Only a new connection (first hass, or a reconnect) or a new language
+    // needs a render: the subscription is tied to the connection, and the
+    // text to the language. Everything else is read on demand.
+    if (previous?.connection !== hass.connection || languageOf(previous) !== languageOf(hass)) {
+      this.render();
+    }
   }
 
   get hass(): HassLike | undefined {

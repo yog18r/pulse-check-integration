@@ -50,6 +50,7 @@ def _empty() -> dict[str, Any]:
         "digests": {},  # "daily" / "weekly" -> ISO timestamp last judged
         "history": {},  # device id -> replacement history (phase 4)
         "levels": {},  # device id -> last observed battery level (phase 4)
+        "maintenance": {},  # empty, or the maintenance window (see `start_maintenance`)
     }
 
 
@@ -123,6 +124,66 @@ class PulseCheckStore:
         if removed:
             self.async_save()
         return removed
+
+    # -- maintenance mode ----------------------------------------------------
+
+    @property
+    def maintenance(self) -> dict[str, Any]:
+        """The maintenance window, or an empty dict when there is none.
+
+        `started_at` and `until` are ISO timestamps; `known` maps each
+        device id to the issues it already had, confirmed, when the window
+        began. The record outlives `until` until the notifier has sent its
+        summary, so a window that ends while Home Assistant is off is still
+        summarised after the next start.
+        """
+        return self.data["maintenance"]  # type: ignore[no-any-return]
+
+    @property
+    def maintenance_until(self) -> datetime | None:
+        """When the maintenance window ends, if there is one."""
+        until = self.maintenance.get("until")
+        return as_utc(datetime.fromisoformat(until)) if until else None
+
+    def in_maintenance(self, now: datetime) -> bool:
+        """True while a maintenance window is open."""
+        until = self.maintenance_until
+        return until is not None and as_utc(now) < until
+
+    def start_maintenance(self, now: datetime, until: datetime) -> None:
+        """Open a window until the given time, or move the end of an open one.
+
+        Extending keeps the original start and the issues known then, so the
+        summary at the end still covers everything since the work began.
+        """
+        if self.maintenance:
+            self.maintenance["until"] = to_iso(until)
+        else:
+            known = {
+                device_id: sorted(
+                    key for key, record in records.items() if record.get("confirmed", True)
+                )
+                for device_id, records in self.notify.items()
+            }
+            self.data["maintenance"] = {
+                "started_at": to_iso(now),
+                "until": to_iso(until),
+                "known": {device_id: keys for device_id, keys in known.items() if keys},
+            }
+        self.async_save()
+
+    def end_maintenance(self, now: datetime) -> bool:
+        """End an open window now. Returns False if there was none."""
+        if not self.maintenance:
+            return False
+        self.maintenance["until"] = to_iso(now)
+        self.async_save()
+        return True
+
+    def clear_maintenance(self) -> None:
+        """Forget the window, once its summary has been dealt with."""
+        self.data["maintenance"] = {}
+        self.async_save()
 
     # -- other sections, used by the notifier and history tracking -----------
 
