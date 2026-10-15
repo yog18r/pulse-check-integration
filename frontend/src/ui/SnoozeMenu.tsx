@@ -5,6 +5,7 @@
  * a small inline menu; closes on choice, Escape or blur.
  */
 import { useState } from 'react';
+import { useT } from './i18n';
 
 /** Options offered in the menu, in days. */
 export const SNOOZE_CHOICES_DAYS = [1, 7, 30] as const;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function SnoozeMenu({ deviceName, snoozedUntil, onSnooze, onUnsnooze }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   if (snoozedUntil) {
@@ -24,8 +26,8 @@ export function SnoozeMenu({ deviceName, snoozedUntil, onSnooze, onUnsnooze }: P
       <button
         type="button"
         className="snooze"
-        title={`Snoozed until ${snoozedUntil.toLocaleDateString()}. Click to unsnooze.`}
-        aria-label={`Unsnooze ${deviceName}`}
+        title={t.t('snooze.until_title', { date: snoozedUntil.toLocaleDateString(t.language) })}
+        aria-label={t.t('snooze.unsnooze_label', { name: deviceName })}
         onClick={onUnsnooze}
       >
         💤
@@ -47,8 +49,8 @@ export function SnoozeMenu({ deviceName, snoozedUntil, onSnooze, onUnsnooze }: P
       <button
         type="button"
         className="snooze"
-        title="Snooze: hide this device for a while"
-        aria-label={`Snooze ${deviceName}`}
+        title={t.t('snooze.title')}
+        aria-label={t.t('snooze.label', { name: deviceName })}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => {
@@ -69,7 +71,7 @@ export function SnoozeMenu({ deviceName, snoozedUntil, onSnooze, onUnsnooze }: P
                 onSnooze(days);
               }}
             >
-              {days === 1 ? '1 day' : `${String(days)} days`}
+              {t.tn('snooze.days', days)}
             </button>
           ))}
         </span>

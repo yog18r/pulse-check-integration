@@ -17,6 +17,7 @@
  * flows back down as the new value. One-way data flow, no hidden state.
  */
 import {
+  configErrorText,
   DEFAULT_CONFIG,
   resolveConfig,
   SORT_ORDERS,
@@ -29,7 +30,9 @@ import { DEVICE_TYPES, deviceTypeLabel } from '../core/deviceType';
 import { GROUP_BYS, type GroupBy } from '../core/grouping';
 import { listIntegrations } from '../core/registryOptions';
 import type { HassBox, HassLike } from '../core/types';
+import { languageOf, translator } from '../i18n';
 import { DeviceSettingsPanel } from './DeviceSettingsPanel';
+import { I18nContext } from './i18n';
 import { KeepList } from './KeepList';
 
 interface Props {
@@ -40,25 +43,6 @@ interface Props {
   hassBox: HassBox;
 }
 
-const TAB_LABELS: Record<TabId, string> = {
-  batteries: 'Batteries',
-  connectivity: 'Connectivity',
-  actions: 'Actions',
-};
-
-const GROUP_LABELS: Record<GroupBy, string> = {
-  none: 'No grouping',
-  area: 'Area',
-  integration: 'Integration',
-  device_type: 'Device type',
-};
-
-const SORT_LABELS: Record<SortOrder, string> = {
-  level: 'Lowest level first',
-  name: 'Name',
-  replace_soon: 'Soonest to run out first',
-};
-
 function parseNumber(text: string): number | undefined {
   if (text.trim() === '') return undefined;
   const n = Number(text);
@@ -66,6 +50,7 @@ function parseNumber(text: string): number | undefined {
 }
 
 export function EditorForm({ config, onChange, hass, hassBox }: Props) {
+  const t = translator(languageOf(hass));
   /** Set one key, dropping it entirely when the value is undefined. */
   function set<K extends keyof CardConfig>(key: K, value: CardConfig[K] | undefined) {
     // Rebuild without the key, then add it back only if it has a value, so
@@ -80,7 +65,7 @@ export function EditorForm({ config, onChange, hass, hassBox }: Props) {
   try {
     resolveConfig(config);
   } catch (err) {
-    error = err instanceof Error ? err.message : String(err);
+    error = configErrorText(err, t);
   }
 
   const shownTabs: TabId[] = config.show_tabs ?? DEFAULT_CONFIG.show_tabs;
@@ -89,12 +74,12 @@ export function EditorForm({ config, onChange, hass, hassBox }: Props) {
   const areaOptions = hass
     ? Object.values(hass.areas)
         .map((a) => ({ id: a.area_id, label: a.name }))
-        .sort((a, b) => a.label.localeCompare(b.label))
+        .sort((a, b) => a.label.localeCompare(b.label, t.language))
     : [];
   const integrationOptions = hass
     ? listIntegrations(hass).map((o) => ({ id: o.id, label: o.id }))
     : [];
-  const typeOptions = DEVICE_TYPES.map((t) => ({ id: t, label: deviceTypeLabel(t) }));
+  const typeOptions = DEVICE_TYPES.map((type) => ({ id: type, label: deviceTypeLabel(type, t) }));
 
   function toggleTab(tab: TabId, on: boolean) {
     const next = TAB_IDS.filter((t) => (t === tab ? on : shownTabs.includes(t)));
@@ -103,205 +88,203 @@ export function EditorForm({ config, onChange, hass, hassBox }: Props) {
   }
 
   return (
-    <form
-      className="editor"
-      onSubmit={(e) => {
-        e.preventDefault();
-      }}
-    >
-      <label className="field">
-        <span>Title</span>
-        <input
-          type="text"
-          value={config.title ?? ''}
-          placeholder="No title"
-          onChange={(e) => {
-            set('title', e.target.value === '' ? undefined : e.target.value);
+    <I18nContext value={t}>
+      <form
+        className="editor"
+        onSubmit={(e) => {
+          e.preventDefault();
+        }}
+      >
+        <label className="field">
+          <span>{t.t('editor.title')}</span>
+          <input
+            type="text"
+            value={config.title ?? ''}
+            placeholder={t.t('editor.no_title')}
+            onChange={(e) => {
+              set('title', e.target.value === '' ? undefined : e.target.value);
+            }}
+          />
+        </label>
+
+        <fieldset className="field">
+          <legend>{t.t('editor.tabs')}</legend>
+          <div className="checks">
+            {TAB_IDS.map((tab) => (
+              <label key={tab} className="check">
+                <input
+                  type="checkbox"
+                  checked={shownTabs.includes(tab)}
+                  onChange={(e) => {
+                    toggleTab(tab, e.target.checked);
+                  }}
+                />
+                {t.t(`tab.${tab}`)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="grid2">
+          <label className="field">
+            <span>{t.t('editor.default_tab')}</span>
+            <select
+              value={config.default_tab ?? shownTabs[0] ?? 'batteries'}
+              onChange={(e) => {
+                set('default_tab', e.target.value as TabId);
+              }}
+            >
+              {shownTabs.map((tab) => (
+                <option key={tab} value={tab}>
+                  {t.t(`tab.${tab}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>{t.t('editor.group_by')}</span>
+            <select
+              value={config.group_by ?? 'none'}
+              onChange={(e) => {
+                const v = e.target.value as GroupBy;
+                set('group_by', v === 'none' ? undefined : v);
+              }}
+            >
+              {GROUP_BYS.map((g) => (
+                <option key={g} value={g}>
+                  {t.t(`group.${g}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="grid2">
+          <label className="field">
+            <span>{t.t('editor.sort')}</span>
+            <select
+              value={config.sort ?? config.battery_sort ?? 'level'}
+              onChange={(e) => {
+                const v = e.target.value as SortOrder;
+                // Writing `sort` retires the older `battery_sort` spelling.
+                const entries = Object.entries(config).filter(
+                  ([k]) => k !== 'sort' && k !== 'battery_sort',
+                );
+                if (v !== 'level') entries.push(['sort', v]);
+                onChange(Object.fromEntries(entries));
+              }}
+            >
+              {SORT_ORDERS.map((s) => (
+                <option key={s} value={s}>
+                  {t.t(`sort.${s}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>{t.t('editor.rows')}</span>
+            <input
+              type="number"
+              min={1}
+              value={typeof config.max_rows === 'number' ? config.max_rows : ''}
+              placeholder="12"
+              disabled={config.max_rows === 'all'}
+              onChange={(e) => {
+                const n = parseNumber(e.target.value);
+                set('max_rows', n !== undefined && n >= 1 ? Math.floor(n) : undefined);
+              }}
+            />
+          </label>
+        </div>
+
+        <div className="checks">
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={config.max_rows === 'all'}
+              onChange={(e) => {
+                set('max_rows', e.target.checked ? 'all' : undefined);
+              }}
+            />
+            {t.t('editor.all_rows')}
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={config.show_sparklines ?? true}
+              onChange={(e) => {
+                set('show_sparklines', e.target.checked ? undefined : false);
+              }}
+            />
+            {t.t('editor.sparklines')}
+          </label>
+          <label className="inline">
+            <span>{t.t('editor.over')}</span>
+            <input
+              type="number"
+              aria-label={t.t('editor.sparkline_days')}
+              min={1}
+              max={365}
+              placeholder="14"
+              value={config.sparkline_days ?? ''}
+              onChange={(e) => {
+                const n = parseNumber(e.target.value);
+                set(
+                  'sparkline_days',
+                  n !== undefined && n >= 1 ? Math.min(365, Math.floor(n)) : undefined,
+                );
+              }}
+            />
+            <span>{t.t('editor.days')}</span>
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={config.problems_only ?? false}
+              onChange={(e) => {
+                set('problems_only', e.target.checked ? true : undefined);
+              }}
+            />
+            {t.t('editor.problems_only')}
+          </label>
+        </div>
+
+        <KeepList
+          legend={t.t('editor.areas')}
+          hint={t.t('editor.areas_hint')}
+          options={areaOptions}
+          value={config.areas}
+          onChange={(v) => {
+            set('areas', v);
           }}
         />
-      </label>
+        <KeepList
+          legend={t.t('editor.integrations')}
+          options={integrationOptions}
+          value={config.integrations}
+          onChange={(v) => {
+            set('integrations', v);
+          }}
+        />
+        <KeepList
+          legend={t.t('editor.device_types')}
+          options={typeOptions}
+          value={config.device_types}
+          onChange={(v) => {
+            set('device_types', v);
+          }}
+        />
 
-      <fieldset className="field">
-        <legend>Tabs</legend>
-        <div className="checks">
-          {TAB_IDS.map((tab) => (
-            <label key={tab} className="check">
-              <input
-                type="checkbox"
-                checked={shownTabs.includes(tab)}
-                onChange={(e) => {
-                  toggleTab(tab, e.target.checked);
-                }}
-              />
-              {TAB_LABELS[tab]}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+        <p className="note">{t.t('editor.note')}</p>
 
-      <div className="grid2">
-        <label className="field">
-          <span>Default tab</span>
-          <select
-            value={config.default_tab ?? shownTabs[0] ?? 'batteries'}
-            onChange={(e) => {
-              set('default_tab', e.target.value as TabId);
-            }}
-          >
-            {shownTabs.map((tab) => (
-              <option key={tab} value={tab}>
-                {TAB_LABELS[tab]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>Group by</span>
-          <select
-            value={config.group_by ?? 'none'}
-            onChange={(e) => {
-              const v = e.target.value as GroupBy;
-              set('group_by', v === 'none' ? undefined : v);
-            }}
-          >
-            {GROUP_BYS.map((g) => (
-              <option key={g} value={g}>
-                {GROUP_LABELS[g]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+        <DeviceSettingsPanel hass={hass} hassBox={hassBox} />
 
-      <div className="grid2">
-        <label className="field">
-          <span>Sort order</span>
-          <select
-            value={config.sort ?? config.battery_sort ?? 'level'}
-            onChange={(e) => {
-              const v = e.target.value as SortOrder;
-              // Writing `sort` retires the older `battery_sort` spelling.
-              const entries = Object.entries(config).filter(
-                ([k]) => k !== 'sort' && k !== 'battery_sort',
-              );
-              if (v !== 'level') entries.push(['sort', v]);
-              onChange(Object.fromEntries(entries));
-            }}
-          >
-            {SORT_ORDERS.map((s) => (
-              <option key={s} value={s}>
-                {SORT_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>Rows per tab</span>
-          <input
-            type="number"
-            min={1}
-            value={typeof config.max_rows === 'number' ? config.max_rows : ''}
-            placeholder="12"
-            disabled={config.max_rows === 'all'}
-            onChange={(e) => {
-              const n = parseNumber(e.target.value);
-              set('max_rows', n !== undefined && n >= 1 ? Math.floor(n) : undefined);
-            }}
-          />
-        </label>
-      </div>
-
-      <div className="checks">
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={config.max_rows === 'all'}
-            onChange={(e) => {
-              set('max_rows', e.target.checked ? 'all' : undefined);
-            }}
-          />
-          Show all rows
-        </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={config.show_sparklines ?? true}
-            onChange={(e) => {
-              set('show_sparklines', e.target.checked ? undefined : false);
-            }}
-          />
-          Trend sparklines
-        </label>
-        <label className="inline">
-          <span>over</span>
-          <input
-            type="number"
-            aria-label="Sparkline days"
-            min={1}
-            max={365}
-            placeholder="14"
-            value={config.sparkline_days ?? ''}
-            onChange={(e) => {
-              const n = parseNumber(e.target.value);
-              set(
-                'sparkline_days',
-                n !== undefined && n >= 1 ? Math.min(365, Math.floor(n)) : undefined,
-              );
-            }}
-          />
-          <span>days</span>
-        </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={config.problems_only ?? false}
-            onChange={(e) => {
-              set('problems_only', e.target.checked ? true : undefined);
-            }}
-          />
-          Batteries tab: problems only
-        </label>
-      </div>
-
-      <KeepList
-        legend="Areas shown on this card"
-        hint="Untick an area to leave its devices out of this card. The integration still monitors them."
-        options={areaOptions}
-        value={config.areas}
-        onChange={(v) => {
-          set('areas', v);
-        }}
-      />
-      <KeepList
-        legend="Integrations shown on this card"
-        options={integrationOptions}
-        value={config.integrations}
-        onChange={(v) => {
-          set('integrations', v);
-        }}
-      />
-      <KeepList
-        legend="Device types shown on this card"
-        options={typeOptions}
-        value={config.device_types}
-        onChange={(v) => {
-          set('device_types', v);
-        }}
-      />
-
-      <p className="note">
-        What is monitored at all, thresholds, quiet rules, exclusions and notifications are set in
-        the integration: Settings → Devices &amp; services → Pulse Check → Configure. The lists
-        above only change what this card shows.
-      </p>
-
-      <DeviceSettingsPanel hass={hass} hassBox={hassBox} />
-
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-    </form>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </form>
+    </I18nContext>
   );
 }

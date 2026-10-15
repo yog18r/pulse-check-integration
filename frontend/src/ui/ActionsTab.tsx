@@ -9,14 +9,17 @@
  * which is looked up in the snapshot's device list for the row.
  */
 import {
+  actionLabel,
   UNKNOWN_BATTERY_TYPE,
   type ActionItem,
   type ActionKind,
   type ActionList,
 } from '../core/actions';
+import { batteryTypeLabel } from '../core/batteryTypes';
 import type { DeviceHealth } from '../core/types';
 import { DeviceRow } from './DeviceRow';
 import { EmptyState } from './EmptyState';
+import { useT } from './i18n';
 
 interface Props {
   actions: ActionList;
@@ -42,6 +45,7 @@ function Section({
   onDone: Props['onDone'];
   rowProps: Omit<Props, 'actions' | 'devices' | 'onDone'>;
 }) {
+  const t = useT();
   const rows = items.flatMap((item) => {
     const device = devices.get(item.deviceId);
     return device ? [{ item, device }] : [];
@@ -61,7 +65,7 @@ function Section({
             severity={item.severity}
             mode="battery"
             sparkline={false}
-            action={item.label}
+            action={actionLabel(item, t)}
             onDone={
               onDone
                 ? () => {
@@ -78,14 +82,15 @@ function Section({
 }
 
 export function ActionsTab({ actions, devices, onDone, ...rowProps }: Props) {
+  const t = useT();
   const { replace, charge, shopping } = actions;
 
   if (replace.length === 0 && charge.length === 0) {
     return (
       <EmptyState
         emoji="🛠️"
-        lead="Nothing to do"
-        detail="Every battery is above the warning threshold."
+        lead={t.t('empty.actions')}
+        detail={t.t('empty.batteries_ok_detail')}
       />
     );
   }
@@ -96,31 +101,28 @@ export function ActionsTab({ actions, devices, onDone, ...rowProps }: Props) {
     <div className="actions">
       {shopping.length > 0 && (
         <p className="tobuy">
-          <strong>To buy:</strong>{' '}
+          <strong>{t.t('actions.to_buy')}</strong>{' '}
           {shopping.map((line, i) => (
             <span key={line.batteryType}>
               {i > 0 && ' · '}
               {String(line.count)} ×{' '}
-              {line.batteryType === UNKNOWN_BATTERY_TYPE ? 'unknown' : line.batteryType}
+              {line.batteryType === UNKNOWN_BATTERY_TYPE
+                ? t.t('actions.unknown_type')
+                : batteryTypeLabel(line.batteryType, t)}
             </span>
           ))}
         </p>
       )}
-      {hasUnknown && (
-        <p className="hint tobuyhint">
-          Set the battery type and count in the card editor (Per-device settings) to make the list
-          exact.
-        </p>
-      )}
+      {hasUnknown && <p className="hint tobuyhint">{t.t('actions.hint')}</p>}
       <Section
-        title="Replace"
+        title={t.t('actions.replace')}
         items={replace}
         devices={devices}
         onDone={onDone}
         rowProps={rowProps}
       />
       <Section
-        title="Charge"
+        title={t.t('actions.charge')}
         items={charge}
         devices={devices}
         onDone={onDone}

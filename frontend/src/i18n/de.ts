@@ -1,0 +1,235 @@
+/** German. Machine translated; corrections welcome. */
+import type { Catalog } from './index';
+
+export const de: Catalog = {
+  // -- the card ---------------------------------------------------------------
+  'app.connecting': 'Verbindung zu Pulse Check',
+  'app.connecting_detail': 'Einen Moment.',
+  'app.missing': 'Pulse Check-Integration nicht gefunden',
+  'app.missing_detail':
+    'Diese Karte braucht die Pulse Check-Integration. Installiere sie, füge sie unter Einstellungen → Geräte & Dienste hinzu und lade diese Seite neu.',
+  'app.error': 'Pulse Check nicht erreichbar',
+  'app.error_detail': 'Das Abonnement ist fehlgeschlagen.',
+  'app.tabs_label': 'Ansichten zum Gerätezustand',
+  'app.maintenance': 'Wartungsmodus bis {time}. Benachrichtigungen werden zurückgehalten.',
+  'app.snoozed': { one: '{count} pausiert', other: '{count} pausiert' },
+  'app.show': 'anzeigen',
+  'app.hide': 'ausblenden',
+
+  'tab.batteries': 'Batterien',
+  'tab.connectivity': 'Verbindung',
+  'tab.actions': 'Aktionen',
+
+  'headline.ok': 'Alle Geräte OK',
+  'headline.attention': {
+    one: '{count} Gerät braucht Aufmerksamkeit',
+    other: '{count} Geräte brauchen Aufmerksamkeit',
+  },
+  'breakdown.low': { one: '{count} schwache Batterie', other: '{count} schwache Batterien' },
+  'breakdown.offline': { one: '{count} offline', other: '{count} offline' },
+  'breakdown.quiet': { one: '{count} stumm', other: '{count} stumm' },
+
+  'empty.no_batteries': 'Keine batteriebetriebenen Geräte',
+  'empty.no_batteries_detail': 'Hier läuft nichts mit Batterien.',
+  'empty.batteries_ok': 'Keine Batterieprobleme',
+  'empty.batteries_ok_detail': 'Jede Batterie liegt über der Warnschwelle.',
+  'empty.online': 'Alle Geräte online',
+  'empty.online_detail': 'Keine Geräte sind offline oder ungewöhnlich lange stumm.',
+  'empty.actions': 'Nichts zu tun',
+
+  // -- one device row ---------------------------------------------------------
+  'row.open': '{name}, in Home Assistant öffnen',
+  'row.offline': 'Offline',
+  'row.quiet': 'Stumm',
+  'row.online': 'Online',
+  'row.charging': 'lädt',
+  'row.charging_title': 'Wird geladen',
+  'row.snoozed_until': 'bis {date}',
+  'row.unusual_title': 'Verglichen mit dem eigenen Verlauf dieses Geräts',
+  'row.heard': 'gemeldet {time}',
+  'row.last_heard': 'zuletzt gemeldet {time}',
+  'row.limit': 'Grenze {hours}',
+  'row.left': 'noch {days}',
+  'row.charge_in': 'laden in {days}',
+  'row.year_plus': 'noch mehr als ein Jahr',
+  'row.estimate_high': '{basis} (hohe Sicherheit)',
+  'row.estimate_medium': '{basis} (mittlere Sicherheit)',
+  'row.estimate_low': '{basis} (geringe Sicherheit)',
+  'row.estimate_fallback': 'Geschätzt von der Pulse Check-Integration',
+  'row.done': 'Erledigt',
+  'row.done_label': '{name} als erledigt markieren',
+  'row.done_title': 'Festhalten, dass diese Batterie ersetzt oder geladen wurde',
+
+  'battery.low': 'Schwach',
+  'battery.ok': 'OK',
+  'battery.level': 'Batteriestand',
+
+  'snooze.title': 'Pausieren: dieses Gerät eine Weile ausblenden',
+  'snooze.label': '{name} pausieren',
+  'snooze.until_title': 'Pausiert bis {date}. Klicken, um die Pause zu beenden.',
+  'snooze.unsnooze_label': 'Pause für {name} beenden',
+  'snooze.days': { one: '{count} Tag', other: '{count} Tage' },
+
+  'rows.show_more': { one: '{count} weitere anzeigen', other: '{count} weitere anzeigen' },
+  'rows.show_less': 'Weniger anzeigen',
+
+  'integration.title': 'Integration: {platform}',
+  'integration.phone': 'Telefon',
+  'integration.unknown': 'Unbekannt',
+
+  'spark.title': {
+    one: 'Trend über {count} Tag: {first}% → {last}%',
+    other: 'Trend über {count} Tage: {first}% → {last}%',
+  },
+  'spark.title_day': 'Trend des letzten Tages: {first}% → {last}%',
+
+  // -- time and durations -----------------------------------------------------
+  'time.never': 'nie',
+  'time.just_now': 'gerade eben',
+  'unit.minutes': '{n} Min.',
+  'unit.hours': '{n} Std.',
+  'unit.days': '{n} Tg.',
+  'unit.weeks': '{n} Wo.',
+  'unit.months': '{n} Mon.',
+  'days_left.under_day': 'unter einem Tag',
+  'days_left.year_plus': '1 J.+',
+
+  // -- the Actions tab --------------------------------------------------------
+  'actions.to_buy': 'Zu kaufen:',
+  'actions.unknown_type': 'unbekannt',
+  'actions.hint':
+    'Lege Batterietyp und -anzahl im Karteneditor fest (Einstellungen pro Gerät), damit die Liste genau ist.',
+  'actions.replace': 'Ersetzen',
+  'actions.charge': 'Laden',
+  'action.replace_one': '{type} in {name} ersetzen',
+  'action.replace_many': '{count} × {type} in {name} ersetzen',
+  'action.replace_unknown': 'Batterie in {name} ersetzen',
+  'action.charge': '{name} laden',
+
+  // -- groups -----------------------------------------------------------------
+  'group.no_area': 'Kein Bereich',
+  'type.lock': 'Schlösser',
+  'type.cover': 'Abdeckungen und Rollos',
+  'type.vacuum': 'Staubsauger',
+  'type.phone': 'Telefone und Tracker',
+  'type.media': 'Mediaplayer',
+  'type.remote': 'Fernbedienungen',
+  'type.climate': 'Klima',
+  'type.motion': 'Bewegungsmelder',
+  'type.contact': 'Kontaktsensoren',
+  'type.light': 'Lichter',
+  'type.switch': 'Schalter',
+  'type.other': 'Sonstige',
+
+  // -- words the integration sends in English (see serverText.ts) --------------
+  'basis.trend': 'Trend im aktuellen Zyklus',
+  'basis.flat': { one: 'seit {count} Tag unverändert', other: 'seit {count} Tagen unverändert' },
+  'basis.slow': {
+    one: 'langsame Entladung über {count} Tag',
+    other: 'langsame Entladung über {count} Tage',
+  },
+  'basis.cycles': {
+    one: 'aus {count} früheren Zyklus von ~{days} Tagen',
+    other: 'aus {count} früheren Zyklen von ~{days} Tagen',
+  },
+  'basis.charge': 'bis Laden nötig ist',
+  'unusual.faster': 'entlädt sich {factor}× schneller als üblich',
+  'unusual.drop': 'Stand plötzlich gefallen',
+
+  // -- the editor -------------------------------------------------------------
+  'editor.title': 'Titel',
+  'editor.no_title': 'Kein Titel',
+  'editor.tabs': 'Tabs',
+  'editor.default_tab': 'Standard-Tab',
+  'editor.group_by': 'Gruppieren nach',
+  'group.none': 'Keine Gruppierung',
+  'group.area': 'Bereich',
+  'group.integration': 'Integration',
+  'group.device_type': 'Gerätetyp',
+  'editor.sort': 'Sortierung',
+  'sort.level': 'Niedrigster Stand zuerst',
+  'sort.name': 'Name',
+  'sort.replace_soon': 'Bald leere zuerst',
+  'editor.rows': 'Zeilen pro Tab',
+  'editor.all_rows': 'Alle Zeilen anzeigen',
+  'editor.sparklines': 'Trend-Sparklines',
+  'editor.over': 'über',
+  'editor.days': 'Tage',
+  'editor.sparkline_days': 'Sparkline-Tage',
+  'editor.problems_only': 'Tab Batterien: nur Probleme',
+  'editor.areas': 'Auf dieser Karte angezeigte Bereiche',
+  'editor.areas_hint':
+    'Entferne den Haken bei einem Bereich, um seine Geräte von dieser Karte auszuschließen. Die Integration überwacht sie weiterhin.',
+  'editor.integrations': 'Auf dieser Karte angezeigte Integrationen',
+  'editor.device_types': 'Auf dieser Karte angezeigte Gerätetypen',
+  'editor.note':
+    'Was überhaupt überwacht wird, Schwellenwerte, Stumm-Regeln, Ausschlüsse und Benachrichtigungen werden in der Integration festgelegt: Einstellungen → Geräte & Dienste → Pulse Check → Konfigurieren. Die Listen oben ändern nur, was diese Karte zeigt.',
+  'keep.stray_title': 'Aus YAML; in dieser Instanz nicht gefunden',
+
+  'settings.legend': 'Einstellungen pro Gerät',
+  'settings.hint':
+    'Diese speichert die Pulse Check-Integration, sobald du sie änderst, sodass jede Karte und Benachrichtigung sie nutzt. Die Schaltfläche „Speichern“ des Dialogs gilt nur für die Layoutoptionen der Karte oben. Batterietyp und -anzahl fließen in den Tab Aktionen ein; „Wiederaufladbar“ für Geräte ankreuzen, die geladen statt ersetzt werden; Trendtage legt das Sparkline-Fenster dieses Geräts fest (Telefone: 1 Tag).',
+  'settings.missing':
+    'Die Pulse Check-Integration ist nicht eingerichtet, daher gibt es nichts zu bearbeiten.',
+  'settings.error': 'Die Pulse Check-Integration ist nicht erreichbar.',
+  'settings.edited': 'Geräte mit Einstellungen',
+  'settings.search': 'Geräte zum Bearbeiten suchen…',
+  'settings.for': 'Einstellungen für {name}',
+  'settings.name': 'Anzeigename',
+  'settings.name_placeholder': 'Anzeigename (optional)',
+  'settings.area': 'Bereich',
+  'settings.area_title':
+    'Auf der Karte angezeigter Bereich. Aus dem Geräteregister vorausgefüllt; wähle einen anderen, um ihn zu überschreiben.',
+  'settings.no_area': 'Kein Bereich',
+  'settings.battery_type': 'Batterietyp',
+  'settings.battery_type_placeholder': 'Batterietyp…',
+  'settings.other': 'Andere…',
+  'settings.other_type': 'Anderer Batterietyp',
+  'settings.other_example': 'z. B. 2CR5',
+  'settings.count': 'Batterieanzahl',
+  'settings.rechargeable': 'Wiederaufladbar',
+  'settings.quiet': 'Stumm nach',
+  'settings.hours': 'Stunden',
+  'settings.trend': 'Trendtage',
+  'settings.card_default': 'Kartenstandard',
+  'settings.notify': 'Benachrichtigen',
+  'settings.policy': 'Benachrichtigungsregel',
+  'settings.policy_default': 'Standard für den Schweregrad',
+  'policy.instant': 'Sofort, mit Erinnerungen',
+  'policy.daily': 'In der täglichen Zusammenfassung',
+  'policy.weekly': 'In der wöchentlichen Zusammenfassung',
+  'policy.none': 'Nie',
+  'settings.saved': 'In Pulse Check gespeichert',
+  'settings.not_saved': 'Nicht gespeichert: {reason}',
+
+  'battery_group.cylindrical': 'Rundzellen',
+  'battery_group.coin': 'Knopfzellen',
+  'battery_group.photo': 'Lithium-Fotobatterien',
+  'battery_group.li_ion': 'Lithium-Ionen-Zellen',
+  'battery_group.packs': 'Akkupacks',
+  'battery_type.builtin': 'Eingebauter Akku',
+  'battery_type.li_ion_pack': 'Li-Ionen-Akkupack',
+  'battery_type.nimh_pack': 'NiMH-Akkupack',
+
+  'picker.device': 'Gerät',
+  'picker.search': 'Geräte suchen…',
+  'picker.none': 'Keine passenden Geräte',
+  'picker.more': 'Weitertippen, um einzugrenzen',
+
+  // -- YAML errors, shown on the card and in the editor -------------------------
+  'config.mapping': 'Die Kartenkonfiguration muss eine YAML-Zuordnung sein (Schlüssel: Wert).',
+  'config.one_of': '"{key}" muss eines davon sein: {allowed}.',
+  'config.list': '"{key}" muss eine Liste von Namen oder IDs sein.',
+  'config.boolean': '"{key}" muss true oder false sein.',
+  'config.title': '"title" muss Text sein.',
+  'config.show_tabs': '"show_tabs" muss eine nicht leere Liste sein, die nur enthält: {allowed}.',
+  'config.default_tab_missing': '"default_tab" ({tab}) ist nicht in "show_tabs".',
+  'config.max_rows': '"max_rows" muss eine ganze Zahl ab 1 oder "all" sein.',
+  'config.sparkline_days':
+    '"sparkline_days" muss eine ganze Zahl von Tagen zwischen 1 und {max} sein.',
+
+  // -- the dashboard's card picker --------------------------------------------
+  'card.name': 'Pulse Check-Karte',
+  'card.description':
+    'Batteriestände sowie offline und stumm gewordene Geräte über alle Integrationen hinweg.',
+};

@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_CONFIG, type ResolvedConfig } from '../../src/card/config';
 import type { HassBox } from '../../src/core/types';
+import { translator } from '../../src/i18n';
 import { App } from '../../src/ui/App';
 import { FIXED_NOW } from '../fixtures/hass';
 import {
@@ -70,6 +71,23 @@ describe('App', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       /Maintenance mode until .*12.00.*Notifications are held back/,
     );
+  });
+
+  it("speaks the user's language", async () => {
+    const fake = fakeHass();
+    fake.hass.locale = { language: 'de' };
+    render(<App hassBox={{ latest: fake.hass }} config={DEFAULT_CONFIG} />);
+    const de = translator('de');
+    expect(await screen.findByText(`⚠️ ${de.tn('headline.attention', 7)}`)).toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', { name: new RegExp(de.t('tab.batteries')) }),
+    ).toBeInTheDocument();
+    const breakdown = [
+      de.tn('breakdown.low', 5),
+      de.tn('breakdown.offline', 1),
+      de.tn('breakdown.quiet', 2),
+    ].join(' · ');
+    expect(screen.getByText(breakdown)).toBeInTheDocument();
   });
 
   it('re-renders when the subscription sends a new snapshot', async () => {

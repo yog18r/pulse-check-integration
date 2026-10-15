@@ -282,6 +282,7 @@ function mount(scenario: Scenario) {
     connection,
     callWS: fakeCallWS as NonNullable<HassLike['callWS']>,
     callService,
+    locale: { language: params.get('lang') ?? 'en' },
   };
 
   const card = document.createElement('pulse-check-card') as CardLike;
@@ -363,7 +364,7 @@ document.addEventListener('hass-more-info', (event) => {
 });
 
 /**
- * Deep links: `?scenario=actions&theme=dark` picks the starting state, and
+ * Deep links: `?scenario=actions&theme=dark&lang=de` picks the starting state, and
  * `&shot` hides everything but the card. The README screenshots are taken
  * that way (see docs/screenshots.py).
  */

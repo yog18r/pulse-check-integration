@@ -16,6 +16,7 @@
  * optional). `ResolvedConfig` is what the rest of the card works with
  * (every field present).
  */
+import { EN, type MessageKey, type Params, type Translator } from '../i18n';
 import { GROUP_BYS, type GroupBy } from '../core/grouping';
 
 export const TAB_IDS = ['batteries', 'connectivity', 'actions'] as const;
@@ -90,10 +91,20 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
 
 export const MAX_SPARKLINE_DAYS = 365;
 
-/** Thrown for bad config. A separate class lets callers tell it apart from bugs. */
+/**
+ * Thrown for bad config; a separate class lets callers tell it apart from
+ * bugs. `key` and `params` name the problem so the card and the editor can
+ * show it in the user's language; `message` is the English text, for logs
+ * and for code that has no translator.
+ */
 export class ConfigError extends Error {
-  constructor(message: string) {
-    super(message);
+  readonly key: MessageKey;
+  readonly params: Params;
+
+  constructor(key: MessageKey, params: Params = {}) {
+    super(EN.t(key, params));
+    this.key = key;
+    this.params = params;
     this.name = 'ConfigError';
   }
 }
@@ -114,7 +125,7 @@ function oneOf<T extends string>(
 ): T {
   if (value === undefined) return fallback;
   if (typeof value !== 'string' || !(allowed as readonly string[]).includes(value)) {
-    throw new ConfigError(`"${key}" must be one of: ${allowed.join(', ')}.`);
+    throw new ConfigError('config.one_of', { key, allowed: allowed.join(', ') });
   }
   return value as T;
 }
@@ -122,14 +133,14 @@ function oneOf<T extends string>(
 function stringList(value: unknown, key: string): string[] {
   if (value === undefined) return [];
   if (!Array.isArray(value) || !value.every((v) => typeof v === 'string')) {
-    throw new ConfigError(`"${key}" must be a list of names or ids.`);
+    throw new ConfigError('config.list', { key });
   }
   return value;
 }
 
 function booleanOr(value: unknown, key: string, fallback: boolean): boolean {
   if (value === undefined) return fallback;
-  if (typeof value !== 'boolean') throw new ConfigError(`"${key}" must be true or false.`);
+  if (typeof value !== 'boolean') throw new ConfigError('config.boolean', { key });
   return value;
 }
 
@@ -139,21 +150,19 @@ function booleanOr(value: unknown, key: string, fallback: boolean): boolean {
  */
 export function resolveConfig(raw: unknown): ResolvedConfig {
   if (!isRecord(raw)) {
-    throw new ConfigError('Card config must be a YAML mapping (key: value pairs).');
+    throw new ConfigError('config.mapping');
   }
 
   // Blank or absent means "no title row" rather than a default name.
   const title = raw.title === undefined ? DEFAULT_CONFIG.title : raw.title;
-  if (typeof title !== 'string') throw new ConfigError('"title" must be text.');
+  if (typeof title !== 'string') throw new ConfigError('config.title');
 
   // show_tabs
   let show_tabs: TabId[] = DEFAULT_CONFIG.show_tabs;
   const rawTabs = raw.show_tabs;
   if (rawTabs !== undefined) {
     if (!Array.isArray(rawTabs) || rawTabs.length === 0 || !rawTabs.every(isTabId)) {
-      throw new ConfigError(
-        `"show_tabs" must be a non-empty list containing only: ${TAB_IDS.join(', ')}.`,
-      );
+      throw new ConfigError('config.show_tabs', { allowed: TAB_IDS.join(', ') });
     }
     show_tabs = [...new Set(rawTabs)];
   }
@@ -165,10 +174,10 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
   const rawDefault = raw.default_tab;
   if (rawDefault !== undefined) {
     if (!isTabId(rawDefault)) {
-      throw new ConfigError(`"default_tab" must be one of: ${TAB_IDS.join(', ')}.`);
+      throw new ConfigError('config.one_of', { key: 'default_tab', allowed: TAB_IDS.join(', ') });
     }
     if (!show_tabs.includes(rawDefault)) {
-      throw new ConfigError(`"default_tab" (${rawDefault}) is not in "show_tabs".`);
+      throw new ConfigError('config.default_tab_missing', { tab: rawDefault });
     }
     default_tab = rawDefault;
   }
@@ -182,7 +191,7 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     } else if (typeof rawMax === 'number' && Number.isInteger(rawMax) && rawMax >= 1) {
       max_rows = rawMax;
     } else {
-      throw new ConfigError('"max_rows" must be a whole number of at least 1, or "all".');
+      throw new ConfigError('config.max_rows');
     }
   }
 
@@ -204,9 +213,7 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
       rawDays < 1 ||
       rawDays > MAX_SPARKLINE_DAYS
     ) {
-      throw new ConfigError(
-        `"sparkline_days" must be a whole number of days from 1 to ${String(MAX_SPARKLINE_DAYS)}.`,
-      );
+      throw new ConfigError('config.sparkline_days', { max: MAX_SPARKLINE_DAYS });
     }
     sparkline_days = rawDays;
   }
@@ -225,4 +232,10 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     show_sparklines,
     sparkline_days,
   };
+}
+
+/** An error from `resolveConfig` in the user's language; anything else as it is. */
+export function configErrorText(err: unknown, t: Translator): string {
+  if (err instanceof ConfigError) return t.t(err.key, err.params);
+  return err instanceof Error ? err.message : String(err);
 }

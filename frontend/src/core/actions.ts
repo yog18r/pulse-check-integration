@@ -8,6 +8,8 @@
  * across the devices that need replacing. The integration builds the list;
  * these are the shapes it sends.
  */
+import { EN, type Translator } from '../i18n';
+import { batteryTypeLabel } from './batteryTypes';
 import type { Severity } from './types';
 
 export const UNKNOWN_BATTERY_TYPE = 'Unknown type';
@@ -65,4 +67,20 @@ export function filterActions(actions: ActionList, deviceIds: ReadonlySet<string
     return b.count - a.count || a.batteryType.localeCompare(b.batteryType);
   });
   return { replace, charge, shopping };
+}
+
+/**
+ * "Replace 2 × AA in Kitchen Mini Switch", in the user's language. The
+ * integration sends an English `label` too; the card words it itself from
+ * the item's fields instead, which are the same facts.
+ */
+export function actionLabel(item: ActionItem, t: Translator = EN): string {
+  if (item.kind === 'charge') return t.t('action.charge', { name: item.name });
+  if (item.batteryType === UNKNOWN_BATTERY_TYPE) {
+    return t.t('action.replace_unknown', { name: item.name });
+  }
+  const type = batteryTypeLabel(item.batteryType, t);
+  return item.count > 1
+    ? t.t('action.replace_many', { count: item.count, type, name: item.name })
+    : t.t('action.replace_one', { type, name: item.name });
 }

@@ -26,10 +26,12 @@ import { breakdown, headline, summarise } from '../core/summarise';
 import { batterySeverity, connectivitySeverity } from '../core/thresholds';
 import { formatClock } from '../core/time';
 import type { DeviceHealth, HassBox } from '../core/types';
+import { languageOf, translator } from '../i18n';
 import { ActionsTab } from './ActionsTab';
 import { DeviceRow } from './DeviceRow';
 import { EmptyState } from './EmptyState';
 import { GroupedRows } from './GroupedRows';
+import { I18nContext } from './i18n';
 import { useHistory, type HistoryRequest } from './useHistory';
 import { useNow } from './useNow';
 import { useSnapshot } from './useSnapshot';
@@ -43,14 +45,16 @@ export interface AppProps {
   onSnapshot?: ((snapshot: Snapshot) => void) | undefined;
 }
 
-const TAB_LABELS: Record<TabId, string> = {
-  batteries: '🔋 Batteries',
-  connectivity: '📡 Connectivity',
-  actions: '🛠️ Actions',
+const TAB_EMOJI: Record<TabId, string> = {
+  batteries: '🔋',
+  connectivity: '📡',
+  actions: '🛠️',
 };
 
 export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
   const now = useNow();
+  // The element re-renders when the user's language changes.
+  const t = translator(languageOf(hassBox.latest));
   const connection = hassBox.latest?.connection;
   const { status, snapshot, error } = useSnapshot(hassBox, connection);
   if (snapshot) onSnapshot?.(snapshot);
@@ -152,20 +156,20 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
     return (
       <div className="card">
         {status === 'loading' && (
-          <EmptyState emoji="⏳" lead="Connecting to Pulse Check" detail="One moment." />
+          <EmptyState
+            emoji="⏳"
+            lead={t.t('app.connecting')}
+            detail={t.t('app.connecting_detail')}
+          />
         )}
         {status === 'missing' && (
-          <EmptyState
-            emoji="🔌"
-            lead="Pulse Check integration not found"
-            detail="This card needs the Pulse Check integration. Install it, add it under Settings → Devices & services, then reload this page."
-          />
+          <EmptyState emoji="🔌" lead={t.t('app.missing')} detail={t.t('app.missing_detail')} />
         )}
         {status === 'error' && (
           <EmptyState
             emoji="⚠️"
-            lead="Could not reach Pulse Check"
-            detail={error ?? 'The subscription failed.'}
+            lead={t.t('app.error')}
+            detail={error ?? t.t('app.error_detail')}
           />
         )}
       </div>
@@ -179,7 +183,7 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
   };
   const headlineSeverity =
     summary.critical > 0 ? 'critical' : summary.warning > 0 ? 'warning' : 'ok';
-  const detail = breakdown(summary);
+  const detail = breakdown(summary, t);
 
   const rowProps = {
     now,
@@ -188,138 +192,145 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
     onUnsnooze: handleUnsnooze,
   };
 
+  // React note: `<I18nContext value={t}>` provides the translator to every
+  // component below it (see ./i18n.ts).
   return (
-    <div className="card">
-      <header className="header" data-untitled={config.title === '' ? 'true' : undefined}>
-        {config.title !== '' && <h2 className="title">{config.title}</h2>}
-        <div className="verdict">
-          <p className="headline" data-severity={headlineSeverity} aria-live="polite">
-            {headline(summary)}
+    <I18nContext value={t}>
+      <div className="card">
+        <header className="header" data-untitled={config.title === '' ? 'true' : undefined}>
+          {config.title !== '' && <h2 className="title">{config.title}</h2>}
+          <div className="verdict">
+            <p className="headline" data-severity={headlineSeverity} aria-live="polite">
+              {headline(summary, t)}
+            </p>
+            {detail && <p className="breakdown">{detail}</p>}
+          </div>
+        </header>
+
+        {snapshot.maintenanceUntil && snapshot.maintenanceUntil > now && (
+          <p className="maintenance" role="status">
+            🔧{' '}
+            {t.t('app.maintenance', {
+              time: formatClock(snapshot.maintenanceUntil, now, t.language),
+            })}
           </p>
-          {detail && <p className="breakdown">{detail}</p>}
+        )}
+
+        {config.show_tabs.length > 1 && (
+          <div className="tabs" role="tablist" aria-label={t.t('app.tabs_label')}>
+            {config.show_tabs.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                className="tab"
+                id={`tab-${tab}`}
+                aria-selected={tab === activeTab}
+                aria-controls={`panel-${tab}`}
+                onClick={() => {
+                  setSelected(tab);
+                }}
+              >
+                {TAB_EMOJI[tab]} {t.t(`tab.${tab}`)}
+                {tabCounts[tab] > 0 && <span className="count">{tabCounts[tab]}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
+          {activeTab === 'batteries' &&
+            (batteries.length === 0 ? (
+              <EmptyState
+                emoji="🔌"
+                lead={t.t('empty.no_batteries')}
+                detail={t.t('empty.no_batteries_detail')}
+              />
+            ) : shownBatteries.length === 0 ? (
+              <EmptyState
+                emoji="✅"
+                lead={t.t('empty.batteries_ok')}
+                detail={t.t('empty.batteries_ok_detail')}
+              />
+            ) : (
+              <GroupedRows
+                items={shownBatteries}
+                groupBy={config.group_by}
+                maxRows={config.max_rows}
+                resetKey="batteries"
+                renderRow={(d) => (
+                  <DeviceRow
+                    key={d.deviceId}
+                    device={d}
+                    severity={batterySeverity(d.battery, rules)}
+                    mode="battery"
+                    history={d.battery ? histories?.get(d.battery.entityId) : undefined}
+                    sparkline={config.show_sparklines}
+                    {...rowProps}
+                  />
+                )}
+              />
+            ))}
+
+          {activeTab === 'connectivity' &&
+            (connectivity.length === 0 ? (
+              <EmptyState
+                emoji="✅"
+                lead={t.t('empty.online')}
+                detail={t.t('empty.online_detail')}
+              />
+            ) : (
+              <GroupedRows
+                items={connectivity}
+                groupBy={config.group_by}
+                maxRows={config.max_rows}
+                resetKey="connectivity"
+                renderRow={(d) => (
+                  <DeviceRow
+                    key={d.deviceId}
+                    device={d}
+                    severity={connectivitySeverity(d.isOffline, d.isQuiet)}
+                    mode="connectivity"
+                    {...rowProps}
+                  />
+                )}
+              />
+            ))}
+
+          {activeTab === 'actions' && (
+            <ActionsTab actions={actions} devices={byId} onDone={handleDone} {...rowProps} />
+          )}
         </div>
-      </header>
 
-      {snapshot.maintenanceUntil && snapshot.maintenanceUntil > now && (
-        <p className="maintenance" role="status">
-          🔧 Maintenance mode until {formatClock(snapshot.maintenanceUntil, now)}. Notifications are
-          held back.
-        </p>
-      )}
-
-      {config.show_tabs.length > 1 && (
-        <div className="tabs" role="tablist" aria-label="Device health views">
-          {config.show_tabs.map((tab) => (
+        {snoozed.length > 0 && activeTab !== 'batteries' && (
+          <footer className="footer">
             <button
-              key={tab}
               type="button"
-              role="tab"
-              className="tab"
-              id={`tab-${tab}`}
-              aria-selected={tab === activeTab}
-              aria-controls={`panel-${tab}`}
+              className="footerbutton"
+              aria-expanded={showSnoozed}
               onClick={() => {
-                setSelected(tab);
+                setShowSnoozed((s) => !s);
               }}
             >
-              {TAB_LABELS[tab]}
-              {tabCounts[tab] > 0 && <span className="count">{tabCounts[tab]}</span>}
+              💤 {t.tn('app.snoozed', snoozed.length)} ·{' '}
+              {showSnoozed ? t.t('app.hide') : t.t('app.show')}
             </button>
-          ))}
-        </div>
-      )}
-
-      <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
-        {activeTab === 'batteries' &&
-          (batteries.length === 0 ? (
-            <EmptyState
-              emoji="🔌"
-              lead="No battery-powered devices"
-              detail="Nothing here runs on batteries."
-            />
-          ) : shownBatteries.length === 0 ? (
-            <EmptyState
-              emoji="✅"
-              lead="No battery problems"
-              detail="Every battery is above the warning threshold."
-            />
-          ) : (
-            <GroupedRows
-              items={shownBatteries}
-              groupBy={config.group_by}
-              maxRows={config.max_rows}
-              resetKey="batteries"
-              renderRow={(d) => (
-                <DeviceRow
-                  key={d.deviceId}
-                  device={d}
-                  severity={batterySeverity(d.battery, rules)}
-                  mode="battery"
-                  history={d.battery ? histories?.get(d.battery.entityId) : undefined}
-                  sparkline={config.show_sparklines}
-                  {...rowProps}
-                />
-              )}
-            />
-          ))}
-
-        {activeTab === 'connectivity' &&
-          (connectivity.length === 0 ? (
-            <EmptyState
-              emoji="✅"
-              lead="All devices online"
-              detail="No devices are offline or unusually quiet."
-            />
-          ) : (
-            <GroupedRows
-              items={connectivity}
-              groupBy={config.group_by}
-              maxRows={config.max_rows}
-              resetKey="connectivity"
-              renderRow={(d) => (
-                <DeviceRow
-                  key={d.deviceId}
-                  device={d}
-                  severity={connectivitySeverity(d.isOffline, d.isQuiet)}
-                  mode="connectivity"
-                  {...rowProps}
-                />
-              )}
-            />
-          ))}
-
-        {activeTab === 'actions' && (
-          <ActionsTab actions={actions} devices={byId} onDone={handleDone} {...rowProps} />
+            {showSnoozed && (
+              <ul className="rows">
+                {snoozed.map((d) => (
+                  <DeviceRow
+                    key={d.deviceId}
+                    device={d}
+                    severity="ok"
+                    mode={d.isOffline || d.isQuiet ? 'connectivity' : 'battery'}
+                    {...rowProps}
+                  />
+                ))}
+              </ul>
+            )}
+          </footer>
         )}
       </div>
-
-      {snoozed.length > 0 && activeTab !== 'batteries' && (
-        <footer className="footer">
-          <button
-            type="button"
-            className="footerbutton"
-            aria-expanded={showSnoozed}
-            onClick={() => {
-              setShowSnoozed((s) => !s);
-            }}
-          >
-            💤 {snoozed.length} snoozed · {showSnoozed ? 'hide' : 'show'}
-          </button>
-          {showSnoozed && (
-            <ul className="rows">
-              {snoozed.map((d) => (
-                <DeviceRow
-                  key={d.deviceId}
-                  device={d}
-                  severity="ok"
-                  mode={d.isOffline || d.isQuiet ? 'connectivity' : 'battery'}
-                  {...rowProps}
-                />
-              ))}
-            </ul>
-          )}
-        </footer>
-      )}
-    </div>
+    </I18nContext>
   );
 }

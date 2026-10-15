@@ -9,7 +9,10 @@
 import { formatDaysLeft, type BatteryHistory } from '../core/drain';
 import { formatHours, formatRelative } from '../core/time';
 import type { DeviceHealth, Severity } from '../core/types';
+import type { Translator } from '../i18n';
+import { translateBasis, translateUnusual } from '../i18n/serverText';
 import { BatteryBar } from './BatteryBar';
+import { useT } from './i18n';
 import { IntegrationBadge } from './IntegrationBadge';
 import { SnoozeMenu } from './SnoozeMenu';
 import { Sparkline } from './Sparkline';
@@ -35,10 +38,10 @@ interface Props {
   onDone?: ((device: DeviceHealth) => void) | undefined;
 }
 
-function connectivityLabel(device: DeviceHealth): string {
-  if (device.isOffline) return 'Offline';
-  if (device.isQuiet) return 'Quiet';
-  return 'Online';
+function connectivityLabel(device: DeviceHealth, t: Translator): string {
+  if (device.isOffline) return t.t('row.offline');
+  if (device.isQuiet) return t.t('row.quiet');
+  return t.t('row.online');
 }
 
 export function DeviceRow({
@@ -54,10 +57,11 @@ export function DeviceRow({
   onUnsnooze,
   onDone,
 }: Props) {
+  const t = useT();
   // The estimate: the fetched history's when it has one, else the device's own.
   const estimate = history?.estimate ?? device.estimate;
   const daysLeft = estimate?.daysLeft ?? device.daysLeft;
-  const lastHeard = formatRelative(device.lastHeard, now);
+  const lastHeard = formatRelative(device.lastHeard, now, t);
   const charging = device.battery?.isCharging === true;
   // Only offer snoozing where there is something to snooze.
   const snoozable =
@@ -75,7 +79,7 @@ export function DeviceRow({
         type="button"
         className="rowbutton"
         onClick={() => onOpen?.(device)}
-        aria-label={`${device.name}, open in Home Assistant`}
+        aria-label={t.t('row.open', { name: device.name })}
       >
         <span className="stripe" aria-hidden="true" />
 
@@ -87,13 +91,16 @@ export function DeviceRow({
             {device.area && <span>{device.area}</span>}
             <IntegrationBadge platform={device.integration} />
             {charging && (
-              <span className="badge" data-kind="charging" title="Charging">
-                ⚡ charging
+              <span className="badge" data-kind="charging" title={t.t('row.charging_title')}>
+                ⚡ {t.t('row.charging')}
               </span>
             )}
             {device.snoozedUntil && (
               <span className="badge" data-kind="snoozed">
-                💤 until {device.snoozedUntil.toLocaleDateString()}
+                💤{' '}
+                {t.t('row.snoozed_until', {
+                  date: device.snoozedUntil.toLocaleDateString(t.language),
+                })}
               </span>
             )}
             {device.extras.map((extra) => (
@@ -102,12 +109,8 @@ export function DeviceRow({
               </span>
             ))}
             {device.unusual !== undefined && (
-              <span
-                className="badge"
-                data-severity="warning"
-                title="Compared with this device's own history"
-              >
-                ⚠ {device.unusual}
+              <span className="badge" data-severity="warning" title={t.t('row.unusual_title')}>
+                ⚠ {translateUnusual(device.unusual, t)}
               </span>
             )}
           </span>
@@ -123,22 +126,24 @@ export function DeviceRow({
                 <BatteryBar battery={device.battery} severity={severity} />
               </span>
               <span className="sub">
-                heard {lastHeard}
+                {t.t('row.heard', { time: lastHeard })}
                 {daysLeft !== undefined && !charging && (
                   <>
                     {' · '}
                     <span
                       title={
                         estimate
-                          ? `${estimate.basis} (${estimate.confidence} confidence)`
-                          : 'Estimated by the Pulse Check integration'
+                          ? t.t(`row.estimate_${estimate.confidence}`, {
+                              basis: translateBasis(estimate.basis, t),
+                            })
+                          : t.t('row.estimate_fallback')
                       }
                     >
                       {estimate?.kind === 'charge'
-                        ? `charge in ${formatDaysLeft(daysLeft)}`
+                        ? t.t('row.charge_in', { days: formatDaysLeft(daysLeft, t) })
                         : estimate?.openEnded
-                          ? 'more than a year left'
-                          : `${formatDaysLeft(daysLeft)} left`}
+                          ? t.t('row.year_plus')
+                          : t.t('row.left', { days: formatDaysLeft(daysLeft, t) })}
                     </span>
                   </>
                 )}
@@ -147,11 +152,12 @@ export function DeviceRow({
           ) : (
             <>
               <span className="label" data-severity={severity}>
-                {connectivityLabel(device)}
+                {connectivityLabel(device, t)}
               </span>
               <span className="sub">
-                last heard {lastHeard}
-                {device.isQuiet && ` · limit ${formatHours(device.quietThresholdHours)}`}
+                {t.t('row.last_heard', { time: lastHeard })}
+                {device.isQuiet &&
+                  ` · ${t.t('row.limit', { hours: formatHours(device.quietThresholdHours, t) })}`}
               </span>
             </>
           )}
@@ -162,13 +168,13 @@ export function DeviceRow({
         <button
           type="button"
           className="done"
-          aria-label={`Mark ${device.name} done`}
-          title="Record that this battery was replaced or charged"
+          aria-label={t.t('row.done_label', { name: device.name })}
+          title={t.t('row.done_title')}
           onClick={() => {
             onDone(device);
           }}
         >
-          ✓ Done
+          ✓ {t.t('row.done')}
         </button>
       )}
 

@@ -4,6 +4,7 @@
  * The estimates themselves (cycles, kinds, fits) are made on the server;
  * the card only draws the points and shows the result with its basis.
  */
+import { EN, type Translator } from '../i18n';
 import type { Estimate } from './types';
 
 export interface DrainPoint {
@@ -24,10 +25,10 @@ export interface BatteryHistory {
 }
 
 /** "~12d", "~3w", "~4mo": rough on purpose. */
-export function formatDaysLeft(days: number): string {
-  if (days < 1) return 'under a day';
-  if (days < 14) return `~${String(Math.round(days))}d`;
-  if (days < 60) return `~${String(Math.round(days / 7))}w`;
-  if (days < 365) return `~${String(Math.round(days / 30))}mo`;
-  return '1y+';
+export function formatDaysLeft(days: number, t: Translator = EN): string {
+  if (days < 1) return t.t('days_left.under_day');
+  if (days < 14) return `~${t.t('unit.days', { n: Math.round(days) })}`;
+  if (days < 60) return `~${t.t('unit.weeks', { n: Math.round(days / 7) })}`;
+  if (days < 365) return `~${t.t('unit.months', { n: Math.round(days / 30) })}`;
+  return t.t('days_left.year_plus');
 }

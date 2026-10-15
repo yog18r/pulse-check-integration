@@ -6,6 +6,7 @@
  * compiles to `React.createElement` calls. Components are the building
  * blocks you compose into a UI.
  */
+import { useT } from './i18n';
 import { integrationLabel } from './labels';
 
 interface Props {
@@ -13,9 +14,10 @@ interface Props {
 }
 
 export function IntegrationBadge({ platform }: Props) {
+  const t = useT();
   return (
-    <span className="badge" title={`Integration: ${platform}`}>
-      {integrationLabel(platform)}
+    <span className="badge" title={t.t('integration.title', { platform })}>
+      {integrationLabel(platform, t)}
     </span>
   );
 }

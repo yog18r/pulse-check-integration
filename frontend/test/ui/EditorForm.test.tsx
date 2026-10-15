@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CardConfig } from '../../src/card/config';
 import type { HassBox } from '../../src/core/types';
+import { translator } from '../../src/i18n';
 import { EditorForm } from '../../src/ui/EditorForm';
 import { fakeHass, SNAPSHOT_PAYLOAD, type FakeHassOptions } from '../fixtures/snapshot';
 
@@ -49,6 +50,27 @@ function renderEditor(
   const latest = () => onEmit.mock.lastCall?.[0] as CardConfig;
   return { ...fake, onEmit, latest };
 }
+
+describe('EditorForm: language', () => {
+  it("labels every field in the user's language", () => {
+    const fake = fakeHass();
+    fake.hass.locale = { language: 'fr' };
+    const hassBox: HassBox = { latest: fake.hass };
+    render(<Harness initial={{}} onEmit={vi.fn()} hassBox={hassBox} />);
+    const fr = translator('fr');
+    expect(screen.getByLabelText(fr.t('editor.title'))).toBeInTheDocument();
+    expect(screen.getByText(fr.t('settings.legend'))).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: fr.t('tab.actions') })).toBeInTheDocument();
+  });
+
+  it('shows config errors in that language too', () => {
+    const fake = fakeHass();
+    fake.hass.locale = { language: 'de' };
+    const hassBox: HassBox = { latest: fake.hass };
+    render(<Harness initial={{ max_rows: 0 }} onEmit={vi.fn()} hassBox={hassBox} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(translator('de').t('config.max_rows'));
+  });
+});
 
 describe('EditorForm: presentation options', () => {
   it('emits a minimal config: set fields appear, cleared fields disappear', async () => {

@@ -29,12 +29,19 @@ src/
 │   ├── snapshot.ts         subscription, history and service calls
 │   ├── PulseCheckCardElement.ts   the custom element HA talks to
 │   └── PulseCheckCardEditor.ts    the visual editor element
-├── ui/                     React components and hooks (useSnapshot, useHistory)
+├── i18n/
+│   ├── en.ts               every visible string, in English: the source the others follow
+│   ├── de.ts … zh-Hans.ts  one catalog per language, typed against en.ts
+│   ├── index.ts            choosing a language, plurals, the translator
+│   └── serverText.ts       the few phrases the integration sends in English
+├── ui/                     React components and hooks (useSnapshot, useHistory, useT)
 ├── demo/                   the dev page's fake Home Assistant
 └── index.ts                registers the elements and the card picker entry
 ```
 
 The custom element owns a shadow root and a React root. `useSnapshot` subscribes once per websocket connection and unsubscribes on unmount; `useHistory` fetches sparkline points for the batteries on screen and refreshes them every six hours.
+
+Text comes from `src/i18n`: the card and the editor each create the translator for `hass.locale.language` and hand it down through a React context (`useT()`); plain functions take it as a parameter that defaults to English. To add a language, copy `en.ts`, translate it, and register it in `index.ts`; the type checker lists anything missing and `test/i18n/catalogs.test.ts` checks plural forms and placeholders. `?lang=de` on the demo page previews a language.
 
 The card has no version of its own: the build reads `version` from the integration's `manifest.json` and prints it in the browser console banner.
 

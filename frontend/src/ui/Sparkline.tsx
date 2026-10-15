@@ -10,6 +10,7 @@
  */
 import type { DrainPoint } from '../core/drain';
 import type { Severity } from '../core/types';
+import { useT } from './i18n';
 
 interface Props {
   points: DrainPoint[];
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function Sparkline({ points: rawPoints, severity, days, width = 48, height = 16 }: Props) {
+  const t = useT();
   // Never let one bad sample (NaN from an odd integration) break the path.
   const points = rawPoints.filter((p) => Number.isFinite(p.time) && Number.isFinite(p.level));
   if (points.length < 2) return null;
@@ -44,7 +46,8 @@ export function Sparkline({ points: rawPoints, severity, days, width = 48, heigh
   const first = levels[0] ?? 0;
   const last = levels[levels.length - 1] ?? 0;
   const span = days ?? Math.round((t1 - t0) / 86_400_000);
-  const spanLabel = span < 1 ? 'Last day' : `${String(span)}-day`;
+  const ends = { first: Math.round(first), last: Math.round(last) };
+  const title = span < 1 ? t.t('spark.title_day', ends) : t.tn('spark.title', span, ends);
 
   return (
     <svg
@@ -55,7 +58,7 @@ export function Sparkline({ points: rawPoints, severity, days, width = 48, heigh
       viewBox={`0 0 ${String(width)} ${String(height)}`}
       aria-hidden="true"
     >
-      <title>{`${spanLabel} trend: ${String(Math.round(first))}% → ${String(Math.round(last))}%`}</title>
+      <title>{title}</title>
       <path d={d} fill="none" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );

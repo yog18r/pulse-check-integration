@@ -16,13 +16,13 @@
  * checkboxes save immediately.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { callPulseCheck, NOTIFY_POLICIES, type DeviceSettings } from '../card/snapshot';
 import {
-  callPulseCheck,
-  NOTIFY_POLICIES,
-  type DeviceSettings,
-  type NotifyPolicy,
-} from '../card/snapshot';
-import { BATTERY_TYPE_GROUPS, isKnownBatteryType, OTHER_BATTERY_TYPE } from '../core/batteryTypes';
+  BATTERY_TYPE_GROUPS,
+  batteryTypeLabel,
+  isKnownBatteryType,
+  OTHER_BATTERY_TYPE,
+} from '../core/batteryTypes';
 import {
   deviceLabel,
   listDevices,
@@ -31,6 +31,7 @@ import {
 } from '../core/registryOptions';
 import type { HassBox, HassLike } from '../core/types';
 import { DevicePicker } from './DevicePicker';
+import { useT } from './i18n';
 import { useSnapshot } from './useSnapshot';
 
 interface Props {
@@ -39,13 +40,6 @@ interface Props {
   /** For the subscription and service calls. */
   hassBox: HassBox;
 }
-
-const POLICY_LABELS: Record<NotifyPolicy, string> = {
-  instant: 'Instantly, with reminders',
-  daily: 'In the daily digest',
-  weekly: 'In the weekly digest',
-  none: 'Never',
-};
 
 /** How long "Saved to Pulse Check" stays on screen. */
 const FEEDBACK_MS = 3000;
@@ -120,6 +114,7 @@ function BatteryTypeField({
   value: string | undefined;
   onChange: (type: string | undefined) => void;
 }) {
+  const t = useT();
   const known = value !== undefined && isKnownBatteryType(value);
   const [other, setOther] = useState(value !== undefined && !known);
   const selectValue = other ? OTHER_BATTERY_TYPE : (value ?? '');
@@ -127,7 +122,7 @@ function BatteryTypeField({
   return (
     <span className="typefield">
       <select
-        aria-label="Battery type"
+        aria-label={t.t('settings.battery_type')}
         value={selectValue}
         onChange={(e) => {
           const v = e.target.value;
@@ -139,24 +134,24 @@ function BatteryTypeField({
           }
         }}
       >
-        <option value="">Battery type…</option>
+        <option value="">{t.t('settings.battery_type_placeholder')}</option>
         {BATTERY_TYPE_GROUPS.map((g) => (
-          <optgroup key={g.label} label={g.label}>
-            {g.types.map((t) => (
-              <option key={t} value={t}>
-                {t}
+          <optgroup key={g.label} label={t.t(g.label)}>
+            {g.types.map((type) => (
+              <option key={type} value={type}>
+                {batteryTypeLabel(type, t)}
               </option>
             ))}
           </optgroup>
         ))}
-        <option value={OTHER_BATTERY_TYPE}>Other…</option>
+        <option value={OTHER_BATTERY_TYPE}>{t.t('settings.other')}</option>
       </select>
       {other && (
         <DraftField
           key={value ?? ''}
-          label="Other battery type"
+          label={t.t('settings.other_type')}
           value={value ?? ''}
-          placeholder="e.g. 2CR5"
+          placeholder={t.t('settings.other_example')}
           onSave={(text) => {
             onChange(text.trim() === '' ? undefined : text.trim());
           }}
@@ -167,6 +162,7 @@ function BatteryTypeField({
 }
 
 export function DeviceSettingsPanel({ hass, hassBox }: Props) {
+  const t = useT();
   const { status, snapshot } = useSnapshot(hassBox, hassBox.latest?.connection);
   const [selectedId, setSelectedId] = useState<string>('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -193,9 +189,9 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
       hass
         ? Object.values(hass.areas)
             .map((a) => a.name)
-            .sort((a, b) => a.localeCompare(b))
+            .sort((a, b) => a.localeCompare(b, t.language))
         : [],
-    [hass],
+    [hass, t],
   );
 
   const settingsMap = snapshot?.deviceSettings ?? {};
@@ -212,35 +208,25 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
       ...patch,
     }).then(
       () => {
-        setFeedback({ kind: 'saved', text: 'Saved to Pulse Check' });
+        setFeedback({ kind: 'saved', text: t.t('settings.saved') });
       },
       (err: unknown) => {
         const reason = err instanceof Error ? err.message : String(err);
-        setFeedback({ kind: 'error', text: `Not saved: ${reason}` });
+        setFeedback({ kind: 'error', text: t.t('settings.not_saved', { reason }) });
       },
     );
   }
 
   return (
     <fieldset className="field">
-      <legend>Per-device settings</legend>
-      <p className="hint">
-        These are stored by the Pulse Check integration the moment you change them, so every card
-        and notification uses them. The dialog&apos;s Save button only applies to the card&apos;s
-        layout options above. Battery type and count feed the Actions tab; tick rechargeable for
-        devices you charge rather than replace; trend days sets this device&apos;s sparkline window
-        (phones: 1 day).
-      </p>
+      <legend>{t.t('settings.legend')}</legend>
+      <p className="hint">{t.t('settings.hint')}</p>
 
-      {status === 'missing' && (
-        <p className="note">
-          The Pulse Check integration is not set up, so there is nothing to edit.
-        </p>
-      )}
-      {status === 'error' && <p className="note">Could not reach the Pulse Check integration.</p>}
+      {status === 'missing' && <p className="note">{t.t('settings.missing')}</p>}
+      {status === 'error' && <p className="note">{t.t('settings.error')}</p>}
 
       {edited.length > 0 && (
-        <div className="checks" aria-label="Devices with settings">
+        <div className="checks" aria-label={t.t('settings.edited')}>
           {edited.map((id) => {
             const option = options.find((o) => o.id === id);
             return (
@@ -269,31 +255,33 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
             setSelectedId(id);
             setFeedback(null);
           }}
-          placeholder="Search devices to edit…"
+          placeholder={t.t('settings.search')}
         />
       </div>
 
       {selectedId !== '' && status === 'ready' && (
         <div
           className="settingsrow"
-          aria-label={`Settings for ${selected ? deviceLabel(selected) : selectedId}`}
+          aria-label={t.t('settings.for', {
+            name: selected ? deviceLabel(selected) : selectedId,
+          })}
         >
           <div className="settingsline">
             <DraftField
               key={keyFor('name', settings.name)}
-              label="Display name"
+              label={t.t('settings.name')}
               grow
               value={settings.name ?? ''}
-              placeholder={selected?.name ?? 'Display name (optional)'}
+              placeholder={selected?.name ?? t.t('settings.name_placeholder')}
               onSave={(name) => {
                 save({ name: name.trim() });
               }}
             />
             <label className="inline grow">
-              <span>Area</span>
+              <span>{t.t('settings.area')}</span>
               <select
-                aria-label="Area"
-                title="Area shown on the card. Pre-filled from the device registry; pick another to override."
+                aria-label={t.t('settings.area')}
+                title={t.t('settings.area_title')}
                 value={settings.area ?? registryArea ?? ''}
                 onChange={(e) => {
                   const chosen = e.target.value;
@@ -301,7 +289,7 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
                   save({ area: chosen === registryArea ? '' : chosen });
                 }}
               >
-                <option value="">No area</option>
+                <option value="">{t.t('settings.no_area')}</option>
                 {areaNames.map((name) => (
                   <option key={name} value={name}>
                     {name}
@@ -324,7 +312,7 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
             />
             <DraftField
               key={keyFor('count', settings.battery_count)}
-              label="Battery count"
+              label={t.t('settings.count')}
               type="number"
               min={1}
               placeholder="1"
@@ -342,18 +330,18 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
                   save({ rechargeable: e.target.checked });
                 }}
               />
-              Rechargeable
+              {t.t('settings.rechargeable')}
             </label>
           </div>
 
           <div className="settingsline">
             <DraftField
               key={keyFor('quiet', settings.quiet_threshold_hours)}
-              label="Quiet hours"
+              label={t.t('settings.quiet')}
               type="number"
               min={0.01}
               step="any"
-              placeholder="hours"
+              placeholder={t.t('settings.hours')}
               unit="h"
               value={
                 settings.quiet_threshold_hours !== undefined
@@ -367,10 +355,10 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
             />
             <DraftField
               key={keyFor('trend', settings.sparkline_days)}
-              label="Trend days"
+              label={t.t('settings.trend')}
               type="number"
               min={1}
-              placeholder="card default"
+              placeholder={t.t('settings.card_default')}
               unit="d"
               value={settings.sparkline_days !== undefined ? String(settings.sparkline_days) : ''}
               onSave={(text) => {
@@ -382,18 +370,18 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
               }}
             />
             <label className="inline">
-              <span>Notify</span>
+              <span>{t.t('settings.notify')}</span>
               <select
-                aria-label="Notification policy"
+                aria-label={t.t('settings.policy')}
                 value={settings.notify_policy ?? ''}
                 onChange={(e) => {
                   save({ notify_policy: e.target.value });
                 }}
               >
-                <option value="">Default for its severity</option>
+                <option value="">{t.t('settings.policy_default')}</option>
                 {NOTIFY_POLICIES.map((p) => (
                   <option key={p} value={p}>
-                    {POLICY_LABELS[p]}
+                    {t.t(`policy.${p}`)}
                   </option>
                 ))}
               </select>
