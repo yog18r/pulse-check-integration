@@ -23,13 +23,14 @@ import {
   type ShoppingLine,
 } from '../core/actions';
 import { isDeviceType } from '../core/deviceType';
-import type { BatteryHistory, DrainEstimate, DrainPoint } from '../core/drain';
+import type { BatteryHistory, DrainPoint } from '../core/drain';
 import { EMPTY_SUMMARY, type Summary } from '../core/summarise';
 import type { Thresholds } from '../core/thresholds';
 import type {
   BatteryReading,
   DeviceHealth,
   EnhancerExtra,
+  Estimate,
   HassLike,
   Severity,
   UnsubscribeFunc,
@@ -128,6 +129,29 @@ function parseExtras(raw: unknown): EnhancerExtra[] {
   return extras;
 }
 
+const CONFIDENCES = new Set<string>(['high', 'medium', 'low']);
+
+/** The integration's `estimate` object, or undefined if it is not usable. */
+export function parseEstimate(raw: unknown): Estimate | undefined {
+  if (!isRecord(raw)) return undefined;
+  const daysLeft = num(raw.daysLeft);
+  const basis = str(raw.basis);
+  const confidence = str(raw.confidence);
+  const kind = raw.kind === 'charge' ? 'charge' : raw.kind === 'replace' ? 'replace' : undefined;
+  if (daysLeft === undefined || basis === undefined || !kind) return undefined;
+  const estimate: Estimate = {
+    daysLeft,
+    basis,
+    confidence:
+      confidence !== undefined && CONFIDENCES.has(confidence)
+        ? (confidence as Estimate['confidence'])
+        : 'low',
+    kind,
+  };
+  if (raw.openEnded === true) estimate.openEnded = true;
+  return estimate;
+}
+
 /** One device entry -> DeviceHealth, or undefined if it is not usable. */
 export function parseDevice(raw: unknown): DeviceHealth | undefined {
   if (!isRecord(raw)) return undefined;
@@ -166,6 +190,12 @@ export function parseDevice(raw: unknown): DeviceHealth | undefined {
   if (snoozedUntil) device.snoozedUntil = snoozedUntil;
   const daysLeft = num(raw.daysLeft);
   if (daysLeft !== undefined) device.daysLeft = daysLeft;
+  const estimate = parseEstimate(raw.estimate);
+  if (estimate) device.estimate = estimate;
+  const batteryKind = str(raw.batteryKind);
+  if (batteryKind === 'charged' || batteryKind === 'replaceable' || batteryKind === 'unknown') {
+    device.batteryKind = batteryKind;
+  }
   const lastReplaced = date(raw.lastReplaced);
   if (lastReplaced) device.lastReplaced = lastReplaced;
   const unusual = str(raw.unusual);
@@ -363,18 +393,8 @@ export async function loadHistory(
       })
     : [];
   const history: BatteryHistory = { points, days: num(raw.days) ?? days };
-  if (isRecord(raw.estimate)) {
-    const ratePerDay = num(raw.estimate.ratePerDay);
-    const daysLeft = num(raw.estimate.daysLeft);
-    if (ratePerDay !== undefined && daysLeft !== undefined) {
-      const estimate: DrainEstimate = {
-        ratePerDay,
-        daysLeft,
-        samples: num(raw.estimate.samples) ?? 0,
-      };
-      history.estimate = estimate;
-    }
-  }
+  const estimate = parseEstimate(raw.estimate);
+  if (estimate) history.estimate = estimate;
   return history;
 }
 

@@ -84,6 +84,12 @@ describe('App', () => {
             {
               ...deviceEntry('Living Room Motion'),
               daysLeft: 6.2,
+              estimate: {
+                daysLeft: 6.2,
+                basis: 'trend over current cycle',
+                confidence: 'high',
+                kind: 'replace',
+              },
               unusual: 'draining 3× faster than usual',
             },
           ],
@@ -91,8 +97,49 @@ describe('App', () => {
       },
     );
     const row = (await screen.findAllByRole('listitem'))[0]!;
-    expect(within(row).getByText(/~6d left/)).toBeInTheDocument();
+    const label = within(row).getByText(/~6d left/);
+    expect(label).toHaveAttribute('title', 'trend over current cycle (high confidence)');
     expect(within(row).getByText(/draining 3× faster/)).toBeInTheDocument();
+  });
+
+  it('labels charge estimates and open-ended ones differently', async () => {
+    renderApp(
+      {},
+      {
+        payload: {
+          ...SNAPSHOT_PAYLOAD,
+          devices: [
+            {
+              ...deviceEntry('Front Door Sensor'),
+              daysLeft: 58,
+              batteryKind: 'charged',
+              estimate: {
+                daysLeft: 58,
+                basis: 'until charge needed',
+                confidence: 'medium',
+                kind: 'charge',
+              },
+            },
+            {
+              ...deviceEntry('Window Sensor'),
+              daysLeft: 365,
+              batteryKind: 'replaceable',
+              estimate: {
+                daysLeft: 365,
+                basis: 'flat for 120 days',
+                confidence: 'low',
+                kind: 'replace',
+                openEnded: true,
+              },
+            },
+          ],
+        },
+      },
+    );
+    const charge = await screen.findByText(/charge in ~8w/);
+    expect(charge).toHaveAttribute('title', 'until charge needed (medium confidence)');
+    const flat = screen.getByText(/more than a year left/);
+    expect(flat).toHaveAttribute('title', 'flat for 120 days (low confidence)');
   });
 
   it('shows no days-left for devices without an estimate, charging or not', async () => {

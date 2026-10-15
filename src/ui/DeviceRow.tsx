@@ -54,9 +54,9 @@ export function DeviceRow({
   onUnsnooze,
   onDone,
 }: Props) {
-  const drain = history?.estimate;
-  // Days left: the browser's own fit when it has one, else the integration's.
-  const daysLeft = drain?.daysLeft ?? device.daysLeft;
+  // The estimate: the fetched history's when it has one, else the device's own.
+  const estimate = history?.estimate ?? device.estimate;
+  const daysLeft = estimate?.daysLeft ?? device.daysLeft;
   const lastHeard = formatRelative(device.lastHeard, now);
   const charging = device.battery?.isCharging === true;
   // Only offer snoozing where there is something to snooze.
@@ -129,12 +129,16 @@ export function DeviceRow({
                     {' · '}
                     <span
                       title={
-                        drain
-                          ? `Losing about ${drain.ratePerDay.toFixed(1)}% per day`
+                        estimate
+                          ? `${estimate.basis} (${estimate.confidence} confidence)`
                           : 'Estimated by the Pulse Check integration'
                       }
                     >
-                      {formatDaysLeft(daysLeft)} left
+                      {estimate?.kind === 'charge'
+                        ? `charge in ${formatDaysLeft(daysLeft)}`
+                        : estimate?.openEnded
+                          ? 'more than a year left'
+                          : `${formatDaysLeft(daysLeft)} left`}
                     </span>
                   </>
                 )}

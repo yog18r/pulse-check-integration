@@ -142,6 +142,20 @@ export interface EnhancerExtra {
   severity?: Severity;
 }
 
+export type BatteryKind = 'charged' | 'replaceable' | 'unknown';
+
+/** A days-left estimate with its provenance, as the integration computes it. */
+export interface Estimate {
+  daysLeft: number;
+  /** Plain words for a tooltip: "trend over current cycle", "until charge needed". */
+  basis: string;
+  confidence: 'high' | 'medium' | 'low';
+  /** "replace": days until empty. "charge": days until the warning level. */
+  kind: 'replace' | 'charge';
+  /** "More than a year": daysLeft is a floor, not a prediction. */
+  openEnded?: boolean;
+}
+
 /** Everything the UI needs to render one device row. */
 export interface DeviceHealth {
   deviceId: string;
@@ -168,8 +182,12 @@ export interface DeviceHealth {
   extras: EnhancerExtra[];
   /** Every entity id that belongs to this device, so the UI can drill down. */
   entityIds: string[];
-  /** Days until empty at the current drain rate, from recorder history. */
+  /** Days until empty (or until a charge is needed), from the integration's cycles. */
   daysLeft?: number;
+  /** Where `daysLeft` came from and how much to trust it. */
+  estimate?: Estimate;
+  /** "charged", "replaceable" or "unknown", from the battery's history. */
+  batteryKind?: BatteryKind;
   /** When the battery was last replaced or charged. */
   lastReplaced?: Date;
   /** A note when the battery behaves unlike its own past, e.g. "draining 3× faster than usual". */

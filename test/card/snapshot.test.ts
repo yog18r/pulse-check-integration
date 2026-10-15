@@ -124,14 +124,24 @@ describe('loadHistory and services', () => {
           { time: 1, level: 50 },
           { time: 2, level: 'x' },
         ],
-        estimate: { ratePerDay: 2, daysLeft: 6, samples: 15 },
+        estimate: {
+          daysLeft: 6,
+          basis: 'trend over current cycle',
+          confidence: 'high',
+          kind: 'replace',
+        },
       }),
     });
     const history = await loadHistory(hass, 'sensor.x', 14);
     expect(history).toEqual({
       days: 14,
       points: [{ time: 1, level: 50 }],
-      estimate: { ratePerDay: 2, daysLeft: 6, samples: 15 },
+      estimate: {
+        daysLeft: 6,
+        basis: 'trend over current cycle',
+        confidence: 'high',
+        kind: 'replace',
+      },
     });
     const noWS = { ...hass };
     delete noWS.callWS;

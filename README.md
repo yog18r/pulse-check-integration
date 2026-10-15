@@ -79,7 +79,11 @@ Keys from older versions (`battery_warning`, `device_settings`, `exclude_*`, `qu
 
 ### Sort order
 
-Rows on the Batteries tab are always grouped by severity first (critical, then warning, then ok, with charging devices last in their band). `sort` decides the order inside each band: `level` (lowest percentage first), `name` (alphabetical), or `replace_soon` (fewest days left first). For `replace_soon`, a device with no estimate yet gets a stand-in of its level × 3.65 days, which assumes about a year of life from 100 %, so a battery at 1 % with no history still sorts near the top and one at 99 % near the bottom, interleaved with the devices that do have estimates.
+Rows on the Batteries tab are always grouped by severity first (critical, then warning, then ok, with charging devices last in their band). `sort` decides the order inside each band: `level` (lowest percentage first), `name` (alphabetical), or `replace_soon`: devices with an estimate first, fewest days left first whatever the basis, then devices without an estimate ordered by level. The card never invents a number for a device the integration has no estimate for.
+
+### Days left and its basis
+
+The integration estimates days left from each battery's _cycles_ (see its README): the current cycle's trend, the device's own previous cycles, "more than a year" for a long flat cycle, or "charge in ~N days" for batteries that get charged. The row shows the number and the tooltip shows the basis and the confidence, for example "from 2 previous cycles of ~220 days (medium confidence)". Phones charged daily, and batteries the integration cannot classify, show nothing.
 
 ### What a card shows versus what the integration monitors
 

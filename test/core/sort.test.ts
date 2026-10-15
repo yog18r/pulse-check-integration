@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseSnapshot } from '../../src/card/snapshot';
-import {
-  batteryList,
-  connectivityList,
-  daysLeftFor,
-  sortableBatteryLevel,
-} from '../../src/core/sort';
+import { batteryList, connectivityList, sortableBatteryLevel } from '../../src/core/sort';
 import type { DeviceHealth } from '../../src/core/types';
 import { SNAPSHOT_PAYLOAD } from '../fixtures/snapshot';
 
@@ -50,11 +45,45 @@ describe('batteryList', () => {
     ]);
   });
 
-  it('replace_soon interleaves real estimates with a stand-in for devices without one', () => {
-    // A lock with a year-plus estimate must not outrank a 1 % device with no history.
+  it('replace_soon: estimates first by days left, then devices without one by level', () => {
     const tweaked = devices.map((d) => {
-      if (d.name === 'Front Door Sensor') return { ...d, daysLeft: 400 }; // 87 %, "1y+"
-      if (d.name === 'Window Sensor') return { ...d, daysLeft: 3 }; // 40 %, nearly empty
+      if (d.name === 'Front Door Sensor') {
+        return {
+          ...d,
+          daysLeft: 400,
+          estimate: {
+            daysLeft: 400,
+            basis: 'flat for 120 days',
+            confidence: 'low',
+            kind: 'replace',
+            openEnded: true,
+          } as const,
+        };
+      }
+      if (d.name === 'Window Sensor') {
+        return {
+          ...d,
+          daysLeft: 3,
+          estimate: {
+            daysLeft: 3,
+            basis: 'trend over current cycle',
+            confidence: 'high',
+            kind: 'replace',
+          } as const,
+        };
+      }
+      if (d.name === 'Kitchen H&T') {
+        return {
+          ...d,
+          daysLeft: 20,
+          estimate: {
+            daysLeft: 20,
+            basis: 'until charge needed',
+            confidence: 'medium',
+            kind: 'charge',
+          } as const,
+        };
+      }
       return d;
     });
     const list = names(batteryList(tweaked, thresholds, 'replace_soon'));
@@ -64,26 +93,35 @@ describe('batteryList', () => {
       'TV Remote Battery',
       'Living Room Motion',
     ]);
-    // Within the ok band: 3 days (estimate), then the stand-ins by level
-    // (44 % ≈ 160 d, 55 % ≈ 200 d, 71 % ≈ 259 d, 92 % ≈ 336 d), then 400 d.
+    // Within the ok band: the three estimates ascending whatever their
+    // basis, then the devices without one by level. Nothing is invented.
     expect(list.slice(4, 10)).toEqual([
       'Window Sensor',
+      'Kitchen H&T',
+      'Front Door Sensor',
       'Dog Collar Tracker',
       'Garage Multisensor',
       'Pixel 9',
-      'Kitchen H&T',
-      'Front Door Sensor',
     ]);
-    expect(daysLeftFor(devices.find((d) => d.name === 'Kitchen H&T')!)).toBeCloseTo(92 * 3.65);
   });
 
   it('prefers a fetched history estimate over the snapshot one', () => {
     const drains = new Map([
-      ['sensor.kitchen_ht_battery', { estimate: { ratePerDay: 50, daysLeft: 1, samples: 5 } }],
+      [
+        'sensor.kitchen_ht_battery',
+        {
+          estimate: {
+            daysLeft: 1,
+            basis: 'trend over current cycle',
+            confidence: 'high',
+            kind: 'replace',
+          } as const,
+        },
+      ],
     ]);
     const list = names(batteryList(devices, thresholds, 'replace_soon', drains));
     expect(list[3]).toBe('Bedroom Temp & Humidity'); // still the only warning
-    expect(list[4]).toBe('Kitchen H&T'); // 1 day left beats every stand-in
+    expect(list[4]).toBe('Kitchen H&T'); // 1 day left beats every level
   });
 
   it('sortableBatteryLevel puts binary low first and binary ok last', () => {
