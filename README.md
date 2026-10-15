@@ -80,10 +80,6 @@ lovelace:
       type: module
 ```
 
-### Upgrading from the separate card
-
-The card used to be its own repository, installed into `config/www/`. After installing this version, delete the old `/local/pulse-check-card.js` resource (Settings → Dashboards → ⋮ → Resources) and the file `config/www/pulse-check-card.js`, then hard-refresh the browser. Cards already on your dashboards keep working; their type is unchanged.
-
 ## Options
 
 Open **Settings → Devices & services → Pulse Check → Configure**. Everything has a sensible default; the first thing most people change is the filters.
@@ -174,8 +170,6 @@ sparkline_days: 14 # 1 to 365
 The integration's filters decide what is monitored at all; a card's `areas`, `integrations` and `device_types` only decide what *that* card shows, so one integration can feed a hallway card, a locks-only card and a whole-house card. The header counts follow the card's filters.
 
 The visual editor also has a **Per-device settings** panel: display name, area, battery type and count, rechargeable, quiet threshold, notification policy and sparkline window for any device. Each change is saved at once through `pulse_check.set_device_settings`, not into the card's YAML, so it applies to every card and to notifications.
-
-Keys from the card's older standalone versions (`battery_warning`, `device_settings`, `exclude_*`, `quiet_*` and so on) are ignored: those settings live in the integration now.
 
 ## Entities
 
