@@ -43,10 +43,10 @@ describe('App', () => {
   it('shows the headline, breakdown and tab counts from the snapshot', async () => {
     renderApp({ title: 'Pulse Check' });
     expect(screen.getByText('Connecting to Pulse Check')).toBeInTheDocument();
-    expect(await screen.findByText('⚠️ 6 devices need attention')).toBeInTheDocument();
+    expect(await screen.findByText('⚠️ 7 devices need attention')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Pulse Check' })).toBeInTheDocument();
-    expect(screen.getByText('4 low batteries · 1 offline · 2 quiet')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Batteries/ })).toHaveTextContent('4');
+    expect(screen.getByText('5 low batteries · 1 offline · 2 quiet')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Batteries/ })).toHaveTextContent('5');
     expect(screen.getByRole('tab', { name: /Connectivity/ })).toHaveTextContent('3');
   });
 
@@ -64,7 +64,7 @@ describe('App', () => {
 
   it('re-renders when the subscription sends a new snapshot', async () => {
     const { emit } = renderApp();
-    await screen.findByText('⚠️ 6 devices need attention');
+    await screen.findByText('⚠️ 7 devices need attention');
     emit({
       ...SNAPSHOT_PAYLOAD,
       summary: { ...(SNAPSHOT_PAYLOAD.summary as object), attention: 1, lowBatteries: 1 },
@@ -172,6 +172,11 @@ describe('App', () => {
     expect(callService).toHaveBeenCalledWith('pulse_check', 'mark_replaced', {
       device_id: 'dev_z2m_motion',
     });
+    // A battery with no device, not even a registry entry, goes by its entity: id.
+    await user().click(screen.getByRole('button', { name: 'Mark Garden Soil Sensor done' }));
+    expect(callService).toHaveBeenCalledWith('pulse_check', 'mark_replaced', {
+      device_id: 'entity:sensor.garden_soil_moisture',
+    });
   });
 
   it('view filters narrow the card, header included', async () => {
@@ -206,7 +211,10 @@ describe('App', () => {
         history,
         payload: {
           ...SNAPSHOT_PAYLOAD,
-          device_settings: { dev_phone: { sparkline_days: 1 } },
+          device_settings: {
+            dev_phone: { sparkline_days: 1 },
+            'entity:sensor.garden_soil_moisture': { sparkline_days: 3 },
+          },
         },
       },
     );
@@ -215,6 +223,7 @@ describe('App', () => {
       expect(history).toHaveBeenCalledWith('sensor.pixel_9_battery_level', 1);
     });
     expect(history).toHaveBeenCalledWith('sensor.kitchen_ht_battery', 14);
+    expect(history).toHaveBeenCalledWith('sensor.garden_soil_moisture', 3);
   });
 
   it('explains itself when the integration is not installed', async () => {

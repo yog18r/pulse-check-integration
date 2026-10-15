@@ -15,6 +15,7 @@ describe('batteryList', () => {
       'Hallway Smoke Alarm', // binary low: critical, sorts above every level
       'TV Remote Battery', // 9 %
       'Living Room Motion', // 12 %
+      'Garden Soil Sensor', // 22 %, warning
       'Bedroom Temp & Humidity', // 28 %, warning
       'Window Sensor', // 40 %
       'Dog Collar Tracker', // 44 %
@@ -28,14 +29,14 @@ describe('batteryList', () => {
 
   it('name sorts alphabetically within each severity band', () => {
     const list = names(batteryList(devices, thresholds, 'name'));
-    // Critical band first (alphabetical), then the warning, then the rest by name.
+    // Critical band first (alphabetical), then the warnings, then the rest by name.
     expect(list.slice(0, 3)).toEqual([
       'Hallway Smoke Alarm',
       'Living Room Motion',
       'TV Remote Battery',
     ]);
-    expect(list[3]).toBe('Bedroom Temp & Humidity');
-    expect(list.slice(4, 10)).toEqual([
+    expect(list.slice(3, 5)).toEqual(['Bedroom Temp & Humidity', 'Garden Soil Sensor']);
+    expect(list.slice(5, 11)).toEqual([
       'Dog Collar Tracker',
       'Front Door Sensor',
       'Garage Multisensor',
@@ -95,7 +96,7 @@ describe('batteryList', () => {
     ]);
     // Within the ok band: the three estimates ascending whatever their
     // basis, then the devices without one by level. Nothing is invented.
-    expect(list.slice(4, 10)).toEqual([
+    expect(list.slice(5, 11)).toEqual([
       'Window Sensor',
       'Kitchen H&T',
       'Front Door Sensor',
@@ -120,8 +121,9 @@ describe('batteryList', () => {
       ],
     ]);
     const list = names(batteryList(devices, thresholds, 'replace_soon', drains));
-    expect(list[3]).toBe('Bedroom Temp & Humidity'); // still the only warning
-    expect(list[4]).toBe('Kitchen H&T'); // 1 day left beats every level
+    // Still the two warnings, by level.
+    expect(list.slice(3, 5)).toEqual(['Garden Soil Sensor', 'Bedroom Temp & Humidity']);
+    expect(list[5]).toBe('Kitchen H&T'); // 1 day left beats every level
   });
 
   it('sortableBatteryLevel puts binary low first and binary ok last', () => {
