@@ -63,6 +63,28 @@
         color: var(--primary-text-color);
         cursor: pointer;
       }
+      .editor-panel {
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        background: var(--card-background-color);
+        padding: 12px 16px;
+      }
+      .editor-panel summary {
+        cursor: pointer;
+        color: var(--secondary-text-color);
+        font-size: 14px;
+      }
+      .editor-panel #editor-host {
+        margin-top: 12px;
+      }
+      .editor-panel pre {
+        margin: 12px 0 0;
+        padding: 10px;
+        border-radius: 8px;
+        background: var(--secondary-background-color);
+        font-size: 12px;
+        overflow: auto;
+      }
       .toast {
         position: fixed;
         left: 50%;
@@ -86,11 +108,18 @@
         <select id="scenario" aria-label="Scenario">
           <option value="default">Default config</option>
           <option value="tuned">Tuned (zwave_js 48h, quiet_scope all, no phones)</option>
+          <option value="shopping">Shopping list + replace-soon order</option>
           <option value="healthy">Everything healthy</option>
           <option value="broken">Broken config (shows error)</option>
         </select>
       </div>
       <div id="card-host"></div>
+
+      <details class="editor-panel">
+        <summary>Visual editor (what HA shows under "Edit card")</summary>
+        <div id="editor-host"></div>
+        <pre id="editor-output" aria-label="Config emitted by the editor"></pre>
+      </details>
     </main>
     <script type="module" src="/src/demo/main.ts"></script>
   </body>

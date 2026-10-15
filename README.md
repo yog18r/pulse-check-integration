@@ -23,6 +23,8 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 
 - **🔋 Batteries**: every battery-powered device, lowest first, with a coloured bar
 - **📡 Connectivity**: anything offline or not heard from within a threshold
+- **🛒 Shopping** (optional tab): which batteries to buy, grouped by type
+- **"Replace soon" ordering** (optional): uses each battery's drain rate from HA's recorder to put the ones about to die first, even when their percentage still looks fine
 
 Everything is grouped by **device**, not entity, so each physical thing appears once. Tap a row to jump to that device's page in Home Assistant.
 
@@ -68,9 +70,12 @@ exclude_integrations: [mobile_app] # hide phones
 exclude_devices: [] # device ids (or an entity id for device-less entities)
 exclude_entities: [] # entity ids to ignore, e.g. a settings sensor labelled as a battery
 quiet_scope: battery # "battery" (default) or "all": which devices can be flagged quiet
-show_tabs: [batteries, connectivity]
+battery_sort: level # "level" (default) or "replace_soon": order of the Batteries tab
+show_tabs: [batteries, connectivity] # add "shopping" for the battery shopping list
 default_tab: batteries
 ```
+
+Prefer clicking to typing? The card has a **visual editor**: add the card from the picker, or press "Edit" on an existing one, and every option above except the two per-integration/per-device mappings is a form field.
 
 | Option                   | Type    | Default                     | Notes                                                              |
 | ------------------------ | ------- | --------------------------- | ------------------------------------------------------------------ |
@@ -84,7 +89,8 @@ default_tab: batteries
 | `exclude_devices`        | list    | `[]`                        |                                                                    |
 | `exclude_entities`       | list    | `[]`                        | Removes single entities from consideration.                        |
 | `quiet_scope`            | string  | `battery`                   | `battery` or `all`. See "Quiet" below.                             |
-| `show_tabs`              | list    | `[batteries, connectivity]` | One or both.                                                       |
+| `battery_sort`           | string  | `level`                     | `level` or `replace_soon`. See \"Replace soon\" below.             |
+| `show_tabs`              | list    | `[batteries, connectivity]` | Any of `batteries`, `connectivity`, `shopping`.                    |
 | `default_tab`            | string  | `batteries`                 | Must be in `show_tabs`.                                            |
 
 Invalid config shows a plain-English error on the card, for example `"battery_critical" (40) must not be higher than "battery_warning" (30).`
@@ -115,6 +121,10 @@ By default only **battery-powered devices** can be quiet (`quiet_scope: battery`
 
 **Skipped on purpose:** service devices (Sun, Forecast…), disabled devices, excluded integrations/devices/entities, and entities with no device that carry no battery information. An entity with no device can only ever contribute a battery reading; with no hardware behind it there is nothing to be offline or quiet.
 
+**Replace soon** (`battery_sort: replace_soon`): the card asks Home Assistant's recorder for 14 days of daily averages of every battery sensor, once when the card loads and then every 6 hours, and fits a straight line through them. The slope is the drain rate; the current level divided by it is the time left, shown on each row as "~12d left". The fit needs at least 3 days of history and ignores flat or rising series (a phone that gets charged), so those devices simply keep their level-based position. Without a recorder nothing changes.
+
+**Shopping list** (`show_tabs` including `shopping`): every device at or below the warning threshold, grouped by the `battery_type` you set in `device_overrides`. There is no reliable way to know from Home Assistant's data that a sensor takes a CR2032, so untyped devices sit in an "Unknown type" group until you tell the card.
+
 ### Known limitations
 
 - **`last_reported` is not available in the frontend.** Home Assistant tracks a `last_reported` timestamp (updated even when a value is re-sent unchanged), but the websocket subscription that feeds the dashboard only carries `last_changed` and `last_updated`. So a sensor that keeps reporting the exact same value looks "quiet" even though the device is alive. Raise `quiet_threshold_hours` for such integrations, or use `device_overrides`. A future version may fetch the true `last_reported` on demand for devices already flagged quiet.
@@ -130,16 +140,21 @@ src/
 ├── index.ts                  registers <pulse-check-card>, adds it to the card picker
 ├── card/
 │   ├── PulseCheckCardElement.ts   the HA card contract: setConfig, hass setter, sizes
-│   └── config.ts                  CardConfig → ResolvedConfig with validation
+│   ├── PulseCheckCardEditor.ts    the visual editor element (fires config-changed)
+│   ├── config.ts                  CardConfig → ResolvedConfig with validation
+│   ├── navigation.ts              open a device page / more-info from a row
+│   └── statistics.ts              recorder websocket call → drain estimates
 ├── core/                     pure TypeScript, no React, no DOM, 100% unit-testable
 │   ├── battery.ts            detection rules 1–3
 │   ├── availability.ts       offline / last heard / quiet
 │   ├── group.ts              entities → one group per device
 │   ├── thresholds.ts         threshold resolution and severity
 │   ├── analyse.ts            the orchestrator: hass + config → DeviceHealth[]
+│   ├── drain.ts              drain rate and days-left from history samples
+│   ├── shopping.ts           batteries to buy, grouped by type
 │   ├── sort.ts, summarise.ts, time.ts, fingerprint.ts
 ├── enhancers/                optional per-integration extras (Enhancer interface)
-└── ui/                       React components, one hook, one stylesheet
+└── ui/                       React components, two hooks, two stylesheets
 ```
 
 **Universal core + optional enhancers.** The core uses only data every integration provides. An _enhancer_ implements one small interface and adds detail when, and only when, the data exists. Enhancers can never break the card: each call is isolated, and returning nothing is always valid. Adding one is a new file plus one line in the registry.
@@ -176,7 +191,8 @@ The same fixture drives the unit tests, so every detection, grouping, threshold 
 
 - [x] **Phase 1 (MVP):** card contract, universal detection, both tabs, config with defaults, theming, unit tests, demo page, CI
 - [x] **Phase 2:** Z-Wave JS, Zigbee2MQTT and ZHA enhancers; tap a row to open the device page (or the more-info dialog for device-less entities); header breakdown and per-row threshold hints
-- [ ] **Phase 3:** "replace soon" ordering using drain rate from HA statistics; battery shopping list grouped by `battery_type`; visual config editor; on-demand `last_reported` lookup for quiet devices
+- [x] **Phase 3:** "replace soon" ordering using drain rate from HA statistics; battery shopping list grouped by `battery_type`; visual config editor
+- [ ] **Ideas:** on-demand `last_reported` lookup for quiet devices; a per-device "mute until" action; HACS default-repository submission
 
 ## Licence
 

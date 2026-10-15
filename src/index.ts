@@ -5,7 +5,8 @@
  * It registers the custom element and announces the card to the dashboard
  * card picker.
  */
-import { PulseCheckCardElement } from './card/PulseCheckCardElement';
+import { PulseCheckCardEditor } from './card/PulseCheckCardEditor';
+import { EDITOR_TAG, PulseCheckCardElement } from './card/PulseCheckCardElement';
 
 export const CARD_TAG = 'pulse-check-card';
 export const CARD_VERSION = '0.1.0';
@@ -14,6 +15,9 @@ export const CARD_VERSION = '0.1.0';
 // dashboard edits; `customElements.define` throws on a duplicate name).
 if (!customElements.get(CARD_TAG)) {
   customElements.define(CARD_TAG, PulseCheckCardElement);
+}
+if (!customElements.get(EDITOR_TAG)) {
+  customElements.define(EDITOR_TAG, PulseCheckCardEditor);
 }
 
 /** The shape HA's card picker reads from `window.customCards`. */

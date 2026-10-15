@@ -26,6 +26,9 @@ import styles from '../ui/styles.css?inline';
 import { resolveConfig, type CardConfig, type ResolvedConfig } from './config';
 import { openDevice } from './navigation';
 
+/** Tag name of the editor element; registered alongside the card in index.ts. */
+export const EDITOR_TAG = 'pulse-check-card-editor';
+
 export class PulseCheckCardElement extends HTMLElement {
   private readonly shadow: ShadowRoot;
   private readonly mountPoint: HTMLDivElement;
@@ -56,6 +59,11 @@ export class PulseCheckCardElement extends HTMLElement {
   /** Default config shown when the user picks the card in the UI. */
   static getStubConfig(): CardConfig {
     return { title: 'Pulse Check' };
+  }
+
+  /** The visual editor. HA calls this when the user opens the card editor. */
+  static getConfigElement(): HTMLElement {
+    return document.createElement(EDITOR_TAG);
   }
 
   /* ---- HA contract ---------------------------------------------------- */

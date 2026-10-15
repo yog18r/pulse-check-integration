@@ -9,7 +9,7 @@ import type { CardConfig } from '../card/config';
 import type { HassLike } from '../core/types';
 import { buildHass } from '../../test/fixtures/hass';
 
-type Scenario = 'default' | 'tuned' | 'healthy' | 'broken';
+type Scenario = 'default' | 'tuned' | 'shopping' | 'healthy' | 'broken';
 
 const CONFIGS: Record<Scenario, unknown> = {
   default: { type: 'custom:pulse-check-card' } satisfies CardConfig,
@@ -22,6 +22,18 @@ const CONFIGS: Record<Scenario, unknown> = {
     quiet_scope: 'all',
     exclude_integrations: ['mobile_app'],
     default_tab: 'connectivity',
+  } satisfies CardConfig,
+  shopping: {
+    type: 'custom:pulse-check-card',
+    title: 'Battery Shop',
+    battery_sort: 'replace_soon',
+    show_tabs: ['batteries', 'shopping'],
+    default_tab: 'shopping',
+    device_overrides: [
+      { device_id: 'dev_z2m_motion', battery_type: 'CR2450' },
+      { device_id: 'dev_zha_temp', battery_type: 'CR2032' },
+      { device_id: 'dev_smoke_alarm', battery_type: 'CR2032' },
+    ],
   } satisfies CardConfig,
   healthy: { type: 'custom:pulse-check-card', title: 'All good' } satisfies CardConfig,
   broken: { type: 'custom:pulse-check-card', battery_warning: 'thirty' },
@@ -44,6 +56,48 @@ function healthyHass(now: Date): HassLike {
     }),
   );
   return { ...base, states };
+}
+
+/**
+ * A fake `callWS` standing in for Home Assistant's websocket. It answers the
+ * one command the card sends (recorder statistics) with 14 days of made-up
+ * daily means, so "~12d left" labels and the replace-soon order can be seen.
+ */
+const DAY = 24 * 60 * 60 * 1000;
+const DRAIN_PER_DAY: Record<string, number> = {
+  'sensor.front_door_battery': 0.4, // slow: months left
+  'sensor.living_room_motion_battery': 2.5, // fast: days left
+  'sensor.bedroom_climate_battery': 1.2,
+  'sensor.window_sensor_battery': 3, // 40% but draining fast: replace before the 28% one
+  'sensor.kitchen_ht_battery': 0.3,
+  'sensor.garage_multisensor_battery_level': 0.8,
+  'sensor.remote_battery_template': 0.5,
+  // phones and the dog tracker get charged: flat history, no estimate
+};
+
+function fakeCallWS<T>(message: Record<string, unknown>): Promise<T> {
+  if (message.type !== 'recorder/statistics_during_period') {
+    return Promise.reject(new Error(`demo: unsupported command ${String(message.type)}`));
+  }
+  const now = Date.now();
+  const ids = message.statistic_ids as string[];
+  const current = buildHass(new Date()).states;
+  const response: Record<string, { start: number; end: number; mean: number }[]> = {};
+  for (const id of ids) {
+    const rate = DRAIN_PER_DAY[id] ?? 0;
+    const level = Number(current[id]?.state ?? 50);
+    response[id] = Array.from({ length: 14 }, (_, i) => {
+      const daysAgo = 14 - i;
+      const start = now - daysAgo * DAY;
+      return { start, end: start + DAY, mean: level + daysAgo * rate };
+    });
+  }
+  // A little latency, like the real thing.
+  return new Promise((resolve) =>
+    setTimeout(() => {
+      resolve(response as T);
+    }, 300),
+  );
 }
 
 interface CardLike extends HTMLElement {
@@ -78,7 +132,7 @@ function mount(scenario: Scenario) {
     return;
   }
 
-  card.hass = scenario === 'healthy' ? healthyHass(now) : buildHass(now);
+  card.hass = withWS(scenario === 'healthy' ? healthyHass(now) : buildHass(now));
   host.appendChild(card);
 
   // Simulate HA pushing a fresh hass object every few seconds. The card's
@@ -89,8 +143,40 @@ function mount(scenario: Scenario) {
       clearInterval(timer);
       return;
     }
-    card.hass = scenario === 'healthy' ? healthyHass(new Date()) : buildHass(new Date());
+    card.hass = withWS(scenario === 'healthy' ? healthyHass(new Date()) : buildHass(new Date()));
   }, 5000);
+
+  mountEditor(CONFIGS[scenario] as CardConfig);
+}
+
+function withWS(h: HassLike): HassLike {
+  return { ...h, callWS: fakeCallWS };
+}
+
+interface EditorLike extends HTMLElement {
+  setConfig(config: CardConfig): void;
+}
+
+/** Render the visual editor next to the card and echo what it emits. */
+function mountEditor(config: CardConfig) {
+  const editorHost = mustGet('editor-host');
+  const output = mustGet('editor-output');
+  editorHost.replaceChildren();
+  const editor = document.createElement('pulse-check-card-editor') as EditorLike;
+  editor.setConfig(config);
+  editor.addEventListener('config-changed', (event) => {
+    const detail = (event as CustomEvent<{ config: CardConfig }>).detail;
+    output.textContent = JSON.stringify(detail.config, null, 2);
+    // Live preview, the way HA does it.
+    const card = host.querySelector<CardLike>('pulse-check-card');
+    try {
+      card?.setConfig(detail.config);
+    } catch {
+      // The editor shows the validation message itself.
+    }
+  });
+  editorHost.appendChild(editor);
+  output.textContent = JSON.stringify(config, null, 2);
 }
 
 scenarioSelect.addEventListener('change', () => {

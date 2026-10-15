@@ -1,0 +1,86 @@
+/* Styles for the visual config editor. Injected into its own shadow root. */
+
+:host {
+  display: block;
+}
+
+.editor {
+  display: grid;
+  gap: 14px;
+  color: var(--primary-text-color, #212121);
+  font-family: var(--paper-font-body1_-_font-family, Roboto, system-ui, sans-serif);
+  font-size: 14px;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.field > span,
+.field > legend {
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+  padding: 0;
+}
+
+.field input[type='text'],
+.field input[type='number'],
+.field select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.field input:focus-visible,
+.field select:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: -1px;
+}
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.note {
+  margin: 0;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+}
+
+.note code {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--secondary-background-color, #f0f0f0);
+}
+
+.error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--error-color, #db4437) 12%, transparent);
+  color: var(--error-color, #db4437);
+}
