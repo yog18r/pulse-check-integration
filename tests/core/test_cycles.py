@@ -151,6 +151,38 @@ def test_a_flat_sensor_is_more_than_a_year_with_low_confidence() -> None:
     assert insight.estimate.basis == "flat for 120 days"
 
 
+# --- a fortnight of nearly flat history: a rough number, low confidence -----
+
+
+def test_a_fortnight_losing_one_point_is_more_than_a_year_low_confidence() -> None:
+    # A lock two weeks after install: 94 % down to 93 %, too slow for a fit.
+    history = daily(15, 94, 1 / 15)
+    insight = assess(history, [], 93, NOW, warning=30)
+    assert insight.kind == "replaceable"
+    assert insight.estimate is not None
+    assert insight.estimate.basis == "slow drain over 15 days"
+    assert insight.estimate.confidence == "low"
+    assert insight.estimate.open_ended is True
+    assert insight.estimate.days_left == 365
+
+
+def test_a_fortnight_losing_six_points_gives_a_rough_number() -> None:
+    # Only one old reading and the live one: too few samples for a fit, but
+    # 6 points over 15 days is 0.4 a day, so 61 % lasts about five months.
+    history = [DrainPoint(time=NOW - 15 * DAY, level=67)]
+    insight = assess(history, [], 61, NOW, warning=30)
+    assert insight.estimate is not None
+    assert insight.estimate.basis == "slow drain over 15 days"
+    assert insight.estimate.confidence == "low"
+    assert insight.estimate.open_ended is False
+    assert insight.estimate.days_left == pytest.approx(152.5, abs=1)
+
+
+def test_under_a_fortnight_of_flat_history_gets_nothing() -> None:
+    history = daily(10, 94, 0.05)
+    assert assess(history, [], 93.5, NOW, warning=30).estimate is None
+
+
 # --- edge cases -------------------------------------------------------------
 
 

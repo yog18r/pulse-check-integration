@@ -15,7 +15,8 @@ from unittest.mock import patch
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
-from homeassistant.core import HomeAssistant, State
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import CoreState, HomeAssistant, State
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.pulse_check.const import DOMAIN
@@ -199,3 +200,52 @@ async def test_recorder_errors_keep_the_sensors_up(
     assert attention is not None
     assert attention.state != "unavailable"
     assert hass.states.get("sensor.pulse_check_next_to_run_out").state == "unknown"  # type: ignore[union-attr]
+
+
+async def test_the_first_history_load_waits_for_home_assistant_to_start(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+    recorder: dict[str, Any],
+) -> None:
+    """At boot the recorder is not ready; the first read waits for the started event."""
+    freezer.move_to(fixed_now)
+    await load_fixture_into_hass(hass, fixture_snapshot)
+    hass.set_state(CoreState.not_running)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert recorder["statistics"] == []
+    assert hass.states.get("sensor.pulse_check_next_to_run_out").state == "unknown"  # type: ignore[union-attr]
+
+    hass.set_state(CoreState.running)
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert [period for period, _ in recorder["statistics"]] == ["day", "hour"]
+    assert hass.states.get("sensor.pulse_check_next_to_run_out").state == "Living Room Motion"  # type: ignore[union-attr]
+
+
+async def test_insights_survive_an_options_reload(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+    recorder: dict[str, Any],
+) -> None:
+    """Saving options reloads the entry; the estimates must not vanish meanwhile."""
+    freezer.move_to(fixed_now)
+    await load_fixture_into_hass(hass, fixture_snapshot)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert hass.states.get("sensor.pulse_check_next_to_run_out").state == "Living Room Motion"  # type: ignore[union-attr]
+
+    def broken(*_: Any, **__: Any) -> Any:
+        raise RuntimeError("database locked")
+
+    # The reloaded entry's own first read fails: it keeps the previous insights.
+    with patch("custom_components.pulse_check.history.statistics_during_period", broken):
+        await hass.config_entries.async_reload(config_entry.entry_id)
+        await hass.async_block_till_done(wait_background_tasks=True)
+    assert hass.states.get("sensor.pulse_check_next_to_run_out").state == "Living Room Motion"  # type: ignore[union-attr]

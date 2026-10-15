@@ -31,6 +31,7 @@ from homeassistant.components.recorder.statistics import statistics_during_perio
 from homeassistant.helpers.recorder import get_instance
 from homeassistant.util import dt as dt_util
 
+from .const import DOMAIN
 from .core.battery import parse_numeric
 from .core.cycles import BatteryInsight, assess
 from .core.drain import DrainPoint, daily_means, hourly_means, rows_to_points
@@ -56,6 +57,9 @@ RAW_FALLBACK_DAYS = 90
 HOURLY_MAX_DAYS = 3
 # A charging signal seen within this long still classifies the battery as charged.
 CHARGING_SIGNAL_MEMORY = timedelta(days=HISTORY_LONG_DAYS)
+# Insights live here so a reloaded entry (saved options) starts with the
+# previous ones instead of nothing until its own first history read.
+DATA_INSIGHTS = f"{DOMAIN}_insights"
 
 
 def _history_points(
@@ -99,9 +103,9 @@ class HistoryTracker:
     """Keeps a battery insight per battery entity, refreshed every few hours."""
 
     def __init__(self, hass: HomeAssistant) -> None:
-        """Start with no insights; they arrive after the first refresh."""
+        """Start from the previous tracker's insights, if any, until the first refresh."""
         self.hass = hass
-        self.insights: dict[str, BatteryInsight] = {}
+        self.insights: dict[str, BatteryInsight] = hass.data.get(DATA_INSIGHTS, {})
 
     @property
     def available(self) -> bool:
@@ -202,10 +206,21 @@ class HistoryTracker:
                 marks=marks,
             )
         self.insights = insights
+        self.hass.data[DATA_INSIGHTS] = insights
         estimated = sum(1 for i in insights.values() if i.estimate is not None)
-        _LOGGER.debug(
-            "Battery insights for %d batteries, %d with an estimate", len(insights), estimated
-        )
+        if estimated == 0:
+            kinds = sorted(i.kind for i in insights.values())
+            counts = {kind: kinds.count(kind) for kind in dict.fromkeys(kinds)}
+            _LOGGER.info(
+                "Battery history read for %d batteries but none got an estimate (kinds: %s);"
+                " estimates need two weeks of recorded history or a completed cycle",
+                len(insights),
+                counts,
+            )
+        else:
+            _LOGGER.debug(
+                "Battery insights for %d batteries, %d with an estimate", len(insights), estimated
+            )
 
     async def async_points(
         self, entity_id: str, days: int, attribute: bool = False

@@ -42,6 +42,13 @@ NEAR_FULL = 85
 SHORT_CYCLE_DAYS = 30
 # The current cycle must show at least this much decline for a trend fit.
 MIN_TREND_DAYS = 7
+# When the fit has nothing to say (too slow, too few samples), a cycle at
+# least this long that lost at least this many points still gives a rough,
+# low-confidence number from the drop over the span.
+SLOW_DRAIN_DAYS = 14
+SLOW_DRAIN_POINTS = 1
+# Estimates beyond this are reported as "more than a year", open-ended.
+OPEN_ENDED_DAYS = 365
 # A current cycle at least this long that lost less than FLAT_CYCLE_DROP
 # points is "more than a year", with low confidence.
 FLAT_CYCLE_DAYS = 90
@@ -197,9 +204,11 @@ def estimate_replaceable(cycles: Sequence[Cycle], level: float) -> Estimate | No
     """Days until a replaceable battery is empty.
 
     1. The current cycle's own trend, once it spans a week of decline.
-    2. Else the device's completed cycles: how many days they lasted per
+    2. Else the drop over the current cycle, once it spans a fortnight and
+       has lost a point: low confidence, "more than a year" when it says
+       so. A long cycle that lost under ten points is reported as flat.
+    3. Else the device's completed cycles: how many days they lasted per
        100 points, scaled to the current level.
-    3. Else a long flat cycle is "more than a year", low confidence.
     4. Else nothing.
     """
     if not cycles:
@@ -215,6 +224,25 @@ def estimate_replaceable(cycles: Sequence[Cycle], level: float) -> Estimate | No
                 kind="replace",
                 rate_per_day=fit.rate_per_day,
             )
+    if current.days >= FLAT_CYCLE_DAYS and current.drop < FLAT_CYCLE_DROP:
+        return Estimate(
+            days_left=OPEN_ENDED_DAYS,
+            basis=f"flat for {current.days:.0f} days",
+            confidence="low",
+            kind="replace",
+            open_ended=True,
+        )
+    if current.days >= SLOW_DRAIN_DAYS and current.drop >= SLOW_DRAIN_POINTS:
+        rate = current.drop / current.days
+        days_left = level / rate
+        return Estimate(
+            days_left=min(days_left, OPEN_ENDED_DAYS),
+            basis=f"slow drain over {current.days:.0f} days",
+            confidence="low",
+            kind="replace",
+            open_ended=days_left > OPEN_ENDED_DAYS,
+            rate_per_day=rate,
+        )
     completed = [c for c in cycles[:-1] if c.drop > 0 and c.days >= 1]
     if completed:
         days_per_100 = median(c.days * 100 / c.drop for c in completed)
@@ -226,14 +254,6 @@ def estimate_replaceable(cycles: Sequence[Cycle], level: float) -> Estimate | No
             confidence="medium" if len(completed) >= 2 else "low",
             kind="replace",
             rate_per_day=100 / days_per_100,
-        )
-    if current.days >= FLAT_CYCLE_DAYS and current.drop < FLAT_CYCLE_DROP:
-        return Estimate(
-            days_left=365,
-            basis=f"flat for {current.days:.0f} days",
-            confidence="low",
-            kind="replace",
-            open_ended=True,
         )
     return None
 

@@ -21,8 +21,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
@@ -77,9 +77,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -
 
     # Battery history is slower (database reads), so it loads in the
     # background after the entities exist and refreshes them when done.
-    entry.async_create_background_task(
-        hass, coordinator.async_refresh_history(), "pulse_check history"
-    )
+    # At boot it waits for Home Assistant to finish starting: before that
+    # the recorder may not have its statistics ready and restored states
+    # are still settling, which once gave one answer at startup and
+    # another at the next refresh.
+
+    @callback
+    def _start_history(_event: Event | None = None) -> None:
+        entry.async_create_background_task(
+            hass, coordinator.async_refresh_history(), "pulse_check history"
+        )
+
+    if hass.is_running:
+        _start_history()
+    else:
+        entry.async_on_unload(
+            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _start_history)
+        )
     return True
 
 
