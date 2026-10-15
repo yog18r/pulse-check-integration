@@ -15,12 +15,12 @@ describe('parseSnapshot', () => {
       ...SNAPSHOT_PAYLOAD,
       device_settings: { dev_zha_temp: { battery_type: 'CR2450', battery_count: 2, bogus: 1 } },
     });
-    expect(snapshot.devices).toHaveLength(15);
-    expect(snapshot.summary.attention).toBe(6);
+    expect(snapshot.devices).toHaveLength(16);
+    expect(snapshot.summary.attention).toBe(7);
     expect(snapshot.actions.shopping[0]).toEqual({
       batteryType: 'Unknown type',
-      count: 4,
-      devices: 4,
+      count: 5,
+      devices: 5,
     });
     expect(snapshot.config).toEqual({
       battery_warning: 30,

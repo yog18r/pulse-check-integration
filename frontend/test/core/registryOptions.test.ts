@@ -66,6 +66,8 @@ describe('listOrphanBatteryEntities', () => {
   it('lists device-less battery sensors under their entity: id, skipping config ones', () => {
     const options = listOrphanBatteryEntities(hass);
     expect(options).toEqual([
+      // Only a state, no registry entry: so no integration either.
+      { id: 'entity:sensor.garden_soil_moisture', name: 'Garden Soil Sensor' },
       {
         id: 'entity:sensor.remote_battery_template',
         name: 'TV Remote Battery',

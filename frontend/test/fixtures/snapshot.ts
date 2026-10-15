@@ -2,7 +2,7 @@
  * A fake `hass` whose websocket "subscription" replays a canned snapshot,
  * for component tests and the demo page.
  *
- * `snapshot.json` is one `pulse_check/subscribe` event: 15 devices from
+ * `snapshot.json` is one `pulse_check/subscribe` event: 16 devices from
  * the integration's test fixture (a mock house covering every rule),
  * computed at 2026-10-15T10:00:00Z. Tests freeze time there.
  */

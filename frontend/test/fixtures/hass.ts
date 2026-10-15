@@ -499,6 +499,21 @@ export function buildHass(now: Date): HassLike {
     }),
   );
 
+  // --- No registry entry at all: an entity without a unique_id (a YAML
+  // template or MQTT sensor) exists only as a state. Its battery_level
+  // attribute still makes it a device-less battery reading.
+  states.push(
+    makeState('sensor.garden_soil_moisture', '41', now, {
+      attributes: {
+        device_class: 'moisture',
+        unit_of_measurement: '%',
+        battery_level: 22,
+        friendly_name: 'Garden Soil Sensor',
+      },
+      lastUpdated: hoursAgo(now, 98),
+    }),
+  );
+
   // --- Robot vacuum: 18% but DOCKED and charging. Must not be flagged.
   devices.push(
     makeDevice(DEV.vacuum, 'Mr Roboto', {

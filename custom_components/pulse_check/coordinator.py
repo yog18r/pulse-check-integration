@@ -7,8 +7,9 @@ hands a plain snapshot to the pure core, and keeps the result in `data`.
 
 It recomputes:
 
-- about 2 seconds after any state change of a registered entity (a
-  debounce, so a burst of changes costs one run), and
+- about 10 seconds after a relevant state change of an analysed entity,
+  a registry change, or a new battery entity appearing (a debounce, so a
+  burst of changes costs one run), and
 - every 5 minutes regardless, so a device that simply stops reporting is
   noticed, and a snooze that expires takes effect.
 
@@ -172,7 +173,9 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         """
         entity_id = event_data["entity_id"]
         if entity_id not in self._watched:
-            return False
+            # A new battery with no registry entry announces itself only
+            # here; registry entities also bring a registry event.
+            return event_data["old_state"] is None and looks_like_battery(event_data["new_state"])
         reason = change_reason(entity_id, event_data["old_state"], event_data["new_state"])
         if reason is None:
             return False
@@ -298,6 +301,14 @@ def value_matters(entity_id: str, attributes: Mapping[str, Any]) -> bool:
     )
 
 
+def looks_like_battery(state: State | None) -> bool:
+    """Could this state be a battery reading? A cheap first look, not the rule."""
+    if state is None:
+        return False
+    attributes = state.attributes
+    return attributes.get("device_class") == "battery" or "battery_level" in attributes
+
+
 def _analyse(
     snapshot: Snapshot, config: CoreConfig, now: datetime, snoozes: dict[str, datetime]
 ) -> list[DeviceHealth]:
@@ -312,8 +323,13 @@ def build_snapshot(hass: HomeAssistant) -> Snapshot:
     mapping, so this costs one small dict per entity and nothing more.
     """
     entities: dict[str, EntityEntry] = {}
+    # A state with no registry entry is analysed as a device-less entity,
+    # so a disabled entity's state, which lingers until its integration
+    # reloads, must not be copied either.
+    disabled: set[str] = set()
     for entry in er.async_get(hass).entities.values():
         if entry.disabled_by is not None:
+            disabled.add(entry.entity_id)
             continue
         entity: EntityEntry = {"entity_id": entry.entity_id}
         if entry.device_id is not None:
@@ -332,6 +348,8 @@ def build_snapshot(hass: HomeAssistant) -> Snapshot:
 
     states: dict[str, EntityState] = {}
     for state in hass.states.async_all():
+        if state.entity_id in disabled:
+            continue
         states[state.entity_id] = {
             "entity_id": state.entity_id,
             "state": state.state,

@@ -483,6 +483,19 @@
       "last_changed": "2026-09-24T14:00:00.000Z",
       "last_updated": "2026-09-24T14:00:00.000Z",
       "last_reported": "2026-09-24T14:00:00.000Z"
+    },
+    "sensor.garden_soil_moisture": {
+      "entity_id": "sensor.garden_soil_moisture",
+      "state": "41",
+      "attributes": {
+        "friendly_name": "Garden Soil Sensor",
+        "device_class": "moisture",
+        "unit_of_measurement": "%",
+        "battery_level": 22
+      },
+      "last_changed": "2026-10-11T08:00:00.000Z",
+      "last_updated": "2026-10-11T08:00:00.000Z",
+      "last_reported": "2026-10-11T08:00:00.000Z"
     }
   },
   "entities": {

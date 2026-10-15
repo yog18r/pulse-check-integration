@@ -123,7 +123,7 @@ async def test_a_subscription_survives_saving_options(
     # And the sensors moved with it, without a restart.
     attention = hass.states.get("sensor.pulse_check_attention")
     assert attention is not None
-    assert attention.attributes["summary"]["batteryDevices"] == 10
+    assert attention.attributes["summary"]["batteryDevices"] == 11
     await client.close()
 
 
