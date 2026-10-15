@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pulse Check",
+        "description": "Pulse Check watches every device's battery and connectivity using the state Home Assistant already has. It never contacts the devices themselves. Thresholds, filters and notifications can be set later from the integration's options."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Pulse Check is already set up. One instance watches everything."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "attention": {
+        "name": "Attention"
+      }
+    }
+  }
+}

@@ -32,12 +32,12 @@ select = [
   "D",    # pydocstyle: every public thing documented
   "ANN",  # every function annotated
   "PL",   # pylint subset
-  "TCH",  # type-checking-only imports
 ]
 ignore = [
   "D203",    # one blank line before class docstring (conflicts with D211)
   "D213",    # multi-line summary on second line (conflicts with D212)
   "PLR0913", # too many arguments: entity constructors legitimately take several
+  "PLR0917", # too many positional arguments: same reason, and pytest fixtures
   "PLR2004", # magic values: thresholds and counts read better inline
   "PLR0911", # many returns: the detection rules are naturally early-return chains
   "RUF001",  # ambiguous unicode: "×" in labels is deliberate and matches the card
@@ -53,7 +53,7 @@ ignore = [
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["custom_components.pulse_check"]
+known-first-party = ["custom_components.pulse_check", "tests"]
 combine-as-imports = true
 
 [tool.mypy]
@@ -68,7 +68,7 @@ explicit_package_bases = true
 mypy_path = "."
 # Home Assistant ships type hints but some of its dependencies do not.
 [[tool.mypy.overrides]]
-module = ["pytest_homeassistant_custom_component.*", "voluptuous.*"]
+module = ["pytest_homeassistant_custom_component.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
