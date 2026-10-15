@@ -2,7 +2,7 @@
 
 A [Home Assistant](https://www.home-assistant.io/) integration that watches every device's **battery** and **connectivity** across all your integrations, and tells you what to do about it.
 
-It is the backend companion to the [Pulse Check Card](https://github.com/yog18r/pulse-check-card), but it stands on its own: the entities, notifications and services work with no card installed.
+It is complete on its own: entities, notifications, services and a blueprint, nothing else required. The optional [Pulse Check Card](https://github.com/yog18r/pulse-check-card) is a dashboard view of the same data, fed over a websocket subscription; it requires this integration.
 
 [![CI](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml)
 
@@ -93,7 +93,7 @@ A device's own `notify_policy` (set with the `set_device_settings` service) over
 
 | Entity | State | Attributes |
 | --- | --- | --- |
-| `sensor.pulse_check_attention` | Number of devices that need attention (warning or critical) | `devices`: every device with its battery, offline, quiet, severity and days-left facts; `summary`: counts; `actions`: the replace and charge lists and shopping totals; `computed_at` |
+| `sensor.pulse_check_attention` | Number of devices that need attention (warning or critical) | `summary`: the counts below as one mapping; `computed_at`. The device list itself is served over the websocket (see below), not as an attribute |
 | `sensor.pulse_check_low_batteries` | Battery devices at or below the warning level, or reporting "low" | |
 | `sensor.pulse_check_critical_batteries` | Battery devices at or below the critical level, or reporting "low" | |
 | `sensor.pulse_check_offline` | Devices with every primary entity unavailable | |
@@ -103,7 +103,32 @@ A device's own `notify_policy` (set with the `set_device_settings` service) over
 
 Snoozed devices count in nothing. With the per-device option on, every battery device also gets `sensor.<device>_battery_days_left` and `sensor.<device>_battery_last_replaced` (diagnostic), the latter with the device's cycle statistics as attributes.
 
-The `devices` attribute uses the same shape as the card's `DeviceHealth`, one entry per device:
+## Websocket API
+
+The card, or anything else on Home Assistant's websocket, can subscribe to the computed data instead of polling entities. Keeping the device list off the sensor's attributes keeps the state machine and the recorder free of a large, frequently changing payload.
+
+**`pulse_check/subscribe`** sends one event immediately and another after every recompute (about two seconds after a relevant state change, and at least every five minutes):
+
+```json
+{
+  "devices": [ ...one entry per device, see below... ],
+  "summary": { "attention": 4, "critical": 2, "warning": 2, "batteryDevices": 11, "lowBatteries": 4, "criticalBatteries": 3, "offline": 1, "quiet": 2, "snoozed": 0 },
+  "actions": { "replace": [...], "charge": [...], "shopping": [{ "batteryType": "CR2450", "count": 2, "devices": 1 }] },
+  "config": { "battery_warning": 30, "battery_critical": 15, "quiet_threshold_hours": 24, "quiet_scope": "battery", "integration_thresholds": {}, "device_settings": [...] },
+  "device_settings": { "<device id>": { "battery_type": "CR2450", "battery_count": 2, "notify_policy": "weekly" } },
+  "computed_at": "2026-10-15T10:00:00.000Z"
+}
+```
+
+**`pulse_check/history`** with `entity_id` (a watched battery entity) and optional `days` (1 to 365, default 14) returns sparkline points, hourly means for windows of three days or less and daily means otherwise, from the recorder's statistics with raw and attribute history as fallbacks, plus the current drain estimate:
+
+```json
+{ "entity_id": "sensor.living_room_motion_battery", "days": 14, "points": [{ "time": 1760000000000, "level": 40.0 }], "estimate": { "ratePerDay": 2.0, "daysLeft": 6.0, "samples": 15 } }
+```
+
+Both return the error `not_loaded` when the integration is not set up.
+
+Each device entry uses the card's `DeviceHealth` shape:
 
 ```yaml
 - deviceId: 3f2a…
@@ -211,6 +236,7 @@ custom_components/pulse_check/
 │   ├── actions.py    replace / charge lists and shopping totals
 │   ├── drain.py      drain-rate estimation (used from phase 2)
 │   └── enhancers/    Z-Wave JS, Zigbee2MQTT, ZHA
+├── websocket.py      pulse_check/subscribe and pulse_check/history for the card
 ├── coordinator.py    when to recompute; builds the snapshot from HA
 ├── history.py        battery history from the recorder, for days-left
 ├── notify.py         transitions, policies, reminders, digests, the event
@@ -225,7 +251,7 @@ custom_components/pulse_check/
 └── __init__.py       setup and unload
 ```
 
-**The core is a port of the card's `src/core`.** Both are tested against the same two files: `tests/fixtures/hass.json`, a mock Home Assistant with 16 devices covering every rule, and `tests/fixtures/golden.json`, the expected output for seven configurations. The card generates them (`npm run golden:update` there) and asserts against them; this repo copies them in and asserts the Python port produces identical JSON. CI fails if the copies drift from the card's `main`. If a rule changes in one place, the test in the other breaks.
+**The core began as a port of the card's TypeScript `src/core`** and is tested against two frozen files: `tests/fixtures/hass.json`, a mock Home Assistant with 16 devices covering every rule, and `tests/fixtures/golden.json`, the expected output for seven configurations, generated by the original TypeScript implementation before the card became a renderer. A rule change here must come with a deliberate change to the golden file.
 
 **The coordinator** is Home Assistant's `DataUpdateCoordinator`. It listens to `state_changed` for registered entities and recomputes about two seconds after the last change (a debounce, so a burst costs one run), and also every five minutes so time-based transitions happen on their own. It copies the state machine and registries into plain dicts in the event loop, then runs the analysis in a worker thread. The analysis is pure, so it is tested without Home Assistant; the coordinator and sensor are tested with the JSON fixture loaded into a real test instance.
 
@@ -243,7 +269,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (59 tests) runs in a few seconds. CI runs ruff, mypy, pytest, [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest/) and the HACS validation action on every push, plus the golden-file drift check.
+The test suite (62 tests) runs in a few seconds. CI runs ruff, mypy, pytest, [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest/) and the HACS validation action on every push.
 
 To try a development build on a live instance, copy `custom_components/pulse_check` into `/config/custom_components/` and restart Home Assistant.
 
@@ -253,7 +279,7 @@ To try a development build on a live instance, copy `custom_components/pulse_che
 2. ~~Entities and options: count sensors, the problem binary sensor, an options flow for thresholds, quiet scope and filters, drain estimates from recorder statistics~~
 3. ~~Notifications and storage: per-device settings and services, snooze, notifications on transitions with per-device policies (instant, daily, weekly, none), reminders, digests, a `pulse_check_transition` event and a blueprint~~
 4. ~~Replacement tracking: mark replaced or charged, auto-detect, cycle statistics, remaining days, "unusual behaviour" flags, per-device diagnostic sensors~~
-5. ~~Card integration mode: the card reads this integration instead of analysing in the browser (`source: integration`), with `group_by`~~
+5. ~~The card becomes a renderer of this integration's data over a websocket subscription, with `group_by` and a per-device settings editor~~
 
 Ideas for later: a UI for per-device settings (today they are set through the service), catching up missed digests after a restart, and watching entities that have no registry entry.
 
