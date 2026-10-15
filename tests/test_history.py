@@ -101,6 +101,12 @@ async def test_drain_estimates_reach_the_entities(
     await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+    # The first history load runs as a background task, which
+    # async_block_till_done does not wait for; run it explicitly instead.
+    recorder["statistics"].clear()
+    recorder["history"].clear()
+    await config_entry.runtime_data.async_refresh_history()
+    await hass.async_block_till_done()
 
     # One statistics query for every numeric battery sensor at once.
     assert len(recorder["statistics"]) == 1
@@ -150,6 +156,8 @@ async def test_recorder_errors_keep_the_sensors_up(
         patch("custom_components.pulse_check.history.statistics_during_period", broken),
     ):
         assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+        await config_entry.runtime_data.async_refresh_history()
         await hass.async_block_till_done()
 
     attention = hass.states.get("sensor.pulse_check_attention")
