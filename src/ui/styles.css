@@ -1,0 +1,258 @@
+/*
+ * Card styles. Injected into the shadow root, so nothing here leaks out and
+ * nothing from the HA page leaks in.
+ *
+ * Every colour is a Home Assistant theme variable with a fallback, so the
+ * card matches whatever theme the user runs, light or dark.
+ */
+
+:host {
+  display: block;
+}
+
+.card {
+  /* Mimic <ha-card> so the demo page looks right without HA's components. */
+  background: var(--ha-card-background, var(--card-background-color, #fff));
+  color: var(--primary-text-color, #212121);
+  border-radius: var(--ha-card-border-radius, 12px);
+  border-width: var(--ha-card-border-width, 1px);
+  border-style: solid;
+  border-color: var(--ha-card-border-color, var(--divider-color, #e0e0e0));
+  box-shadow: var(--ha-card-box-shadow, none);
+  font-family: var(--paper-font-body1_-_font-family, Roboto, system-ui, sans-serif);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow: hidden;
+}
+
+/* ---- header ---------------------------------------------------------- */
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.3em;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.headline {
+  margin: 0;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.95em;
+  white-space: nowrap;
+}
+
+.headline[data-severity='critical'] {
+  color: var(--error-color, #db4437);
+}
+.headline[data-severity='warning'] {
+  color: var(--warning-color, #ffa600);
+}
+
+/* ---- tabs ------------------------------------------------------------ */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--divider-color, #e0e0e0);
+}
+
+.tab {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--secondary-text-color, #727272);
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 12px;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--primary-text-color, #212121);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.tab[aria-selected='true'] {
+  color: var(--primary-color, #03a9f4);
+  border-bottom-color: var(--primary-color, #03a9f4);
+}
+
+.tab .count {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--secondary-background-color, #f0f0f0);
+  color: var(--primary-text-color, #212121);
+  font-size: 0.8em;
+  text-align: center;
+}
+
+/* ---- rows ------------------------------------------------------------ */
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 4px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 16px 8px 12px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--divider-color, #e0e0e0);
+}
+
+.row .stripe {
+  width: 4px;
+  height: 100%;
+  min-height: 32px;
+  border-radius: 2px;
+  background: var(--divider-color, #e0e0e0);
+}
+.row[data-severity='warning'] .stripe {
+  background: var(--warning-color, #ffa600);
+}
+.row[data-severity='critical'] .stripe {
+  background: var(--error-color, #db4437);
+}
+
+.row .main {
+  min-width: 0;
+}
+
+.row .name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: center;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--secondary-background-color, #f0f0f0);
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.9em;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.row .status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row .status .label {
+  font-weight: 500;
+}
+.row .status .label[data-severity='warning'] {
+  color: var(--warning-color, #ffa600);
+}
+.row .status .label[data-severity='critical'] {
+  color: var(--error-color, #db4437);
+}
+
+.row .status .sub {
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+}
+
+/* ---- battery bar ------------------------------------------------------ */
+
+.battery {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar {
+  position: relative;
+  width: 64px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--secondary-background-color, #f0f0f0);
+  overflow: hidden;
+}
+
+.bar .fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 4px;
+  background: var(--success-color, #43a047);
+  transition: width 300ms ease;
+}
+.bar .fill[data-severity='warning'] {
+  background: var(--warning-color, #ffa600);
+}
+.bar .fill[data-severity='critical'] {
+  background: var(--error-color, #db4437);
+}
+
+/* ---- empty / error ---------------------------------------------------- */
+
+.empty {
+  padding: 28px 16px 32px;
+  text-align: center;
+  color: var(--secondary-text-color, #727272);
+}
+
+.empty .emoji {
+  font-size: 2.2em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.empty .lead {
+  color: var(--primary-text-color, #212121);
+  font-weight: 500;
+}
+
+.error {
+  padding: 16px;
+  color: var(--error-color, #db4437);
+  white-space: pre-wrap;
+}
+
+/* ---- motion ----------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .bar .fill {
+    transition: none;
+  }
+}
