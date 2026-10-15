@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { HISTORY_DAYS, loadDrains, rowsToPoints } from '../../src/card/statistics';
+import {
+  HISTORY_DAYS,
+  historyToDailyPoints,
+  loadDrains,
+  rowsToPoints,
+} from '../../src/card/statistics';
 import type { HassLike } from '../../src/core/types';
 import { FIXED_NOW, hass } from '../fixtures/hass';
 
@@ -12,6 +17,23 @@ function decline(now: Date, endLevel: number, perDay: number, days = HISTORY_DAY
     return { start, end: start + DAY, mean: endLevel + (days - i) * perDay };
   });
 }
+
+describe('historyToDailyPoints', () => {
+  it('averages numeric states per UTC day and drops junk', () => {
+    const day = Date.UTC(2026, 9, 10) / 1000;
+    const points = historyToDailyPoints([
+      { s: '60', lu: day + 100 },
+      { s: '62', lu: day + 5000 },
+      { s: 'unknown', lu: day + 6000 },
+      { state: '50', last_updated: '2026-10-11T12:00:00.000Z' },
+      { s: '40' }, // no timestamp at all
+    ]);
+    expect(points).toEqual([
+      { time: Date.UTC(2026, 9, 10), level: 61 },
+      { time: Date.UTC(2026, 9, 11), level: 50 },
+    ]);
+  });
+});
 
 describe('rowsToPoints', () => {
   it('accepts epoch ms and ISO starts, and skips null means', () => {
@@ -45,7 +67,8 @@ describe('loadDrains', () => {
       FIXED_NOW,
     );
 
-    expect(callWS).toHaveBeenCalledOnce();
+    // One statistics call, then one raw-history call for sensor.no_stats.
+    expect(callWS).toHaveBeenCalledTimes(2);
     const message = callWS.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(message.type).toBe('recorder/statistics_during_period');
     expect(message.period).toBe('day');
@@ -89,6 +112,67 @@ describe('loadDrains', () => {
     // slope once the single live point is weighed against two flat weeks.
     expect(est!.ratePerDay).toBeGreaterThanOrEqual(0.4);
     expect(est!.daysLeft).toBeLessThan(120);
+  });
+
+  it('falls back to raw history for sensors without statistics', async () => {
+    const secondsAgo = (days: number) => (FIXED_NOW.getTime() - days * DAY) / 1000;
+    const callWS = vi.fn().mockImplementation((message: { type: string }) => {
+      if (message.type === 'recorder/statistics_during_period') {
+        // Only the door sensor has long-term statistics.
+        return Promise.resolve({ 'sensor.front_door_battery': decline(FIXED_NOW, 87, 2) });
+      }
+      // Raw history for the inverter: several readings a day, some junk.
+      return Promise.resolve({
+        'sensor.inverter_soc': [
+          { state: '80', last_updated: new Date(secondsAgo(6) * 1000).toISOString() },
+          { s: '78', lu: secondsAgo(5.9) },
+          { s: 'unavailable', lu: secondsAgo(5.5) },
+          { s: '76', lu: secondsAgo(4) },
+          { s: '74', lu: secondsAgo(3) },
+          { s: '72', lu: secondsAgo(2) },
+          { s: '70', lu: secondsAgo(1) },
+        ],
+      });
+    });
+
+    const drains = await loadDrains(
+      { ...hass, callWS },
+      [
+        { entityId: 'sensor.front_door_battery', level: 87 },
+        { entityId: 'sensor.inverter_soc', level: 68 },
+        { entityId: 'vacuum.robot', level: 50 }, // attribute reading: never fetched raw
+      ],
+      FIXED_NOW,
+    );
+
+    expect(callWS).toHaveBeenCalledTimes(2);
+    const historyCall = callWS.mock.calls[1]?.[0] as Record<string, unknown>;
+    expect(historyCall.type).toBe('history/history_during_period');
+    expect(historyCall.entity_ids).toEqual(['sensor.inverter_soc']);
+    expect(historyCall.no_attributes).toBe(true);
+
+    const inverter = drains.get('sensor.inverter_soc');
+    expect(inverter).toBeDefined();
+    // 5 distinct days with readings (the two 6 days ago average to 79) + live point.
+    expect(inverter?.points).toHaveLength(6);
+    expect(inverter?.points[0]?.level).toBeCloseTo(79, 5);
+    expect(inverter?.estimate?.ratePerDay).toBeCloseTo(2, 0);
+    expect(drains.has('vacuum.robot')).toBe(false);
+  });
+
+  it('survives a failing raw-history call', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const callWS = vi
+      .fn()
+      .mockImplementation((message: { type: string }) =>
+        message.type === 'recorder/statistics_during_period'
+          ? Promise.resolve({})
+          : Promise.reject(new Error('history disabled')),
+      );
+    const drains = await loadDrains({ ...hass, callWS }, [{ entityId: 'sensor.x', level: 1 }]);
+    expect(drains.size).toBe(0);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it('returns an empty map without a websocket or without batteries', async () => {
