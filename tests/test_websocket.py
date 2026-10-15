@@ -7,6 +7,7 @@ from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
@@ -84,6 +85,45 @@ async def test_subscribe_sends_the_snapshot_now_and_after_each_recompute(
 
     await client.send_json({"id": 2, "type": "unsubscribe_events", "subscription": 1})
     assert (await client.receive_json())["success"] is True
+    await client.close()
+
+
+async def test_a_subscription_survives_saving_options(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """Saving options reloads the entry; subscribers must get the new snapshot."""
+    client = await hass_ws_client(hass)
+    freezer.move_to(fixed_now)
+    await load_fixture_into_hass(hass, fixture_snapshot)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    await client.send_json({"id": 1, "type": "pulse_check/subscribe"})
+    assert (await client.receive_json())["success"] is True
+    first = await client.receive_json()
+    assert "Pixel 9" in {d["name"] for d in first["event"]["devices"]}
+
+    # The Configure dialog excludes phones. OptionsFlowWithReload reloads the entry.
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"filters": {"exclude_integrations": ["mobile_app"]}}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+
+    second = await client.receive_json()
+    names = {d["name"] for d in second["event"]["devices"]}
+    assert "Pixel 9" not in names
+    assert "Front Door Lock" in names
+    # And the sensors moved with it, without a restart.
+    attention = hass.states.get("sensor.pulse_check_attention")
+    assert attention is not None
+    assert attention.attributes["summary"]["batteryDevices"] == 10
     await client.close()
 
 

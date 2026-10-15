@@ -24,8 +24,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .const import DOMAIN
+from .const import DOMAIN, SIGNAL_SNAPSHOT
 from .coordinator import PulseCheckCoordinator
 from .notify import Notifier
 from .services import async_setup_services
@@ -59,11 +60,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -
     # Compute once before the entities exist, so they never start empty.
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+    # The websocket commands find the current coordinator here, so a reload
+    # (which is how saved options take effect) swaps it under them.
+    hass.data[DOMAIN] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Notifications react to every recompute from here on.
     notifier = Notifier(hass, entry, coordinator)
     notifier.async_setup()
+
+    # Tell websocket subscribers about every recompute, and about this one.
+    entry.async_on_unload(
+        coordinator.async_add_listener(lambda: async_dispatcher_send(hass, SIGNAL_SNAPSHOT))
+    )
+    async_dispatcher_send(hass, SIGNAL_SNAPSHOT)
 
     # Battery history is slower (database reads), so it loads in the
     # background after the entities exist and refreshes them when done.
@@ -77,6 +87,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) 
     """Unload a config entry.
 
     The coordinator's and notifier's listeners were registered with
-    `entry.async_on_unload`, so Home Assistant removes them for us.
+    `entry.async_on_unload`, so Home Assistant removes them for us. Saving
+    options in the Configure dialog unloads and sets up the entry again
+    (`OptionsFlowWithReload`), which is how new thresholds and filters take
+    effect; the notifier then starts from a fresh baseline.
     """
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        hass.data.pop(DOMAIN, None)
+    return unloaded

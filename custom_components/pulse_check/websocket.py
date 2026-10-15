@@ -27,8 +27,9 @@ from homeassistant.components.websocket_api.connection import ActiveConnection
 from homeassistant.components.websocket_api.decorators import async_response, websocket_command
 from homeassistant.components.websocket_api.messages import event_message
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from .const import DOMAIN
+from .const import DOMAIN, SIGNAL_SNAPSHOT
 from .core.models import to_iso
 
 if TYPE_CHECKING:
@@ -41,10 +42,14 @@ MAX_HISTORY_DAYS = 365
 
 @callback
 def _coordinator(hass: HomeAssistant) -> PulseCheckCoordinator | None:
-    for entry in hass.config_entries.async_loaded_entries(DOMAIN):
-        coordinator: PulseCheckCoordinator = entry.runtime_data
-        return coordinator
-    return None
+    """The running coordinator, looked up fresh every time.
+
+    Saving options reloads the config entry, which replaces the coordinator.
+    Subscriptions must not hold on to the old one, so nothing here keeps a
+    reference between calls.
+    """
+    coordinator: PulseCheckCoordinator | None = hass.data.get(DOMAIN)
+    return coordinator
 
 
 def snapshot_payload(coordinator: PulseCheckCoordinator) -> dict[str, Any]:
@@ -73,9 +78,14 @@ def ws_subscribe(hass: HomeAssistant, connection: ActiveConnection, msg: dict[st
 
     @callback
     def send() -> None:
-        connection.send_message(event_message(msg["id"], snapshot_payload(coordinator)))
+        current = _coordinator(hass)
+        if current is None or current.data is None:
+            return  # mid-reload: the next recompute will send
+        connection.send_message(event_message(msg["id"], snapshot_payload(current)))
 
-    connection.subscriptions[msg["id"]] = coordinator.async_add_listener(send)
+    # The signal is sent after every recompute and after every (re)load, so
+    # a subscription outlives an options save.
+    connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_SNAPSHOT, send)
     connection.send_result(msg["id"])
     send()
 

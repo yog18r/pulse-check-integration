@@ -210,6 +210,33 @@ async def test_a_restart_never_resends(
     assert len(calls) == 1
 
 
+async def test_saving_options_does_not_announce_anything(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """The reload after an options save starts from a fresh baseline."""
+    entry, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    await _ready(hass, freezer)
+    events = async_capture_events(hass, EVENT_TRANSITION)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"thresholds": {"battery_warning": 60, "battery_critical": 50}, "notifications": OPTIONS},
+    )
+    await hass.async_block_till_done()
+    attention = hass.states.get("sensor.pulse_check_attention")
+    assert attention is not None
+    assert attention.state == "8"
+
+    await _ready(hass, freezer)
+    await _tick(hass, freezer, timedelta(minutes=10))
+    assert calls == []
+    assert [e for e in events if e.data["kind"] == "entered"] == []
+
+
 async def test_reminders_while_unresolved(
     hass: HomeAssistant,
     fixture_snapshot: dict[str, Any],

@@ -75,5 +75,9 @@ DEFAULT_CONFIRM_MINUTES = 5
 
 EVENT_TRANSITION = "pulse_check_transition"
 
+# Dispatcher signal sent after every recompute (and after a reload), so
+# websocket subscribers get the latest snapshot whichever coordinator made it.
+SIGNAL_SNAPSHOT = f"{DOMAIN}_snapshot"
+
 # Entities (phase 4).
 CONF_PER_DEVICE_SENSORS = "per_device_sensors"
