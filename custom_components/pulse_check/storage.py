@@ -47,7 +47,7 @@ def _empty() -> dict[str, Any]:
         "device_settings": {},  # device id -> settings dict
         "snoozes": {},  # device id -> ISO timestamp the snooze ends
         "notify": {},  # device id -> issue key -> notification state
-        "digests": {},  # "daily" / "weekly" -> ISO timestamp last sent
+        "digests": {},  # "daily" / "weekly" -> ISO timestamp last judged
         "history": {},  # device id -> replacement history (phase 4)
         "levels": {},  # device id -> last observed battery level (phase 4)
     }
@@ -133,7 +133,7 @@ class PulseCheckStore:
 
     @property
     def digests(self) -> dict[str, str]:
-        """When each digest was last sent."""
+        """When each digest was last judged: sent, or found to have nothing to say."""
         return self.data["digests"]  # type: ignore[no-any-return]
 
     @property

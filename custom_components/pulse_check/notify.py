@@ -34,6 +34,11 @@ default for that severity (critical -> instant, warning -> weekly).
 Every confirmed transition also fires a `pulse_check_transition` event on
 Home Assistant's event bus, whatever the policy, for people who prefer
 their own automations (see the blueprint in `blueprints/`).
+
+Digests go out at a fixed time. The store remembers when each kind was
+last judged (sent, or found to have nothing to say), so a slot missed
+because Home Assistant was off or still starting is caught up once, at
+the end of the next startup grace period.
 """
 
 from __future__ import annotations
@@ -87,6 +92,8 @@ type IssueKey = Literal["offline", "quiet", "battery_critical", "battery_warning
 type Policy = Literal["instant", "daily", "weekly", "none"]
 type DigestKind = Literal["daily", "weekly"]
 
+DIGEST_KINDS: tuple[DigestKind, ...] = ("daily", "weekly")
+
 ISSUE_SEVERITY: dict[str, str] = {
     "offline": "critical",
     "battery_critical": "critical",
@@ -115,6 +122,22 @@ def _hours_since(moment: datetime | None, now: datetime) -> int:
 
 def _at(iso: str) -> datetime:
     return as_utc(datetime.fromisoformat(iso))
+
+
+def last_digest_slot(now: datetime, hour: int, minute: int, weekday: int | None = None) -> datetime:
+    """The most recent scheduled digest time at or before `now`, in local time.
+
+    `weekday` (0 = Monday) narrows the daily schedule to the weekly one.
+    The arithmetic is on the local wall clock, so a slot is still 09:00
+    on the far side of a daylight saving change.
+    """
+    local = dt_util.as_local(now)
+    slot = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if slot > local:
+        slot -= timedelta(days=1)
+    if weekday is not None:
+        slot -= timedelta(days=(slot.weekday() - weekday) % 7)
+    return slot
 
 
 def device_issues(device: DeviceHealth, config: CoreConfig, now: datetime) -> dict[str, Issue]:
@@ -207,6 +230,18 @@ class Notifier:
         minutes = float(self.entry.options.get(CONF_CONFIRM_MINUTES, DEFAULT_CONFIRM_MINUTES))
         return timedelta(minutes=minutes)
 
+    @property
+    def digest_time(self) -> tuple[int, int]:
+        """Hour and minute of the digests, local time."""
+        digest_time = str(self.entry.options.get(CONF_DIGEST_TIME, DEFAULT_DIGEST_TIME))
+        hour, minute = (int(part) for part in digest_time.split(":")[:2])
+        return hour, minute
+
+    @property
+    def digest_weekday(self) -> str:
+        """The day the weekly digest goes out, as in `WEEKDAYS`."""
+        return str(self.entry.options.get(CONF_DIGEST_WEEKDAY, DEFAULT_DIGEST_WEEKDAY))
+
     # -- wiring --------------------------------------------------------------
 
     @callback
@@ -214,13 +249,13 @@ class Notifier:
         """Listen to coordinator updates, the start of HA, and the digest time."""
         self.entry.async_on_unload(self.coordinator.async_add_listener(self._handle_update))
 
-        digest_time = str(self.entry.options.get(CONF_DIGEST_TIME, DEFAULT_DIGEST_TIME))
-        hour, minute = (int(part) for part in digest_time.split(":")[:2])
+        hour, minute = self.digest_time
         self.entry.async_on_unload(
             async_track_time_change(
                 self.hass, self._handle_digest_time, hour=hour, minute=minute, second=0
             )
         )
+        self._start_digest_record()
 
         if self.hass.state is CoreState.running:
             self._mark_started()
@@ -228,6 +263,21 @@ class Notifier:
             self.entry.async_on_unload(
                 self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, self._handle_started)
             )
+
+    @callback
+    def _start_digest_record(self) -> None:
+        """On the very first run, count the digests as judged up to now.
+
+        Catching up compares the last record with the schedule. Without a
+        record, a slot from before Pulse Check was installed would look
+        missed and be sent at the end of the first grace period.
+        """
+        now = to_iso(dt_util.utcnow())
+        missing = [kind for kind in DIGEST_KINDS if kind not in self.store.digests]
+        for kind in missing:
+            self.store.digests[kind] = now
+        if missing:
+            self.store.async_save()
 
     @callback
     def _handle_started(self, _event: Event[Any]) -> None:
@@ -304,6 +354,9 @@ class Notifier:
 
         if changed:
             self.store.async_save()
+
+        if baseline:
+            await self._catch_up_digests(now)
 
     async def _process_device(
         self,
@@ -403,12 +456,35 @@ class Notifier:
     async def async_send_due_digests(self, now: datetime) -> None:
         """At the digest time: the daily digest every day, the weekly one on its day."""
         await self.async_send_digest("daily", now)
-        weekday = str(self.entry.options.get(CONF_DIGEST_WEEKDAY, DEFAULT_DIGEST_WEEKDAY))
-        if WEEKDAYS[dt_util.as_local(now).weekday()] == weekday:
+        if WEEKDAYS[dt_util.as_local(now).weekday()] == self.digest_weekday:
             await self.async_send_digest("weekly", now)
 
+    def _last_slot(self, kind: DigestKind, now: datetime) -> datetime:
+        """When this kind of digest was last due, by the current schedule."""
+        hour, minute = self.digest_time
+        weekday = WEEKDAYS.index(self.digest_weekday) if kind == "weekly" else None
+        return last_digest_slot(now, hour, minute, weekday)
+
+    async def _catch_up_digests(self, now: datetime) -> None:
+        """Send, once, any digest whose slot passed while nobody judged it.
+
+        Runs with the baseline at the end of the grace period: a slot that
+        fell while Home Assistant was off, or still starting, has not been
+        judged since. One message per kind with today's content, however
+        many slots were missed.
+        """
+        for kind in DIGEST_KINDS:
+            last = self.store.digests.get(kind)
+            if last is not None and _at(last) < self._last_slot(kind, now):
+                _LOGGER.debug("Catching up the %s digest last judged at %s", kind, last)
+                await self.async_send_digest(kind, now)
+
     async def async_send_digest(self, kind: DigestKind, now: datetime) -> None:
-        """One message listing every confirmed, unresolved issue on that policy."""
+        """One message listing every confirmed, unresolved issue on that policy.
+
+        The slot counts as judged whether or not there was anything to say,
+        so catching up after a restart never repeats it.
+        """
         if not self._is_ready():
             return
         data: PulseCheckData = self.coordinator.data
@@ -421,11 +497,10 @@ class Notifier:
                 if self.policy_for(device.device_id, issue.severity) == kind:
                     lines.append(issue.message)
         all_clear = kind == "weekly" and bool(self.entry.options.get(CONF_WEEKLY_ALL_CLEAR, False))
-        if not lines and not all_clear:
-            return
-        heading = f"{TITLE} {kind} digest"
-        body = "\n".join(f"- {line}" for line in lines) if lines else "All devices OK."
-        await self._send(f"{heading}\n{body}")
+        if lines or all_clear:
+            heading = f"{TITLE} {kind} digest"
+            body = "\n".join(f"- {line}" for line in lines) if lines else "All devices OK."
+            await self._send(f"{heading}\n{body}")
         self.store.digests[kind] = to_iso(now)
         self.store.async_save()
 
