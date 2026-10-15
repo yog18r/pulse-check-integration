@@ -7,7 +7,7 @@ into cycles tells us three things a plain straight-line fit cannot:
 - what kind of battery it is: one that gets *charged* (a phone, a blind)
   or one that gets *replaced* (a sensor's coin cell);
 - how long this device's batteries actually last, from its own past;
-- whether the current cycle is draining unusually fast.
+- whether a replaceable battery's current cycle is draining unusually fast.
 
 Everything here is pure: samples in, facts out. The Home Assistant layer
 (history.py) fetches the samples and passes in what it knows from the
@@ -58,6 +58,9 @@ SUDDEN_DROP_POINTS = 20
 RECENT = timedelta(days=7)
 # Draining more than this many times faster than the device's own past is unusual.
 UNUSUAL_FACTOR = 2.0
+# Cycles compared for unusual drain must span at least this long: a few
+# hours of use say nothing about how fast a battery drains.
+MIN_COMPARE_DAYS = 2.0
 # Charge estimates shorter than this are daily chargers: nothing to say.
 MIN_CHARGE_DAYS = 1.0
 
@@ -284,13 +287,38 @@ def estimate_charged(
     )
 
 
-def unusual_behaviour(cycles: Sequence[Cycle], now: datetime) -> str | None:
-    """A note when the current cycle drains far faster than before, or dropped suddenly."""
-    if not cycles:
+def _span_rate(points: Sequence[DrainPoint]) -> float | None:
+    """Points lost per day from first sample to last, over at least MIN_COMPARE_DAYS."""
+    if len(points) < 2:
+        return None
+    first, last = points[0], points[-1]
+    days = (as_utc(last.time) - as_utc(first.time)).total_seconds() / 86400
+    drop = first.level - last.level
+    if days < MIN_COMPARE_DAYS or drop <= 0:
+        return None
+    return drop / days
+
+
+def unusual_behaviour(
+    cycles: Sequence[Cycle], now: datetime, kind: BatteryKind = "replaceable"
+) -> str | None:
+    """A note when a replaceable battery drains far faster than before, or dropped suddenly.
+
+    Only replaceable batteries are judged. A charged battery's cycles last
+    a day or so, and daily means smooth its charge and discharge away, so
+    a comparison says nothing ("draining 40× faster" for a phone that has
+    been in use since breakfast).
+
+    The rates compared are like for like: start to end of the daily
+    series, for the current cycle and each past one, each spanning at
+    least `MIN_COMPARE_DAYS`. The live reading is left out of the current
+    rate: it is one instant, where the rest are daily means.
+    """
+    if kind != "replaceable" or not cycles:
         return None
     current = cycles[-1]
-    past = [c.rate_per_day for c in cycles[:-1] if c.rate_per_day is not None]
-    rate = current.rate_per_day
+    past = [rate for c in cycles[:-1] if (rate := _span_rate(c.points)) is not None]
+    rate = _span_rate([p for p in current.points if as_utc(p.time) < as_utc(now)])
     if rate is not None and past:
         typical = median(past)
         if typical > 0 and rate > UNUSUAL_FACTOR * typical:
@@ -340,5 +368,5 @@ def assess(
         estimate=estimate,
         completed_cycles=len(completed),
         median_cycle_days=median(c.days for c in completed) if completed else None,
-        unusual=unusual_behaviour(cycles, now),
+        unusual=unusual_behaviour(cycles, now, kind),
     )

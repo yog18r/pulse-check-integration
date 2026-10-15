@@ -133,3 +133,20 @@ async def test_per_device_sensors_appear_when_enabled(
     assert last is not None
     assert last.state == "2026-10-15T10:00:00+00:00"
     assert last.attributes["kind"] == "charged"
+
+
+async def test_a_phone_losing_charge_quickly_is_not_unusual(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    # 71 % -> 40 %: a sudden drop for a sensor, an ordinary afternoon for a phone.
+    hass.states.async_set("sensor.pixel_9_battery_level", "40", BATTERY)
+    freezer.tick(timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    phone = _device(hass, "Pixel 9")
+    assert phone["battery"]["level"] == 40
+    assert "unusual" not in phone

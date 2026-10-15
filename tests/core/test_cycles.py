@@ -208,3 +208,43 @@ def test_no_history_means_no_estimate() -> None:
     assert insight.kind == "replaceable"  # one point, no rises: nothing contradicts it
     assert insight.estimate is None
     assert insight.unusual is None
+
+
+# --- unusual drain: like for like, replaceable batteries only ---------------
+
+
+def _two_lock_cycles(end: datetime) -> list[DrainPoint]:
+    """Two completed cycles of a lock at 0.5 points a day, the second ending at `end`."""
+    first = daily(100, 100, 0.5, end=end - 100 * DAY)
+    second = daily(100, 100, 0.5, end=end)
+    return [*first, *second]
+
+
+def test_a_phone_charged_daily_is_never_unusual() -> None:
+    # Daily means of a phone: each charge shows as a rise, so the means cut
+    # into short cycles. The live reading this afternoon is far below this
+    # morning's mean, which once read as "draining 10× faster than usual".
+    means: list[DrainPoint] = []
+    for cycle_end in (NOW - 11 * DAY, NOW - 6 * DAY, NOW - DAY):
+        means += daily(5, 90, 6, end=cycle_end + DAY)
+    for mobile_app in (True, False):
+        insight = assess(means, [], 30, NOW, warning=30, mobile_app=mobile_app)
+        assert insight.kind == "charged"
+        assert insight.unusual is None
+
+
+def test_a_lock_draining_three_times_faster_over_days_is_unusual() -> None:
+    history = [*_two_lock_cycles(NOW - 5 * DAY), *daily(5, 100, 1.5)]
+    insight = assess(history, [], 92.5, NOW, warning=30)
+    assert insight.kind == "replaceable"
+    assert insight.unusual == "draining 3× faster than usual"
+
+
+def test_six_hours_of_a_new_battery_is_not_judged() -> None:
+    # A fresh cell read 100 % six hours ago and 90 % now: 40 points a day if
+    # taken at face value, eighty times the past rate. Too short to say.
+    history = [*_two_lock_cycles(NOW - 6 * HOUR), DrainPoint(time=NOW - 6 * HOUR, level=100)]
+    insight = assess(history, [], 90, NOW, warning=30)
+    assert insight.kind == "replaceable"
+    assert insight.completed_cycles == 2
+    assert insight.unusual is None

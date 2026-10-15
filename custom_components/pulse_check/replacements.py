@@ -203,8 +203,15 @@ class ReplacementTracker:
         if last is not None:
             device.last_replaced = as_utc(datetime.fromisoformat(last["at"]))
         # Without recorder history there are no cycles; the live readings
-        # still catch a sudden drop.
-        if device.unusual is None:
+        # still catch a sudden drop. Not for batteries that get charged: a
+        # phone losing 20 points in an afternoon is ordinary use.
+        rechargeable = bool(
+            self.store.device_settings.get(device.device_id, {}).get("rechargeable")
+        )
+        charged = (
+            device.battery_kind == "charged" or device.integration == "mobile_app" or rechargeable
+        )
+        if device.unusual is None and not charged:
             dropped = self.store.levels.get(device.device_id, {}).get("sudden_drop_at")
             if dropped and (as_utc(now) - as_utc(datetime.fromisoformat(dropped))).days < 7:
                 device.unusual = "level dropped suddenly"
