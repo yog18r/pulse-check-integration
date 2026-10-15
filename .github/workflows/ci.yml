@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    name: Lint, type-check and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements_dev.txt
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format
+        run: ruff format --check .
+      - name: Mypy
+        run: mypy
+      - name: Pytest
+        run: pytest -q
+
+  golden-drift:
+    # The card repo is the source of truth for the shared fixture and the
+    # golden expected output. This job fails if our copy has drifted from
+    # the card's, so a rule change on either side cannot go unnoticed.
+    name: Shared fixture matches the card repo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare fixture and golden files with the card repo
+        run: |
+          base=https://raw.githubusercontent.com/yog18r/pulse-check-card/main/test/fixtures
+          for name in hass.json golden.json; do
+            curl -fsSL "$base/$name" -o "/tmp/$name"
+            diff -q "/tmp/$name" "tests/fixtures/$name"
+          done
+
+  hassfest:
+    name: Hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    name: HACS validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration

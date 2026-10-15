@@ -1,0 +1,80 @@
+# Project metadata and tool configuration.
+#
+# This repository is a Home Assistant custom integration, not a package you
+# install from PyPI, so the [project] table exists mainly to pin the Python
+# version and to document development dependencies. The tools (ruff, mypy,
+# pytest) read their configuration from the [tool.*] tables below.
+
+[project]
+name = "pulse-check-integration"
+version = "0.1.0"
+description = "Home Assistant integration that watches device batteries and connectivity."
+readme = "README.md"
+requires-python = ">=3.14.2"
+license = "MIT"
+
+[tool.ruff]
+# Prettier in the card repo uses printWidth 100; keep the two repos alike.
+line-length = 100
+target-version = "py314"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes
+  "I",    # isort
+  "UP",   # pyupgrade: modern syntax
+  "B",    # bugbear: likely bugs
+  "SIM",  # simplify
+  "RUF",  # ruff's own rules
+  "D",    # pydocstyle: every public thing documented
+  "ANN",  # every function annotated
+  "PL",   # pylint subset
+  "TCH",  # type-checking-only imports
+]
+ignore = [
+  "D203",    # one blank line before class docstring (conflicts with D211)
+  "D213",    # multi-line summary on second line (conflicts with D212)
+  "PLR0913", # too many arguments: entity constructors legitimately take several
+  "PLR2004", # magic values: thresholds and counts read better inline
+  "PLR0911", # many returns: the detection rules are naturally early-return chains
+  "RUF001",  # ambiguous unicode: "×" in labels is deliberate and matches the card
+  "RUF002",
+  "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "ANN", "PLR0915"]
+"scripts/**" = ["D", "ANN"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components.pulse_check"]
+combine-as-imports = true
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_unreachable = true
+show_error_codes = true
+files = ["custom_components", "tests"]
+# `custom_components` has no __init__.py on purpose (Home Assistant treats it
+# as a namespace), so tell mypy to name modules from the repo root.
+explicit_package_bases = true
+mypy_path = "."
+# Home Assistant ships type hints but some of its dependencies do not.
+[[tool.mypy.overrides]]
+module = ["pytest_homeassistant_custom_component.*", "voluptuous.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The repo root must be importable so `custom_components.pulse_check` resolves.
+pythonpath = ["."]
+asyncio_mode = "auto"
+# pytest-homeassistant-custom-component provides the `hass` fixture and friends.
+addopts = "-p no:cacheprovider"

@@ -1,0 +1,7 @@
+{
+  "name": "Pulse Check",
+  "render_readme": true,
+  "zip_release": true,
+  "filename": "pulse_check.zip",
+  "homeassistant": "2025.1.0"
+}
