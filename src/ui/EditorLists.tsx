@@ -404,29 +404,48 @@ export interface CheckOption {
   label: string;
 }
 
-interface CheckboxGroupProps {
+interface KeepGroupProps {
   legend: string;
   hint?: string;
   options: CheckOption[];
-  /** Currently selected ids (or names; matching is case-insensitive). */
-  value: string[];
-  onChange: (value: string[] | undefined) => void;
+  /** The YAML allow-list, if any. Shown as "only these ticked". */
+  include: string[];
+  /** The YAML deny-list. Shown as "these unticked". */
+  exclude: string[];
+  /**
+   * Called with the new deny-list. The editor always writes exclusions: an
+   * allow-list from YAML is folded into the equivalent exclusions on the
+   * first change, so the two can never contradict each other.
+   */
+  onChange: (exclude: string[] | undefined) => void;
 }
 
 /**
- * A list of checkboxes backed by a string[] config value. Values the user
- * typed in YAML that aren't among the options are kept as extra checked
- * entries, so switching to the visual editor never silently drops them.
+ * A list where everything is ticked by default and unticking excludes.
+ * Values typed in YAML that aren't among the options are shown as extra
+ * unticked entries with a "?", so switching to the visual editor never
+ * silently drops them.
  */
-export function CheckboxGroup({ legend, hint, options, value, onChange }: CheckboxGroupProps) {
-  const lower = (s: string) => s.trim().toLowerCase();
-  const selected = new Set(value.map(lower));
-  const known = new Set(options.map((o) => lower(o.id)).concat(options.map((o) => lower(o.label))));
-  const extras = value.filter((v) => !known.has(lower(v)));
+export function KeepGroup({ legend, hint, options, include, exclude, onChange }: KeepGroupProps) {
+  const lower = (v: string) => v.trim().toLowerCase();
+  const included = new Set(include.map(lower));
+  const excluded = new Set(exclude.map(lower));
+  const known = new Set(options.flatMap((o) => [lower(o.id), lower(o.label)]));
+
+  const kept = (o: CheckOption) =>
+    (include.length === 0 || included.has(lower(o.id)) || included.has(lower(o.label))) &&
+    !excluded.has(lower(o.id)) &&
+    !excluded.has(lower(o.label));
+
+  // Exclusions typed in YAML for things this instance doesn't have.
+  const strayExcludes = exclude.filter((v) => !known.has(lower(v)));
 
   function toggle(id: string, on: boolean) {
-    const next = value.filter((v) => lower(v) !== lower(id));
-    if (on) next.push(id);
+    // Start from what is excluded *right now* (folding any allow-list in),
+    // then apply this one change.
+    const next = options.filter((o) => !kept(o) && o.id !== id).map((o) => o.id);
+    if (!on) next.push(id);
+    next.push(...strayExcludes);
     onChange(next.length > 0 ? next : undefined);
   }
 
@@ -439,7 +458,7 @@ export function CheckboxGroup({ legend, hint, options, value, onChange }: Checkb
           <label key={o.id} className="check">
             <input
               type="checkbox"
-              checked={selected.has(lower(o.id)) || selected.has(lower(o.label))}
+              checked={kept(o)}
               onChange={(e) => {
                 toggle(o.id, e.target.checked);
               }}
@@ -447,13 +466,17 @@ export function CheckboxGroup({ legend, hint, options, value, onChange }: Checkb
             {o.label}
           </label>
         ))}
-        {extras.map((v) => (
-          <label key={`extra:${v}`} className="check" title="From YAML; not found in this instance">
+        {strayExcludes.map((v) => (
+          <label key={`stray:${v}`} className="check" title="From YAML; not found in this instance">
             <input
               type="checkbox"
-              checked
+              checked={false}
               onChange={() => {
-                toggle(v, false);
+                onChange(
+                  [...exclude.filter((x) => x !== v)].length > 0
+                    ? exclude.filter((x) => x !== v)
+                    : undefined,
+                );
               }}
             />
             {v} ?

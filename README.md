@@ -93,7 +93,7 @@ show_tabs: [batteries, connectivity] # add "actions" for the to-do list
 default_tab: batteries
 ```
 
-Prefer clicking to typing? The card has a **visual editor**: add the card from the picker, or press "Edit" on an existing one, and every option above is a form field. Integration thresholds and per-device settings are rows you add and remove. The device picker is a search box (type part of a name, area or integration), the battery type is a dropdown of standard sizes with an "Other…" free-text option, and you never have to look up a device id.
+Prefer clicking to typing? The card has a **visual editor**: add the card from the picker, or press "Edit" on an existing one, and every option above is a form field. Areas and integrations are two lists with everything ticked; untick one to hide its devices (that writes `exclude_areas` / `exclude_integrations`; the `include_*` allow-lists are YAML-only and the editor converts them to exclusions on first change). Integration thresholds and per-device settings are rows you add and remove. The device picker is a search box (type part of a name, area or integration), the battery type is a dropdown of standard sizes with an "Other…" free-text option, and you never have to look up a device id.
 
 | Option                   | Type    | Default                     | Notes                                                              |
 | ------------------------ | ------- | --------------------------- | ------------------------------------------------------------------ |

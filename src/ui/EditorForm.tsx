@@ -12,7 +12,7 @@
  */
 import type { HassLike } from '../core/types';
 import { listIntegrations } from '../core/registryOptions';
-import { CheckboxGroup, DeviceSettingsRows, IntegrationThresholdRows } from './EditorLists';
+import { DeviceSettingsRows, IntegrationThresholdRows, KeepGroup } from './EditorLists';
 import {
   BATTERY_SORTS,
   DEFAULT_CONFIG,
@@ -60,6 +60,14 @@ export function EditorForm({ config, onChange, hass }: Props) {
     // cleared fields disappear from the YAML instead of lingering as null.
     const entries = Object.entries(config).filter(([k]) => k !== key);
     if (value !== undefined) entries.push([key, value]);
+    onChange(Object.fromEntries(entries));
+  }
+
+  /** Set several keys in one emit (undefined removes a key). */
+  function setMany(patch: Partial<Record<keyof CardConfig, unknown>>) {
+    const keys = new Set(Object.keys(patch));
+    const entries = Object.entries(config).filter(([k]) => !keys.has(k));
+    for (const [k, v] of Object.entries(patch)) if (v !== undefined) entries.push([k, v]);
     onChange(Object.fromEntries(entries));
   }
 
@@ -291,41 +299,25 @@ export function EditorForm({ config, onChange, hass }: Props) {
         </div>
       </div>
 
-      <CheckboxGroup
-        legend="Only these areas"
-        hint="Leave all unticked to show every area."
+      <KeepGroup
+        legend="Areas"
+        hint="Untick an area to hide its devices."
         options={areaOptions}
-        value={config.include_areas ?? []}
-        onChange={(v) => {
-          set('include_areas', v);
+        include={config.include_areas ?? []}
+        exclude={config.exclude_areas ?? []}
+        onChange={(exclude) => {
+          setMany({ include_areas: undefined, exclude_areas: exclude });
         }}
       />
 
-      <CheckboxGroup
-        legend="Hide these areas"
-        options={areaOptions}
-        value={config.exclude_areas ?? []}
-        onChange={(v) => {
-          set('exclude_areas', v);
-        }}
-      />
-
-      <CheckboxGroup
-        legend="Only these integrations"
-        hint="Leave all unticked to show every integration."
+      <KeepGroup
+        legend="Integrations"
+        hint="Untick an integration to hide its devices."
         options={integrationOptions}
-        value={config.include_integrations ?? []}
-        onChange={(v) => {
-          set('include_integrations', v);
-        }}
-      />
-
-      <CheckboxGroup
-        legend="Hide these integrations"
-        options={integrationOptions}
-        value={config.exclude_integrations ?? []}
-        onChange={(v) => {
-          set('exclude_integrations', v);
+        include={config.include_integrations ?? []}
+        exclude={config.exclude_integrations ?? []}
+        onChange={(exclude) => {
+          setMany({ include_integrations: undefined, exclude_integrations: exclude });
         }}
       />
 
