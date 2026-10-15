@@ -56,6 +56,16 @@ describe('resolveConfig', () => {
     ).toThrow(/battery_type/);
   });
 
+  it('validates exclude_entities and quiet_scope', () => {
+    expect(resolveConfig({ exclude_entities: ['sensor.a'] }).exclude_entities).toEqual([
+      'sensor.a',
+    ]);
+    expect(() => resolveConfig({ exclude_entities: 'sensor.a' })).toThrow(/list of strings/);
+    expect(resolveConfig({}).quiet_scope).toBe('battery');
+    expect(resolveConfig({ quiet_scope: 'all' }).quiet_scope).toBe('all');
+    expect(() => resolveConfig({ quiet_scope: 'everything' })).toThrow(/quiet_scope/);
+  });
+
   it('validates tabs', () => {
     expect(() => resolveConfig({ show_tabs: [] })).toThrow(/non-empty/);
     expect(() => resolveConfig({ show_tabs: ['weather'] })).toThrow(/show_tabs/);

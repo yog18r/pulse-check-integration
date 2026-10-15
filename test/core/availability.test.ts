@@ -3,6 +3,7 @@ import {
   detectLastHeard,
   detectOffline,
   isQuiet,
+  isStaticEntity,
   parseTimestamp,
 } from '../../src/core/availability';
 import { FIXED_NOW, hass, hoursAgo, makeEntity, makeState } from '../fixtures/hass';
@@ -61,16 +62,53 @@ describe('parseTimestamp', () => {
 });
 
 describe('detectLastHeard', () => {
-  it('returns the newest last_updated across entities', () => {
-    const states = entitiesOf('dev_zha_temp').map((e) => hass.states[e.entity_id]!);
+  const zhaStates = () => entitiesOf('dev_zha_temp').map((e) => hass.states[e.entity_id]!);
+
+  it('returns the newest last_updated across live entities', () => {
     // Temperature, lqi and rssi updated 30h ago; humidity 31h; battery 32h.
-    expect(detectLastHeard(states)?.toISOString()).toBe(hoursAgo(now, 30));
+    // The identify button (config) was pressed 1h ago and must be ignored.
+    expect(detectLastHeard(zhaStates(), hass.entities)?.toISOString()).toBe(hoursAgo(now, 30));
+  });
+
+  it('filters static domains (button, number...) even without a registry', () => {
+    expect(detectLastHeard(zhaStates())?.toISOString()).toBe(hoursAgo(now, 30));
+  });
+
+  it('needs the registry to recognise a config-category sensor as static', () => {
+    const states = [
+      makeState('sensor.temp', '21', now, { lastUpdated: hoursAgo(now, 30) }),
+      makeState('sensor.setting', '10', now, { lastUpdated: hoursAgo(now, 1) }),
+    ];
+    const registry = {
+      'sensor.setting': makeEntity('sensor.setting', 'x', 'd', { entity_category: 'config' }),
+    };
+    expect(detectLastHeard(states)?.toISOString()).toBe(hoursAgo(now, 1));
+    expect(detectLastHeard(states, registry)?.toISOString()).toBe(hoursAgo(now, 30));
+  });
+
+  it('falls back to static entities when a device has nothing else', () => {
+    const states = [makeState('number.only_setting', '5', now, { lastUpdated: hoursAgo(now, 2) })];
+    expect(detectLastHeard(states, {})?.toISOString()).toBe(hoursAgo(now, 2));
   });
 
   it('returns undefined when no timestamps parse', () => {
     const bad = makeState('sensor.a', '1', now, { lastUpdated: 'garbage' });
     expect(detectLastHeard([bad])).toBeUndefined();
     expect(detectLastHeard([])).toBeUndefined();
+  });
+});
+
+describe('isStaticEntity', () => {
+  it('treats config entities and setting-like domains as static', () => {
+    expect(isStaticEntity('sensor.temp', { entity_id: 'sensor.temp' })).toBe(false);
+    expect(isStaticEntity('sensor.temp', undefined)).toBe(false);
+    expect(
+      isStaticEntity('sensor.min_soc', { entity_id: 'sensor.min_soc', entity_category: 'config' }),
+    ).toBe(true);
+    for (const id of ['number.x', 'select.x', 'button.x', 'update.x', 'text.x']) {
+      expect(isStaticEntity(id, undefined)).toBe(true);
+    }
+    expect(isStaticEntity('light.x', undefined)).toBe(false);
   });
 });
 

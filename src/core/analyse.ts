@@ -41,6 +41,16 @@ function isExcluded(group: DeviceGroup, integration: string, config: ResolvedCon
   return false;
 }
 
+/** Drop individually excluded entities from a group. Returns null if nothing is left. */
+function withoutExcludedEntities(group: DeviceGroup, config: ResolvedConfig): DeviceGroup | null {
+  if (config.exclude_entities.length === 0) return group;
+  const banned = new Set(config.exclude_entities);
+  const entities = group.entities.filter((e) => !banned.has(e.entity_id));
+  if (entities.length === 0) return null;
+  const states = group.states.filter((s) => !banned.has(s.entity_id));
+  return { ...group, entities, states };
+}
+
 export function analyseDevices(
   hass: HassLike,
   config: ResolvedConfig,
@@ -49,21 +59,32 @@ export function analyseDevices(
   const { now, enhancers = [] } = options;
   const results: DeviceHealth[] = [];
 
-  for (const group of collectDeviceGroups(hass)) {
-    const integration = dominantIntegration(group.entities);
-    if (isExcluded(group, integration, config)) continue;
+  for (const rawGroup of collectDeviceGroups(hass)) {
+    const integration = dominantIntegration(rawGroup.entities);
+    if (isExcluded(rawGroup, integration, config)) continue;
 
-    const battery = detectBattery(group.states);
+    const group = withoutExcludedEntities(rawGroup, config);
+    if (!group) continue;
+
+    const battery = detectBattery(group.states, hass.entities);
 
     // A lone entity with no device is only interesting if it tells us about
     // a battery. Otherwise (template helpers, input_booleans...) it is noise.
-    if (!group.device && !battery) continue;
+    // And even then, it can only ever be a battery reading: with no device
+    // behind it there is nothing to be "offline" or "quiet".
+    const isOrphan = group.device === null;
+    if (isOrphan && !battery) continue;
 
-    const isOffline = detectOffline(group.entities, hass.states);
-    const lastHeard = detectLastHeard(group.states);
+    const isOffline = !isOrphan && detectOffline(group.entities, hass.states);
+    const lastHeard = detectLastHeard(group.states, hass.entities);
+
+    // Quiet detection only makes sense for devices expected to report on
+    // their own. By default that is battery devices; mains devices go
+    // `unavailable` when they drop off, and an untouched light is not news.
+    const quietEligible =
+      !isOrphan && !isOffline && (config.quiet_scope === 'all' || battery !== undefined);
     const quietHours = resolveQuietThreshold(config, integration, group.deviceId);
-    // An offline device is already flagged; don't double-report it as quiet.
-    const quiet = !isOffline && isQuiet(lastHeard, now, quietHours);
+    const quiet = quietEligible && isQuiet(lastHeard, now, quietHours);
 
     const extras = applyEnhancers(enhancers, integration, group, hass);
 

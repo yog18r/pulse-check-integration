@@ -10,11 +10,11 @@ describe('summarise', () => {
     const s = summarise(devices);
     // critical: z2m motion 12%, lock offline, smoke alarm binary low, orphan 9%
     expect(s.critical).toBe(4);
-    // warning: zha temp (28% + quiet), zwave multi (quiet), shelly plug (quiet)
-    expect(s.warning).toBe(3);
-    expect(s.attention).toBe(7);
+    // warning: zha temp (28% + quiet), zwave multi (quiet)
+    expect(s.warning).toBe(2);
+    expect(s.attention).toBe(6);
     expect(s.offline).toBe(1);
-    expect(s.quiet).toBe(3);
+    expect(s.quiet).toBe(2);
     expect(s.batteryDevices).toBe(10);
   });
 });

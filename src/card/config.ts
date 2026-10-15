@@ -16,6 +16,16 @@ export const TAB_IDS = ['batteries', 'connectivity'] as const;
 /** "batteries" | "connectivity", derived from the array above so they can't drift apart. */
 export type TabId = (typeof TAB_IDS)[number];
 
+/**
+ * Which devices can be flagged as "quiet".
+ *  - battery: only battery-powered devices (the default). Mains devices
+ *    announce failure by going unavailable; a light nobody has toggled for
+ *    two days is fine, not quiet.
+ *  - all: every device. Expect noise from lights, media players and bridges.
+ */
+export const QUIET_SCOPES = ['battery', 'all'] as const;
+export type QuietScope = (typeof QUIET_SCOPES)[number];
+
 export interface DeviceOverride {
   device_id: string;
   quiet_threshold_hours?: number;
@@ -38,6 +48,9 @@ export interface CardConfig {
   device_overrides?: DeviceOverride[];
   exclude_integrations?: string[];
   exclude_devices?: string[];
+  /** Entity ids to ignore entirely, e.g. a settings sensor mis-labelled as a battery. */
+  exclude_entities?: string[];
+  quiet_scope?: QuietScope;
   show_tabs?: TabId[];
   default_tab?: TabId;
 }
@@ -52,6 +65,8 @@ export interface ResolvedConfig {
   device_overrides: DeviceOverride[];
   exclude_integrations: string[];
   exclude_devices: string[];
+  exclude_entities: string[];
+  quiet_scope: QuietScope;
   show_tabs: TabId[];
   default_tab: TabId;
 }
@@ -65,6 +80,8 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
   device_overrides: [],
   exclude_integrations: [],
   exclude_devices: [],
+  exclude_entities: [],
+  quiet_scope: 'battery',
   show_tabs: ['batteries', 'connectivity'],
   default_tab: 'batteries',
 };
@@ -213,6 +230,22 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     DEFAULT_CONFIG.exclude_devices,
   );
 
+  const exclude_entities = stringArrayOrDefault(
+    raw.exclude_entities,
+    'exclude_entities',
+    DEFAULT_CONFIG.exclude_entities,
+  );
+
+  // quiet_scope
+  let quiet_scope: QuietScope = DEFAULT_CONFIG.quiet_scope;
+  const rawScope = raw.quiet_scope;
+  if (rawScope !== undefined) {
+    if (typeof rawScope !== 'string' || !(QUIET_SCOPES as readonly string[]).includes(rawScope)) {
+      throw new ConfigError(`"quiet_scope" must be one of: ${QUIET_SCOPES.join(', ')}.`);
+    }
+    quiet_scope = rawScope as QuietScope;
+  }
+
   // show_tabs
   let show_tabs: TabId[] = DEFAULT_CONFIG.show_tabs;
   const rawTabs = raw.show_tabs;
@@ -249,6 +282,8 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     device_overrides,
     exclude_integrations,
     exclude_devices,
+    exclude_entities,
+    quiet_scope,
     show_tabs,
     default_tab,
   };

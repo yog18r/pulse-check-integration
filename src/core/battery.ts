@@ -11,7 +11,7 @@
  * The functions here are pure: same input, same output, no side effects.
  * That is what makes them trivial to unit test.
  */
-import type { BatteryReading, HassEntityState } from './types';
+import type { BatteryReading, HassEntityRegistryEntry, HassEntityState } from './types';
 
 /** Entity ids look like "domain.object_id". The domain tells us the entity type. */
 export function domainOf(entityId: string): string {
@@ -108,10 +108,21 @@ export function combineBatteryReadings(readings: BatteryReading[]): BatteryReadi
   return { ...best, isLow: best.isLow || anyBinaryLow };
 }
 
-/** Convenience: scan a list of entity states and return the device's single reading. */
-export function detectBattery(states: HassEntityState[]): BatteryReading | undefined {
+/**
+ * Scan a device's entity states and return its single battery reading.
+ *
+ * `registry` is `hass.entities`. When given, entities marked
+ * `entity_category: config` are skipped: those are settings (an inverter's
+ * "minimum state of charge", a thermostat's "battery type" selector), and
+ * some integrations label them `device_class: battery` because the unit is %.
+ */
+export function detectBattery(
+  states: HassEntityState[],
+  registry: Record<string, HassEntityRegistryEntry> = {},
+): BatteryReading | undefined {
   const readings: BatteryReading[] = [];
   for (const s of states) {
+    if (registry[s.entity_id]?.entity_category === 'config') continue;
     const r = readBattery(s);
     if (r) readings.push(r);
   }

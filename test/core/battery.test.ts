@@ -130,6 +130,12 @@ describe('detectBattery', () => {
     expect(r?.level).toBe(71);
   });
 
+  it('ignores config-category entities when given the registry', () => {
+    const states = [hass.states['sensor.inverter_min_soc']!];
+    expect(detectBattery(states)).toMatchObject({ level: 10 }); // no registry: looks like a battery
+    expect(detectBattery(states, hass.entities)).toBeUndefined(); // registry says it is a setting
+  });
+
   it('returns undefined for a mains-powered device', () => {
     const states = [
       hass.states['sensor.plant_monitor_soil_moisture']!,

@@ -112,6 +112,7 @@ export const DEV = {
   legacyTracker: 'dev_legacy_tracker',
   sun: 'dev_sun',
   disabledSensor: 'dev_disabled',
+  mqttLight: 'dev_mqtt_light',
 } as const;
 
 /**
@@ -211,6 +212,10 @@ export function buildHass(now: Date): HassLike {
     makeEntity('sensor.bedroom_climate_rssi', 'zha', DEV.zhaTemp, {
       entity_category: 'diagnostic',
     }),
+    // A config button pressed recently must NOT count as "heard from".
+    makeEntity('button.bedroom_climate_identify', 'zha', DEV.zhaTemp, {
+      entity_category: 'config',
+    }),
   );
   states.push(
     makeState('sensor.bedroom_climate_temperature', '19.4', now, {
@@ -229,6 +234,9 @@ export function buildHass(now: Date): HassLike {
     makeState('sensor.bedroom_climate_rssi', '-71', now, {
       attributes: { unit_of_measurement: 'dBm' },
       lastUpdated: hoursAgo(now, 30),
+    }),
+    makeState('button.bedroom_climate_identify', hoursAgo(now, 1), now, {
+      lastUpdated: hoursAgo(now, 1),
     }),
   );
 
@@ -487,6 +495,45 @@ export function buildHass(now: Date): HassLike {
         friendly_name: 'TV Remote Battery',
       },
       lastUpdated: hoursAgo(now, 4),
+    }),
+  );
+
+  // --- MQTT light (mains): online, nobody has touched it for 50h.
+  //     NOT quiet under the default quiet_scope: battery; quiet under "all".
+  devices.push(
+    makeDevice(DEV.mqttLight, 'Garage Lights', {
+      manufacturer: 'IKEA',
+      model: 'LED1836G9',
+      area_id: 'garage',
+    }),
+  );
+  entities.push(
+    makeEntity('light.garage_lights', 'mqtt', DEV.mqttLight),
+    makeEntity('sensor.garage_lights_linkquality', 'mqtt', DEV.mqttLight, {
+      entity_category: 'diagnostic',
+    }),
+  );
+  states.push(
+    makeState('light.garage_lights', 'off', now, { lastUpdated: hoursAgo(now, 50) }),
+    makeState('sensor.garage_lights_linkquality', '150', now, {
+      attributes: { unit_of_measurement: 'lqi' },
+      lastUpdated: hoursAgo(now, 50),
+    }),
+  );
+
+  // --- Orphan CONFIG sensor labelled as a battery (an inverter's "minimum
+  //     state of charge" setting). It is a setting, not a battery: skip it.
+  entities.push(
+    makeEntity('sensor.inverter_min_soc', 'foxess', undefined, { entity_category: 'config' }),
+  );
+  states.push(
+    makeState('sensor.inverter_min_soc', '10', now, {
+      attributes: {
+        device_class: 'battery',
+        unit_of_measurement: '%',
+        friendly_name: 'Inverter Min SoC',
+      },
+      lastUpdated: hoursAgo(now, 30),
     }),
   );
 

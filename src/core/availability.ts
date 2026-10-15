@@ -52,10 +52,38 @@ export function parseTimestamp(value: unknown): Date | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
-/** The newest `last_updated` among the given states, or undefined if none parse. */
-export function detectLastHeard(states: HassEntityState[]): Date | undefined {
+/**
+ * Entity domains whose `last_updated` says nothing about whether the device
+ * is alive: they only change when a person changes a setting.
+ */
+const STATIC_DOMAINS = new Set(['number', 'select', 'button', 'update', 'text', 'scene', 'script']);
+
+/** True for entities that cannot tell us the device was heard from. */
+export function isStaticEntity(
+  entityId: string,
+  entry: HassEntityRegistryEntry | undefined,
+): boolean {
+  if (entry?.entity_category === 'config') return true;
+  return STATIC_DOMAINS.has(entityId.split('.', 1)[0] ?? '');
+}
+
+/**
+ * The newest `last_updated` among the given states, or undefined if none parse.
+ *
+ * `registry` is `hass.entities`. When given, static entities (settings,
+ * buttons, update checkers) are ignored so that "I changed a setting an hour
+ * ago" does not count as "the sensor reported an hour ago". If a device has
+ * nothing but static entities, they are used as a last resort.
+ */
+export function detectLastHeard(
+  states: HassEntityState[],
+  registry: Record<string, HassEntityRegistryEntry> = {},
+): Date | undefined {
+  const live = states.filter((s) => !isStaticEntity(s.entity_id, registry[s.entity_id]));
+  const candidates = live.length > 0 ? live : states;
+
   let latest: Date | undefined;
-  for (const s of states) {
+  for (const s of candidates) {
     const d = parseTimestamp(s.last_updated);
     if (d && (!latest || d > latest)) latest = d;
   }

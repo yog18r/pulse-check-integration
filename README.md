@@ -66,6 +66,8 @@ device_overrides: # per-device overrides
     battery_type: CR2032 # free text, used by the upcoming shopping list
 exclude_integrations: [mobile_app] # hide phones
 exclude_devices: [] # device ids (or an entity id for device-less entities)
+exclude_entities: [] # entity ids to ignore, e.g. a settings sensor labelled as a battery
+quiet_scope: battery # "battery" (default) or "all": which devices can be flagged quiet
 show_tabs: [batteries, connectivity]
 default_tab: batteries
 ```
@@ -80,6 +82,8 @@ default_tab: batteries
 | `device_overrides`       | list    | `[]`                        | Each item needs `device_id`.                                       |
 | `exclude_integrations`   | list    | `[]`                        |                                                                    |
 | `exclude_devices`        | list    | `[]`                        |                                                                    |
+| `exclude_entities`       | list    | `[]`                        | Removes single entities from consideration.                        |
+| `quiet_scope`            | string  | `battery`                   | `battery` or `all`. See "Quiet" below.                             |
 | `show_tabs`              | list    | `[batteries, connectivity]` | One or both.                                                       |
 | `default_tab`            | string  | `batteries`                 | Must be in `show_tabs`.                                            |
 
@@ -101,16 +105,22 @@ If a device has several readings, the lowest numeric level wins (the weakest cel
 
 **Offline:** every _primary_ entity of the device is `unavailable`. Primary means no `entity_category`; diagnostic and config entities are ignored because integrations handle those inconsistently.
 
-**Quiet:** the newest `last_updated` across the device's entities is older than the threshold. Threshold resolution: device override → integration override → global default.
+**Quiet:** the newest `last_updated` across the device's _live_ entities is older than the threshold. Static entities are ignored when working this out: anything with `entity_category: config`, and the `number`, `select`, `button`, `update`, `text`, `scene` and `script` domains, because those only change when a person changes a setting. Threshold resolution: device override → integration override → global default.
+
+By default only **battery-powered devices** can be quiet (`quiet_scope: battery`). Those are the ones that die silently. Mains-powered devices announce failure by going `unavailable`, and a light nobody has toggled for two days is simply a light nobody has toggled, so flagging it would bury the real problems. Set `quiet_scope: all` if you want every device judged.
+
+**Settings are not batteries.** Some integrations expose configuration values with `device_class: battery` because the unit is `%` (an inverter's minimum state of charge, say). Entities with `entity_category: config` are never read as batteries. If an integration forgets to categorise such an entity, drop it with `exclude_entities`.
 
 **Severity:** critical for offline, battery at/below critical, or binary low. Warning for battery at/below warning, or quiet. The header counts anything that is not OK.
 
-**Skipped on purpose:** service devices (Sun, Forecast…), disabled devices, excluded integrations/devices, and entities with no device that carry no battery information.
+**Skipped on purpose:** service devices (Sun, Forecast…), disabled devices, excluded integrations/devices/entities, and entities with no device that carry no battery information. An entity with no device can only ever contribute a battery reading; with no hardware behind it there is nothing to be offline or quiet.
 
 ### Known limitations
 
 - **`last_reported` is not available in the frontend.** Home Assistant tracks a `last_reported` timestamp (updated even when a value is re-sent unchanged), but the websocket subscription that feeds the dashboard only carries `last_changed` and `last_updated`. So a sensor that keeps reporting the exact same value looks "quiet" even though the device is alive. Raise `quiet_threshold_hours` for such integrations, or use `device_overrides`. A future version may fetch the true `last_reported` on demand for devices already flagged quiet.
 - **Sleeping devices look quiet.** Battery Z-Wave and Zigbee sensors may only wake every day or two. Use `integration_thresholds` (e.g. `zwave_js: 48`).
+- **Mains devices are only judged by availability.** With the default `quiet_scope: battery`, a mains device shows up only when it is `unavailable`. A Wi-Fi device that silently stops responding but that its integration never marks unavailable will not be caught. `quiet_scope: all` catches it, at the cost of noise from idle lights and media players.
+- **Powered-off media players show as offline.** A TV that is switched off is `unavailable` to Home Assistant, which is indistinguishable from a TV that has lost its network. Exclude them with `exclude_integrations` or `exclude_devices` if that is not useful to you.
 - **Battery-less devices only appear on the Connectivity tab**, and only when something is wrong. A healthy mains-powered device is invisible, by design.
 
 ## Architecture

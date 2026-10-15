@@ -19,6 +19,7 @@ const CONFIGS: Record<Scenario, unknown> = {
     battery_warning: 35,
     battery_critical: 20,
     integration_thresholds: { zwave_js: 48 },
+    quiet_scope: 'all',
     exclude_integrations: ['mobile_app'],
     default_tab: 'connectivity',
   } satisfies CardConfig,

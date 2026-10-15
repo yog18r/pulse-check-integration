@@ -34,10 +34,12 @@ describe('connectivityList', () => {
     const ids = connectivityList(devices).map((d) => d.deviceId);
     expect(ids).toEqual([
       DEV.zwaveLock, // offline
-      DEV.shellyPlug, // quiet 72h
       DEV.zwaveMulti, // quiet 40h
       DEV.zhaTemp, // quiet 30h
     ]);
+    // Mains devices (Shelly plug 72h, MQTT light 50h) are not quiet by default.
+    expect(ids).not.toContain(DEV.shellyPlug);
+    expect(ids).not.toContain(DEV.mqttLight);
   });
 });
 
