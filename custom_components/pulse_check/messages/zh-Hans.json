@@ -1,0 +1,23 @@
+{
+  "issue_offline": "{name}：离线",
+  "issue_quiet": "{name}：已 {hours} 小时未上报",
+  "issue_battery_critical": "{name}：电池电量严重不足（{level}）",
+  "issue_battery_warning": "{name}：电池电量低（{level}）",
+  "level_percent": "{level}%",
+  "level_low": "报告电量低",
+  "resolved_offline": "{name}：离线已恢复",
+  "resolved_quiet": "{name}：已恢复上报",
+  "resolved_battery_critical": "{name}：电池严重不足已解除",
+  "resolved_battery_warning": "{name}：电池警告已解除",
+  "reminder": {
+    "other": "{count} 天后仍未解决。{message}"
+  },
+  "digest_daily": "Pulse Check 每日摘要",
+  "digest_weekly": "Pulse Check 每周摘要",
+  "digest_all_clear": "所有设备正常。",
+  "maintenance_summary": "维护模式已结束。开始以来新出现的问题：",
+  "action_mark_replaced": "标记已更换",
+  "action_mark_charged": "标记已充电",
+  "action_remind_later": "稍后提醒",
+  "action_snooze_day": "静音 1 天"
+}

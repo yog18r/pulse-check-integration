@@ -1,0 +1,288 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pulse Check",
+        "description": "Pulse Check sleduje baterii a připojení každého zařízení podle stavu, který už Home Assistant má. Samotná zařízení nikdy nekontaktuje. Prahy, filtry a oznámení lze potom nastavit přes Konfigurovat."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Pulse Check už je nastaven. Jedna instance sleduje vše."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Možnosti Pulse Check",
+        "sections": {
+          "thresholds": {
+            "name": "Prahy",
+            "description": "Kdy se baterie považuje za slabou a jak dlouho se zařízení smí neozývat.",
+            "data": {
+              "battery_warning": "Úroveň varování baterie",
+              "battery_critical": "Kritická úroveň baterie",
+              "quiet_threshold_hours": "Neozývá se po",
+              "quiet_scope": "Která zařízení se mohou přestat ozývat",
+              "integration_thresholds": "Práh neozývání podle integrace"
+            },
+            "data_description": {
+              "battery_warning": "Baterie na tomto procentu nebo pod ním je varování.",
+              "battery_critical": "Baterie na tomto procentu nebo pod ním je kritická.",
+              "quiet_threshold_hours": "Hodiny bez jakéhokoli hlášení, než se zařízení považuje za neozývající se.",
+              "quiet_scope": "Bateriová zařízení se hlásí sama; zařízení napájená ze sítě se místo toho obvykle stanou nedostupnými.",
+              "integration_thresholds": "Integrace, jejichž zařízení se hlásí méně často, například spící zařízení Z-Wave nebo rolety, mohou mít delší práh."
+            }
+          },
+          "filters": {
+            "name": "Filtry",
+            "description": "Nechte vše prázdné, chcete-li sledovat každé zařízení.",
+            "data": {
+              "include_areas": "Pouze tyto oblasti",
+              "exclude_areas": "Ignorovat tyto oblasti",
+              "include_integrations": "Pouze tyto integrace",
+              "exclude_integrations": "Ignorovat tyto integrace",
+              "exclude_devices": "Ignorovat tato zařízení",
+              "exclude_entities": "Ignorovat tyto entity"
+            },
+            "data_description": {
+              "include_areas": "Zařízení bez oblasti jsou pak vynechána.",
+              "exclude_entities": "Například senzor nastavení, který integrace označuje jako baterii."
+            }
+          },
+          "notifications": {
+            "name": "Oznámení",
+            "description": "Zpráva, když zařízení přejde do nějakého stavu (je offline, přestane se ozývat, klesne na varování nebo kritickou úroveň), nikdy při každé aktualizaci. Nechte cíle prázdné, nechcete-li žádná oznámení; událost pulse_check_transition se vyvolá v každém případě.",
+            "data": {
+              "notify_targets": "Odeslat na",
+              "notify_critical": "Kritické problémy",
+              "notify_warning": "Varování",
+              "reminder_days": "Připomenout po",
+              "reminder_max": "Nejvýše připomenutí",
+              "digest_time": "Čas přehledu",
+              "digest_weekday": "Den týdenního přehledu",
+              "weekly_all_clear": "Týdenní „vše v pořádku“, když není co hlásit",
+              "startup_grace_minutes": "Klidová doba po spuštění",
+              "confirm_minutes": "Potvrdit offline nebo neozývání po",
+              "maintenance_hours": "Délka režimu údržby"
+            },
+            "data_description": {
+              "notify_targets": "Služby oznámení (notify.mobile_app_…) nebo entity oznámení.",
+              "notify_critical": "Výchozí doručení pro offline zařízení a kritické baterie. Nastavení zařízení má přednost.",
+              "notify_warning": "Výchozí doručení pro neozývající se zařízení a slabé baterie.",
+              "reminder_days": "Dny, po které smí okamžité oznámení zůstat nevyřešené, než se odešle znovu.",
+              "reminder_max": "0 vypne připomenutí.",
+              "startup_grace_minutes": "Minuty po spuštění Home Assistant, než se cokoli vyhodnotí; integrace se načítají postupně a většina zařízení mezitím vypadá nedostupně. Co je na konci špatně, se zaznamená, ale neohlásí.",
+              "confirm_minutes": "Minuty, po které musí stav offline nebo neozývání trvat, než se započítá. Zmeškané dotazování, které se v této době napraví, nic neodešle. Úrovně baterie se počítají hned.",
+              "maintenance_hours": "Jak dlouho pulse_check.maintenance_mode zadržuje oznámení, když je volán bez hodin."
+            }
+          },
+          "entities": {
+            "name": "Entity",
+            "description": "Volitelné další entity.",
+            "data": {
+              "per_device_sensors": "Senzory baterie pro každé zařízení"
+            },
+            "data_description": {
+              "per_device_sensors": "Přidá ke každému bateriovému zařízení diagnostické senzory „Zbývající dny baterie“ a „Poslední výměna baterie“."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "critical_above_warning": "Kritická úroveň nesmí být vyšší než úroveň varování."
+    }
+  },
+  "selector": {
+    "quiet_scope": {
+      "options": {
+        "battery": "Pouze bateriová zařízení",
+        "all": "Všechna zařízení"
+      }
+    },
+    "integration_thresholds": {
+      "fields": {
+        "integration": "Integrace",
+        "hours": "Hodiny"
+      }
+    },
+    "notify_policy": {
+      "options": {
+        "instant": "Okamžitě, s připomenutím",
+        "daily": "V denním přehledu",
+        "weekly": "V týdenním přehledu",
+        "none": "Nikdy"
+      }
+    },
+    "digest_weekday": {
+      "options": {
+        "monday": "Pondělí",
+        "tuesday": "Úterý",
+        "wednesday": "Středa",
+        "thursday": "Čtvrtek",
+        "friday": "Pátek",
+        "saturday": "Sobota",
+        "sunday": "Neděle"
+      }
+    }
+  },
+  "services": {
+    "snooze": {
+      "name": "Ztlumit",
+      "description": "Na čas ztlumí zařízení. Jeho údaje se dál hlásí, ale počítá se jako v pořádku a neposílá žádná oznámení.",
+      "fields": {
+        "device_id": {
+          "name": "Zařízení",
+          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+        },
+        "days": {
+          "name": "Dny",
+          "description": "Na jak dlouho ztlumit. Výchozí 7."
+        },
+        "until": {
+          "name": "Do",
+          "description": "Přesný čas konce místo počtu dní."
+        }
+      }
+    },
+    "unsnooze": {
+      "name": "Zrušit ztlumení",
+      "description": "Předčasně zruší ztlumení.",
+      "fields": {
+        "device_id": {
+          "name": "Zařízení",
+          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+        }
+      }
+    },
+    "set_device_settings": {
+      "name": "Nastavit zařízení",
+      "description": "Změní, co Pulse Check ví o jednom zařízení. Mění se jen zadaná pole; prázdná hodnota nastavení vymaže.",
+      "fields": {
+        "device_id": {
+          "name": "Zařízení",
+          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+        },
+        "name": {
+          "name": "Zobrazovaný název",
+          "description": "Zobrazí se místo názvu z registru. Zařízení nepřejmenuje."
+        },
+        "area": {
+          "name": "Oblast",
+          "description": "Zobrazí se místo oblasti z registru a použijí ji filtry oblastí."
+        },
+        "quiet_threshold_hours": {
+          "name": "Neozývá se po",
+          "description": "Hodiny bez hlášení, než se toto zařízení považuje za neozývající se."
+        },
+        "battery_type": {
+          "name": "Typ baterie",
+          "description": "Například CR2032 nebo AA."
+        },
+        "battery_count": {
+          "name": "Počet baterií",
+          "description": "Kolik článků zařízení používá."
+        },
+        "rechargeable": {
+          "name": "Nabíjecí",
+          "description": "Nabíjí se místo výměny."
+        },
+        "notify_policy": {
+          "name": "Pravidlo oznámení",
+          "description": "Jak doručovat oznámení tohoto zařízení; přepíše výchozí hodnoty podle závažnosti."
+        },
+        "sparkline_days": {
+          "name": "Dny trendu",
+          "description": "Kolik dní historie ukazuje minigraf karty pro toto zařízení (1 až 365)."
+        }
+      }
+    },
+    "mark_replaced": {
+      "name": "Označit baterii jako vyměněnou",
+      "description": "Zaznamená, že baterie byla právě vyměněna, a uzavře aktuální cyklus.",
+      "fields": {
+        "device_id": {
+          "name": "Zařízení",
+          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+        },
+        "battery_type": {
+          "name": "Typ baterie",
+          "description": "Co bylo vloženo, pro záznam."
+        }
+      }
+    },
+    "mark_charged": {
+      "name": "Označit baterii jako nabitou",
+      "description": "Zaznamená, že baterie byla právě nabita, a uzavře aktuální cyklus.",
+      "fields": {
+        "device_id": {
+          "name": "Zařízení",
+          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+        }
+      }
+    },
+    "refresh": {
+      "name": "Obnovit",
+      "description": "Přepočítá teď a znovu načte historii baterie z recorderu."
+    },
+    "maintenance_mode": {
+      "name": "Režim údržby",
+      "description": "Na čas zadrží všechna oznámení, pro práce, které by jinak spustily lavinu upozornění, například přechod na nový koordinátor Zigbee. Problémy se dál sledují a událost se dál vyvolává. Po skončení jedna zpráva vypíše problémy, které mezitím vznikly a stále trvají.",
+      "fields": {
+        "hours": {
+          "name": "Hodiny",
+          "description": "Jak dlouho, od teď. 0 ukončí režim údržby hned. Vynechte pro výchozí hodnotu z možností."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Pulse Check není nastaven."
+    },
+    "unknown_device": {
+      "message": "Pulse Check nezná zařízení „{device_id}“."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "problem": {
+        "name": "Problém"
+      },
+      "maintenance_mode": {
+        "name": "Režim údržby",
+        "state_attributes": {
+          "until": {
+            "name": "Do"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "attention": {
+        "name": "Vyžaduje pozornost"
+      },
+      "low_batteries": {
+        "name": "Slabé baterie"
+      },
+      "critical_batteries": {
+        "name": "Kritické baterie"
+      },
+      "offline": {
+        "name": "Offline"
+      },
+      "quiet": {
+        "name": "Neozývá se"
+      },
+      "next_to_run_out": {
+        "name": "Vybije se jako další"
+      },
+      "device_days_left": {
+        "name": "Zbývající dny baterie"
+      },
+      "device_last_replaced": {
+        "name": "Poslední výměna baterie"
+      }
+    }
+  }
+}

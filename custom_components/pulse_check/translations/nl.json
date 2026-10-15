@@ -1,0 +1,288 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pulse Check",
+        "description": "Pulse Check bewaakt de batterij en verbinding van elk apparaat aan de hand van de status die Home Assistant al heeft. Het neemt nooit zelf contact op met de apparaten. Drempels, filters en meldingen stel je daarna in via Configureren."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Pulse Check is al ingesteld. Eén instantie bewaakt alles."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Pulse Check-opties",
+        "sections": {
+          "thresholds": {
+            "name": "Drempels",
+            "description": "Wanneer een batterij als laag telt en hoe lang een apparaat stil mag blijven.",
+            "data": {
+              "battery_warning": "Waarschuwingsniveau batterij",
+              "battery_critical": "Kritiek niveau batterij",
+              "quiet_threshold_hours": "Stil na",
+              "quiet_scope": "Welke apparaten stil kunnen worden",
+              "integration_thresholds": "Stildrempel per integratie"
+            },
+            "data_description": {
+              "battery_warning": "Een batterij op of onder dit percentage is een waarschuwing.",
+              "battery_critical": "Een batterij op of onder dit percentage is kritiek.",
+              "quiet_threshold_hours": "Uren zonder melding voordat een apparaat stil is.",
+              "quiet_scope": "Batterijapparaten melden zich zelf; apparaten op netstroom worden meestal onbeschikbaar.",
+              "integration_thresholds": "Integraties waarvan de apparaten minder vaak melden, zoals slapende Z-Wave-apparaten of zonwering, kunnen een langere drempel krijgen."
+            }
+          },
+          "filters": {
+            "name": "Filters",
+            "description": "Laat alles leeg om elk apparaat te bewaken.",
+            "data": {
+              "include_areas": "Alleen deze ruimtes",
+              "exclude_areas": "Deze ruimtes negeren",
+              "include_integrations": "Alleen deze integraties",
+              "exclude_integrations": "Deze integraties negeren",
+              "exclude_devices": "Deze apparaten negeren",
+              "exclude_entities": "Deze entiteiten negeren"
+            },
+            "data_description": {
+              "include_areas": "Apparaten zonder ruimte vallen dan weg.",
+              "exclude_entities": "Bijvoorbeeld een instellingssensor die een integratie als batterij aanmerkt."
+            }
+          },
+          "notifications": {
+            "name": "Meldingen",
+            "description": "Een bericht wanneer een apparaat een toestand bereikt (offline, stil, waarschuwing of kritiek), nooit bij elke update. Laat de ontvangers leeg voor geen meldingen; het event pulse_check_transition wordt hoe dan ook afgevuurd.",
+            "data": {
+              "notify_targets": "Versturen naar",
+              "notify_critical": "Kritieke problemen",
+              "notify_warning": "Waarschuwingen",
+              "reminder_days": "Herinneren na",
+              "reminder_max": "Maximaal aantal herinneringen",
+              "digest_time": "Tijd van het overzicht",
+              "digest_weekday": "Dag van het weekoverzicht",
+              "weekly_all_clear": "Wekelijks \"alles in orde\" als er niets te melden is",
+              "startup_grace_minutes": "Rustperiode na het opstarten",
+              "confirm_minutes": "Offline of stil bevestigen na",
+              "maintenance_hours": "Duur van de onderhoudsmodus"
+            },
+            "data_description": {
+              "notify_targets": "Meldingsdiensten (notify.mobile_app_…) of meldingsentiteiten.",
+              "notify_critical": "Standaardbezorging voor offline apparaten en kritieke batterijen. De instelling van een apparaat gaat voor.",
+              "notify_warning": "Standaardbezorging voor stille apparaten en bijna lege batterijen.",
+              "reminder_days": "Dagen dat een directe melding onopgelost mag blijven voordat ze opnieuw wordt verstuurd.",
+              "reminder_max": "0 schakelt herinneringen uit.",
+              "startup_grace_minutes": "Minuten na het opstarten van Home Assistant voordat er iets wordt beoordeeld; integraties laden een voor een en de meeste apparaten lijken intussen onbeschikbaar. Wat daarna mis is, wordt vastgelegd maar niet gemeld.",
+              "confirm_minutes": "Minuten dat een offline- of stilstatus moet aanhouden voordat die telt. Een gemiste poll die binnen deze tijd herstelt, verstuurt niets. Batterijniveaus tellen meteen.",
+              "maintenance_hours": "Hoe lang pulse_check.maintenance_mode meldingen tegenhoudt als het zonder uren wordt aangeroepen."
+            }
+          },
+          "entities": {
+            "name": "Entiteiten",
+            "description": "Optionele extra entiteiten.",
+            "data": {
+              "per_device_sensors": "Batterijsensoren per apparaat"
+            },
+            "data_description": {
+              "per_device_sensors": "Voegt aan elk batterijapparaat de diagnostische sensoren \"Batterij dagen resterend\" en \"Batterij laatst vervangen\" toe."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "critical_above_warning": "Het kritieke niveau mag niet hoger zijn dan het waarschuwingsniveau."
+    }
+  },
+  "selector": {
+    "quiet_scope": {
+      "options": {
+        "battery": "Alleen batterijapparaten",
+        "all": "Alle apparaten"
+      }
+    },
+    "integration_thresholds": {
+      "fields": {
+        "integration": "Integratie",
+        "hours": "Uren"
+      }
+    },
+    "notify_policy": {
+      "options": {
+        "instant": "Direct, met herinneringen",
+        "daily": "In het dagelijkse overzicht",
+        "weekly": "In het wekelijkse overzicht",
+        "none": "Nooit"
+      }
+    },
+    "digest_weekday": {
+      "options": {
+        "monday": "Maandag",
+        "tuesday": "Dinsdag",
+        "wednesday": "Woensdag",
+        "thursday": "Donderdag",
+        "friday": "Vrijdag",
+        "saturday": "Zaterdag",
+        "sunday": "Zondag"
+      }
+    }
+  },
+  "services": {
+    "snooze": {
+      "name": "Pauzeren",
+      "description": "Een apparaat een tijdje pauzeren. De gegevens worden nog steeds gerapporteerd, maar het telt als OK en verstuurt geen meldingen.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+        },
+        "days": {
+          "name": "Dagen",
+          "description": "Hoe lang er gepauzeerd wordt. Standaard 7."
+        },
+        "until": {
+          "name": "Tot",
+          "description": "Een exacte eindtijd in plaats van een aantal dagen."
+        }
+      }
+    },
+    "unsnooze": {
+      "name": "Pauze beëindigen",
+      "description": "Een pauze vroegtijdig beëindigen.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+        }
+      }
+    },
+    "set_device_settings": {
+      "name": "Apparaatinstellingen instellen",
+      "description": "Wijzig wat Pulse Check over één apparaat weet. Alleen de opgegeven velden worden gewijzigd; een lege waarde wist die instelling.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+        },
+        "name": {
+          "name": "Weergavenaam",
+          "description": "Getoond in plaats van de naam uit het register. Hernoemt het apparaat niet."
+        },
+        "area": {
+          "name": "Ruimte",
+          "description": "Getoond in plaats van de ruimte uit het register en gebruikt door de ruimtefilters."
+        },
+        "quiet_threshold_hours": {
+          "name": "Stil na",
+          "description": "Uren zonder melding voordat dit apparaat stil is."
+        },
+        "battery_type": {
+          "name": "Batterijtype",
+          "description": "Bijvoorbeeld CR2032 of AA."
+        },
+        "battery_count": {
+          "name": "Aantal batterijen",
+          "description": "Hoeveel cellen het apparaat gebruikt."
+        },
+        "rechargeable": {
+          "name": "Oplaadbaar",
+          "description": "Opladen in plaats van vervangen."
+        },
+        "notify_policy": {
+          "name": "Meldingsbeleid",
+          "description": "Hoe de meldingen van dit apparaat worden bezorgd, in plaats van de standaard per ernst."
+        },
+        "sparkline_days": {
+          "name": "Trenddagen",
+          "description": "Hoeveel dagen geschiedenis de sparkline van de kaart voor dit apparaat toont (1 tot 365)."
+        }
+      }
+    },
+    "mark_replaced": {
+      "name": "Batterij als vervangen markeren",
+      "description": "Vastleggen dat de batterij nu is vervangen, wat de huidige cyclus afsluit.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+        },
+        "battery_type": {
+          "name": "Batterijtype",
+          "description": "Wat erin is gegaan, voor de administratie."
+        }
+      }
+    },
+    "mark_charged": {
+      "name": "Batterij als opgeladen markeren",
+      "description": "Vastleggen dat de batterij nu is opgeladen, wat de huidige cyclus afsluit.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+        }
+      }
+    },
+    "refresh": {
+      "name": "Vernieuwen",
+      "description": "Nu opnieuw berekenen en de batterijgeschiedenis opnieuw uit de recorder lezen."
+    },
+    "maintenance_mode": {
+      "name": "Onderhoudsmodus",
+      "description": "Houd alle meldingen een tijdje tegen, voor werk dat anders een stroom aan waarschuwingen zou veroorzaken, zoals overstappen op een nieuwe Zigbee-coördinator. Problemen worden nog steeds bijgehouden en het event wordt nog steeds afgevuurd. Aan het einde somt één bericht de problemen op die intussen zijn ontstaan en er nog zijn.",
+      "fields": {
+        "hours": {
+          "name": "Uren",
+          "description": "Hoe lang, vanaf nu. 0 beëindigt de onderhoudsmodus nu. Weglaten voor de standaard uit de opties."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Pulse Check is niet ingesteld."
+    },
+    "unknown_device": {
+      "message": "Pulse Check kent geen apparaat \"{device_id}\"."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "problem": {
+        "name": "Probleem"
+      },
+      "maintenance_mode": {
+        "name": "Onderhoudsmodus",
+        "state_attributes": {
+          "until": {
+            "name": "Tot"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "attention": {
+        "name": "Aandacht"
+      },
+      "low_batteries": {
+        "name": "Bijna lege batterijen"
+      },
+      "critical_batteries": {
+        "name": "Kritieke batterijen"
+      },
+      "offline": {
+        "name": "Offline"
+      },
+      "quiet": {
+        "name": "Stil"
+      },
+      "next_to_run_out": {
+        "name": "Als eerste leeg"
+      },
+      "device_days_left": {
+        "name": "Batterij dagen resterend"
+      },
+      "device_last_replaced": {
+        "name": "Batterij laatst vervangen"
+      }
+    }
+  }
+}

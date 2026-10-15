@@ -1,0 +1,288 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pulse Check",
+        "description": "Pulse Check 利用 Home Assistant 已有的状态，监控每个设备的电池和连接情况，从不直接联系设备本身。阈值、筛选和通知可以稍后在“配置”中设置。"
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Pulse Check 已设置。一个实例即可监控所有设备。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Pulse Check 选项",
+        "sections": {
+          "thresholds": {
+            "name": "阈值",
+            "description": "电池何时算作电量低，以及设备可以多久不上报。",
+            "data": {
+              "battery_warning": "电池警告电量",
+              "battery_critical": "电池严重电量",
+              "quiet_threshold_hours": "久未上报的时长",
+              "quiet_scope": "哪些设备可算作久未上报",
+              "integration_thresholds": "各集成的久未上报阈值"
+            },
+            "data_description": {
+              "battery_warning": "电池电量等于或低于此百分比时发出警告。",
+              "battery_critical": "电池电量等于或低于此百分比时为严重。",
+              "quiet_threshold_hours": "设备多少小时没有任何上报后算作久未上报。",
+              "quiet_scope": "电池设备会主动上报；市电设备通常会直接变为不可用。",
+              "integration_thresholds": "设备上报频率较低的集成（例如休眠的 Z-Wave 设备或窗帘）可以设置更长的阈值。"
+            }
+          },
+          "filters": {
+            "name": "筛选",
+            "description": "全部留空即可监控所有设备。",
+            "data": {
+              "include_areas": "仅这些区域",
+              "exclude_areas": "忽略这些区域",
+              "include_integrations": "仅这些集成",
+              "exclude_integrations": "忽略这些集成",
+              "exclude_devices": "忽略这些设备",
+              "exclude_entities": "忽略这些实体"
+            },
+            "data_description": {
+              "include_areas": "设置此项后，没有区域的设备将被排除。",
+              "exclude_entities": "例如某个集成标记为电池的设置类传感器。"
+            }
+          },
+          "notifications": {
+            "name": "通知",
+            "description": "设备进入某个状态（离线、久未上报、降至警告或严重）时发送一条消息，而不是每次更新都发送。目标留空则不发送通知；pulse_check_transition 事件无论如何都会触发。",
+            "data": {
+              "notify_targets": "发送到",
+              "notify_critical": "严重问题",
+              "notify_warning": "警告",
+              "reminder_days": "提醒间隔",
+              "reminder_max": "最多提醒次数",
+              "digest_time": "摘要时间",
+              "digest_weekday": "每周摘要日",
+              "weekly_all_clear": "无事可报时每周发送“一切正常”",
+              "startup_grace_minutes": "启动后的静候期",
+              "confirm_minutes": "确认离线或久未上报的等待时间",
+              "maintenance_hours": "维护模式时长"
+            },
+            "data_description": {
+              "notify_targets": "通知服务（notify.mobile_app_…）或通知实体。",
+              "notify_critical": "离线设备和严重电量电池的默认发送方式。设备自身的设置优先。",
+              "notify_warning": "久未上报设备和低电量电池的默认发送方式。",
+              "reminder_days": "即时通知在未解决状态下保留多少天后再次发送。",
+              "reminder_max": "0 表示关闭提醒。",
+              "startup_grace_minutes": "Home Assistant 启动后等待多少分钟才开始判断；集成会逐个加载，期间大多数设备看起来不可用。此期间结束时存在的问题只会被记录，不会通知。",
+              "confirm_minutes": "离线或久未上报状态必须持续多少分钟才算数。在此时间内恢复的漏报不会发送任何通知。电池电量立即生效。",
+              "maintenance_hours": "调用 pulse_check.maintenance_mode 且未指定小时数时，静默通知的时长。"
+            }
+          },
+          "entities": {
+            "name": "实体",
+            "description": "可选的额外实体。",
+            "data": {
+              "per_device_sensors": "每设备电池传感器"
+            },
+            "data_description": {
+              "per_device_sensors": "为每个电池设备添加诊断传感器“电池剩余天数”和“电池上次更换”。"
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "critical_above_warning": "严重电量不能高于警告电量。"
+    }
+  },
+  "selector": {
+    "quiet_scope": {
+      "options": {
+        "battery": "仅电池设备",
+        "all": "所有设备"
+      }
+    },
+    "integration_thresholds": {
+      "fields": {
+        "integration": "集成",
+        "hours": "小时"
+      }
+    },
+    "notify_policy": {
+      "options": {
+        "instant": "立即发送，并提醒",
+        "daily": "放入每日摘要",
+        "weekly": "放入每周摘要",
+        "none": "从不"
+      }
+    },
+    "digest_weekday": {
+      "options": {
+        "monday": "星期一",
+        "tuesday": "星期二",
+        "wednesday": "星期三",
+        "thursday": "星期四",
+        "friday": "星期五",
+        "saturday": "星期六",
+        "sunday": "星期日"
+      }
+    }
+  },
+  "services": {
+    "snooze": {
+      "name": "暂时静音",
+      "description": "将设备静音一段时间。其数据仍会上报，但会被视为正常且不发送通知。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+        },
+        "days": {
+          "name": "天数",
+          "description": "静音多久。默认 7 天。"
+        },
+        "until": {
+          "name": "直到",
+          "description": "指定确切的结束时间，而不是天数。"
+        }
+      }
+    },
+    "unsnooze": {
+      "name": "取消静音",
+      "description": "提前结束静音。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+        }
+      }
+    },
+    "set_device_settings": {
+      "name": "设置设备选项",
+      "description": "更改 Pulse Check 对某个设备所掌握的信息。只更改提供的字段；空值会清除该设置。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+        },
+        "name": {
+          "name": "显示名称",
+          "description": "代替注册表中的名称显示。不会重命名设备。"
+        },
+        "area": {
+          "name": "区域",
+          "description": "代替注册表中的区域显示，并用于区域筛选。"
+        },
+        "quiet_threshold_hours": {
+          "name": "久未上报的时长",
+          "description": "此设备多少小时没有上报后算作久未上报。"
+        },
+        "battery_type": {
+          "name": "电池类型",
+          "description": "例如 CR2032 或 AA。"
+        },
+        "battery_count": {
+          "name": "电池数量",
+          "description": "设备需要几节电池。"
+        },
+        "rechargeable": {
+          "name": "可充电",
+          "description": "充电而不是更换。"
+        },
+        "notify_policy": {
+          "name": "通知策略",
+          "description": "此设备通知的发送方式，覆盖按严重程度设定的默认值。"
+        },
+        "sparkline_days": {
+          "name": "趋势天数",
+          "description": "卡片的趋势线为此设备显示多少天的历史（1 到 365）。"
+        }
+      }
+    },
+    "mark_replaced": {
+      "name": "标记电池已更换",
+      "description": "记录电池刚刚已更换，并结束当前周期。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+        },
+        "battery_type": {
+          "name": "电池类型",
+          "description": "装入的电池类型，用于记录。"
+        }
+      }
+    },
+    "mark_charged": {
+      "name": "标记电池已充电",
+      "description": "记录电池刚刚已充电，并结束当前周期。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+        }
+      }
+    },
+    "refresh": {
+      "name": "刷新",
+      "description": "立即重新计算，并从记录器重新读取电池历史。"
+    },
+    "maintenance_mode": {
+      "name": "维护模式",
+      "description": "暂时搁置所有通知，适用于否则会引发大量警报的操作，例如迁移到新的 Zigbee 协调器。问题仍会被跟踪，事件仍会触发。结束时，会用一条消息列出期间出现且仍然存在的问题。",
+      "fields": {
+        "hours": {
+          "name": "小时",
+          "description": "从现在起持续多久。0 表示立即结束维护模式。留空则使用选项中的默认值。"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Pulse Check 尚未设置。"
+    },
+    "unknown_device": {
+      "message": "Pulse Check 不认识设备“{device_id}”。"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "problem": {
+        "name": "问题"
+      },
+      "maintenance_mode": {
+        "name": "维护模式",
+        "state_attributes": {
+          "until": {
+            "name": "直到"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "attention": {
+        "name": "需要关注"
+      },
+      "low_batteries": {
+        "name": "低电量电池"
+      },
+      "critical_batteries": {
+        "name": "严重电量电池"
+      },
+      "offline": {
+        "name": "离线"
+      },
+      "quiet": {
+        "name": "久未上报"
+      },
+      "next_to_run_out": {
+        "name": "最先耗尽"
+      },
+      "device_days_left": {
+        "name": "电池剩余天数"
+      },
+      "device_last_replaced": {
+        "name": "电池上次更换"
+      }
+    }
+  }
+}

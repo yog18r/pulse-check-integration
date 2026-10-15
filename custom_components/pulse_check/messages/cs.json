@@ -1,0 +1,25 @@
+{
+  "issue_offline": "{name}: offline",
+  "issue_quiet": "{name}: neozývá se {hours} h",
+  "issue_battery_critical": "{name}: kritická baterie ({level})",
+  "issue_battery_warning": "{name}: slabá baterie ({level})",
+  "level_percent": "{level} %",
+  "level_low": "hlásí slabou",
+  "resolved_offline": "{name}: opět online",
+  "resolved_quiet": "{name}: opět se ozývá",
+  "resolved_battery_critical": "{name}: baterie už není kritická",
+  "resolved_battery_warning": "{name}: varování baterie vyřešeno",
+  "reminder": {
+    "one": "Stále nevyřešeno po {count} dni. {message}",
+    "few": "Stále nevyřešeno po {count} dnech. {message}",
+    "other": "Stále nevyřešeno po {count} dnech. {message}"
+  },
+  "digest_daily": "Pulse Check – denní přehled",
+  "digest_weekly": "Pulse Check – týdenní přehled",
+  "digest_all_clear": "Všechna zařízení v pořádku.",
+  "maintenance_summary": "Režim údržby skončil. Nové od jeho začátku:",
+  "action_mark_replaced": "Označit jako vyměněnou",
+  "action_mark_charged": "Označit jako nabitou",
+  "action_remind_later": "Připomenout později",
+  "action_snooze_day": "Ztlumit na 1 den"
+}

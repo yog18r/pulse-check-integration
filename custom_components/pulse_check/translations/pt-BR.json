@@ -1,0 +1,288 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pulse Check",
+        "description": "O Pulse Check acompanha a bateria e a conectividade de todos os dispositivos usando o estado que o Home Assistant já tem. Ele nunca contata os próprios dispositivos. Limites, filtros e notificações podem ser definidos depois em Configurar."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "O Pulse Check já está configurado. Uma instância acompanha tudo."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opções do Pulse Check",
+        "sections": {
+          "thresholds": {
+            "name": "Limites",
+            "description": "Quando uma bateria conta como baixa e por quanto tempo um dispositivo pode ficar sem dar notícias.",
+            "data": {
+              "battery_warning": "Nível de aviso da bateria",
+              "battery_critical": "Nível crítico da bateria",
+              "quiet_threshold_hours": "Inativo após",
+              "quiet_scope": "Quais dispositivos podem ficar inativos",
+              "integration_thresholds": "Limite de inatividade por integração"
+            },
+            "data_description": {
+              "battery_warning": "Uma bateria neste percentual ou abaixo gera um aviso.",
+              "battery_critical": "Uma bateria neste percentual ou abaixo é crítica.",
+              "quiet_threshold_hours": "Horas sem nenhum relatório até um dispositivo ser considerado inativo.",
+              "quiet_scope": "Dispositivos a bateria se reportam sozinhos; dispositivos na tomada normalmente ficam indisponíveis.",
+              "integration_thresholds": "Integrações cujos dispositivos reportam com menos frequência, como dispositivos Z-Wave que dormem ou persianas, podem ter um limite maior."
+            }
+          },
+          "filters": {
+            "name": "Filtros",
+            "description": "Deixe tudo vazio para acompanhar todos os dispositivos.",
+            "data": {
+              "include_areas": "Somente estas áreas",
+              "exclude_areas": "Ignorar estas áreas",
+              "include_integrations": "Somente estas integrações",
+              "exclude_integrations": "Ignorar estas integrações",
+              "exclude_devices": "Ignorar estes dispositivos",
+              "exclude_entities": "Ignorar estas entidades"
+            },
+            "data_description": {
+              "include_areas": "Quando isto está definido, dispositivos sem área ficam de fora.",
+              "exclude_entities": "Por exemplo, um sensor de configuração que uma integração marca como bateria."
+            }
+          },
+          "notifications": {
+            "name": "Notificações",
+            "description": "Uma mensagem quando um dispositivo entra em um estado (fica offline, fica inativo, cai para aviso ou crítico), nunca a cada atualização. Deixe os destinos vazios para não receber notificações; o evento pulse_check_transition é disparado de qualquer forma.",
+            "data": {
+              "notify_targets": "Enviar para",
+              "notify_critical": "Problemas críticos",
+              "notify_warning": "Avisos",
+              "reminder_days": "Lembrar após",
+              "reminder_max": "Máximo de lembretes",
+              "digest_time": "Horário do resumo",
+              "digest_weekday": "Dia do resumo semanal",
+              "weekly_all_clear": "\"Tudo certo\" semanal quando não houver nada a relatar",
+              "startup_grace_minutes": "Período de espera após iniciar",
+              "confirm_minutes": "Confirmar offline ou inativo após",
+              "maintenance_hours": "Duração do modo de manutenção"
+            },
+            "data_description": {
+              "notify_targets": "Serviços de notificação (notify.mobile_app_…) ou entidades de notificação.",
+              "notify_critical": "Entrega padrão para dispositivos offline e baterias críticas. A configuração do próprio dispositivo tem prioridade.",
+              "notify_warning": "Entrega padrão para dispositivos inativos e baterias baixas.",
+              "reminder_days": "Dias que uma notificação imediata pode ficar sem solução antes de ser enviada de novo.",
+              "reminder_max": "0 desativa os lembretes.",
+              "startup_grace_minutes": "Minutos após o Home Assistant iniciar antes de qualquer avaliação; as integrações carregam uma a uma e a maioria dos dispositivos parece indisponível enquanto isso. O que estiver errado ao final é registrado, não anunciado.",
+              "confirm_minutes": "Minutos que um estado offline ou inativo precisa durar para contar. Uma leitura perdida que se resolve nesse tempo não envia nada. Níveis de bateria contam na hora.",
+              "maintenance_hours": "Por quanto tempo pulse_check.maintenance_mode silencia as notificações quando chamado sem horas."
+            }
+          },
+          "entities": {
+            "name": "Entidades",
+            "description": "Entidades extras opcionais.",
+            "data": {
+              "per_device_sensors": "Sensores de bateria por dispositivo"
+            },
+            "data_description": {
+              "per_device_sensors": "Adiciona os sensores de diagnóstico \"Dias restantes da bateria\" e \"Última troca da bateria\" a cada dispositivo a bateria."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "critical_above_warning": "O nível crítico não pode ser maior que o nível de aviso."
+    }
+  },
+  "selector": {
+    "quiet_scope": {
+      "options": {
+        "battery": "Somente dispositivos a bateria",
+        "all": "Todos os dispositivos"
+      }
+    },
+    "integration_thresholds": {
+      "fields": {
+        "integration": "Integração",
+        "hours": "Horas"
+      }
+    },
+    "notify_policy": {
+      "options": {
+        "instant": "Imediatamente, com lembretes",
+        "daily": "No resumo diário",
+        "weekly": "No resumo semanal",
+        "none": "Nunca"
+      }
+    },
+    "digest_weekday": {
+      "options": {
+        "monday": "Segunda-feira",
+        "tuesday": "Terça-feira",
+        "wednesday": "Quarta-feira",
+        "thursday": "Quinta-feira",
+        "friday": "Sexta-feira",
+        "saturday": "Sábado",
+        "sunday": "Domingo"
+      }
+    }
+  },
+  "services": {
+    "snooze": {
+      "name": "Silenciar",
+      "description": "Silencia um dispositivo por um tempo. Os dados dele continuam sendo relatados, mas ele conta como OK e não envia notificações.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+        },
+        "days": {
+          "name": "Dias",
+          "description": "Por quanto tempo silenciar. Padrão: 7."
+        },
+        "until": {
+          "name": "Até",
+          "description": "Um horário exato de término em vez de um número de dias."
+        }
+      }
+    },
+    "unsnooze": {
+      "name": "Cancelar silenciamento",
+      "description": "Encerra um silenciamento antes do tempo.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+        }
+      }
+    },
+    "set_device_settings": {
+      "name": "Definir configurações do dispositivo",
+      "description": "Altera o que o Pulse Check sabe sobre um dispositivo. Somente os campos informados são alterados; um valor vazio limpa a configuração.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+        },
+        "name": {
+          "name": "Nome de exibição",
+          "description": "Mostrado no lugar do nome do registro. Não renomeia o dispositivo."
+        },
+        "area": {
+          "name": "Área",
+          "description": "Mostrada no lugar da área do registro e usada pelos filtros de área."
+        },
+        "quiet_threshold_hours": {
+          "name": "Inativo após",
+          "description": "Horas sem relatório até este dispositivo ser considerado inativo."
+        },
+        "battery_type": {
+          "name": "Tipo de bateria",
+          "description": "Por exemplo CR2032 ou AA."
+        },
+        "battery_count": {
+          "name": "Quantidade de baterias",
+          "description": "Quantas pilhas o dispositivo usa."
+        },
+        "rechargeable": {
+          "name": "Recarregável",
+          "description": "Carregar em vez de trocar."
+        },
+        "notify_policy": {
+          "name": "Política de notificação",
+          "description": "Como entregar as notificações deste dispositivo, substituindo os padrões por gravidade."
+        },
+        "sparkline_days": {
+          "name": "Dias de tendência",
+          "description": "Quantos dias de histórico o minigráfico do cartão mostra para este dispositivo (1 a 365)."
+        }
+      }
+    },
+    "mark_replaced": {
+      "name": "Marcar bateria trocada",
+      "description": "Registra que a bateria foi trocada agora, encerrando o ciclo atual.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+        },
+        "battery_type": {
+          "name": "Tipo de bateria",
+          "description": "O que foi colocado, para registro."
+        }
+      }
+    },
+    "mark_charged": {
+      "name": "Marcar bateria carregada",
+      "description": "Registra que a bateria foi carregada agora, encerrando o ciclo atual.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+        }
+      }
+    },
+    "refresh": {
+      "name": "Atualizar",
+      "description": "Recalcula agora e relê o histórico de bateria do gravador."
+    },
+    "maintenance_mode": {
+      "name": "Modo de manutenção",
+      "description": "Segura todas as notificações por um tempo, para trabalhos que de outra forma disparariam uma enxurrada de alertas, como migrar para um novo coordenador Zigbee. Os problemas continuam sendo acompanhados e o evento continua sendo disparado. Ao terminar, uma mensagem lista os problemas que surgiram nesse período e ainda persistem.",
+      "fields": {
+        "hours": {
+          "name": "Horas",
+          "description": "Por quanto tempo, a partir de agora. 0 encerra o modo de manutenção agora. Deixe em branco para usar o padrão das opções."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "O Pulse Check não está configurado."
+    },
+    "unknown_device": {
+      "message": "O Pulse Check não conhece um dispositivo \"{device_id}\"."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "problem": {
+        "name": "Problema"
+      },
+      "maintenance_mode": {
+        "name": "Modo de manutenção",
+        "state_attributes": {
+          "until": {
+            "name": "Até"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "attention": {
+        "name": "Atenção"
+      },
+      "low_batteries": {
+        "name": "Baterias baixas"
+      },
+      "critical_batteries": {
+        "name": "Baterias críticas"
+      },
+      "offline": {
+        "name": "Offline"
+      },
+      "quiet": {
+        "name": "Inativos"
+      },
+      "next_to_run_out": {
+        "name": "Próxima a acabar"
+      },
+      "device_days_left": {
+        "name": "Dias restantes da bateria"
+      },
+      "device_last_replaced": {
+        "name": "Última troca da bateria"
+      }
+    }
+  }
+}

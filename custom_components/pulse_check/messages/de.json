@@ -1,0 +1,24 @@
+{
+  "issue_offline": "{name}: offline",
+  "issue_quiet": "{name}: seit {hours} h keine Meldung",
+  "issue_battery_critical": "{name}: Batterie kritisch ({level})",
+  "issue_battery_warning": "{name}: Batterie schwach ({level})",
+  "level_percent": "{level} %",
+  "level_low": "meldet schwach",
+  "resolved_offline": "{name}: wieder online",
+  "resolved_quiet": "{name}: meldet sich wieder",
+  "resolved_battery_critical": "{name}: Batterie nicht mehr kritisch",
+  "resolved_battery_warning": "{name}: Batteriewarnung behoben",
+  "reminder": {
+    "one": "Nach {count} Tag noch ungelöst. {message}",
+    "other": "Nach {count} Tagen noch ungelöst. {message}"
+  },
+  "digest_daily": "Pulse Check – tägliche Zusammenfassung",
+  "digest_weekly": "Pulse Check – wöchentliche Zusammenfassung",
+  "digest_all_clear": "Alle Geräte OK.",
+  "maintenance_summary": "Der Wartungsmodus ist beendet. Neu seit Beginn:",
+  "action_mark_replaced": "Als ersetzt markieren",
+  "action_mark_charged": "Als geladen markieren",
+  "action_remind_later": "Später erinnern",
+  "action_snooze_day": "1 Tag pausieren"
+}

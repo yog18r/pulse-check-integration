@@ -1,0 +1,288 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pulse Check",
+        "description": "Pulse Check śledzi baterię i łączność każdego urządzenia na podstawie stanów, które Home Assistant już zna. Nigdy nie łączy się z samymi urządzeniami. Progi, filtry i powiadomienia można ustawić później w Konfiguruj."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Pulse Check jest już skonfigurowany. Jedna instancja obserwuje wszystko."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcje Pulse Check",
+        "sections": {
+          "thresholds": {
+            "name": "Progi",
+            "description": "Kiedy bateria jest uznawana za słabą i jak długo urządzenie może milczeć.",
+            "data": {
+              "battery_warning": "Poziom ostrzeżenia baterii",
+              "battery_critical": "Krytyczny poziom baterii",
+              "quiet_threshold_hours": "Milczy po",
+              "quiet_scope": "Które urządzenia mogą milczeć",
+              "integration_thresholds": "Próg milczenia dla integracji"
+            },
+            "data_description": {
+              "battery_warning": "Bateria na tym poziomie procentowym lub niżej daje ostrzeżenie.",
+              "battery_critical": "Bateria na tym poziomie procentowym lub niżej jest w stanie krytycznym.",
+              "quiet_threshold_hours": "Liczba godzin bez żadnego raportu, po której urządzenie uznaje się za milczące.",
+              "quiet_scope": "Urządzenia na baterie same się zgłaszają; urządzenia sieciowe zwykle stają się po prostu niedostępne.",
+              "integration_thresholds": "Integracje, których urządzenia raportują rzadziej, np. uśpione urządzenia Z-Wave lub rolety, mogą mieć dłuższy próg."
+            }
+          },
+          "filters": {
+            "name": "Filtry",
+            "description": "Pozostaw wszystko puste, aby obserwować każde urządzenie.",
+            "data": {
+              "include_areas": "Tylko te obszary",
+              "exclude_areas": "Pomijaj te obszary",
+              "include_integrations": "Tylko te integracje",
+              "exclude_integrations": "Pomijaj te integracje",
+              "exclude_devices": "Pomijaj te urządzenia",
+              "exclude_entities": "Pomijaj te encje"
+            },
+            "data_description": {
+              "include_areas": "Gdy to jest ustawione, urządzenia bez obszaru są pomijane.",
+              "exclude_entities": "Na przykład sensor ustawień, który integracja oznacza jako baterię."
+            }
+          },
+          "notifications": {
+            "name": "Powiadomienia",
+            "description": "Wiadomość, gdy urządzenie wchodzi w stan (przechodzi w tryb offline, milknie, spada do ostrzeżenia lub stanu krytycznego), nigdy przy każdej aktualizacji. Pozostaw odbiorców pustych, aby nie wysyłać powiadomień; zdarzenie pulse_check_transition jest wywoływane tak czy inaczej.",
+            "data": {
+              "notify_targets": "Wyślij do",
+              "notify_critical": "Problemy krytyczne",
+              "notify_warning": "Ostrzeżenia",
+              "reminder_days": "Przypomnij po",
+              "reminder_max": "Maksymalnie przypomnień",
+              "digest_time": "Godzina podsumowania",
+              "digest_weekday": "Dzień podsumowania tygodniowego",
+              "weekly_all_clear": "Cotygodniowe \"wszystko w porządku\", gdy nie ma nic do zgłoszenia",
+              "startup_grace_minutes": "Okres spokoju po uruchomieniu",
+              "confirm_minutes": "Potwierdź offline lub milczenie po",
+              "maintenance_hours": "Czas trybu konserwacji"
+            },
+            "data_description": {
+              "notify_targets": "Usługi powiadomień (notify.mobile_app_…) lub encje powiadomień.",
+              "notify_critical": "Domyślne dostarczanie dla urządzeń offline i krytycznych baterii. Ustawienie samego urządzenia ma pierwszeństwo.",
+              "notify_warning": "Domyślne dostarczanie dla milczących urządzeń i słabych baterii.",
+              "reminder_days": "Liczba dni, przez które natychmiastowe powiadomienie może pozostać nierozwiązane, zanim zostanie wysłane ponownie.",
+              "reminder_max": "0 wyłącza przypomnienia.",
+              "startup_grace_minutes": "Minuty po uruchomieniu Home Assistant, zanim cokolwiek zostanie ocenione; integracje ładują się po kolei i w tym czasie większość urządzeń wygląda na niedostępne. To, co jest nie tak na koniec tego okresu, jest zapisywane, a nie ogłaszane.",
+              "confirm_minutes": "Minuty, przez które stan offline lub milczenia musi trwać, zanim zostanie uwzględniony. Pominięty odczyt, który naprawi się w tym czasie, nie wysyła niczego. Poziomy baterii liczą się od razu.",
+              "maintenance_hours": "Jak długo pulse_check.maintenance_mode wycisza powiadomienia, gdy zostanie wywołana bez godzin."
+            }
+          },
+          "entities": {
+            "name": "Encje",
+            "description": "Opcjonalne dodatkowe encje.",
+            "data": {
+              "per_device_sensors": "Sensory baterii dla każdego urządzenia"
+            },
+            "data_description": {
+              "per_device_sensors": "Dodaje diagnostyczne sensory \"Pozostałe dni baterii\" i \"Ostatnia wymiana baterii\" do każdego urządzenia na baterie."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "critical_above_warning": "Poziom krytyczny nie może być wyższy niż poziom ostrzeżenia."
+    }
+  },
+  "selector": {
+    "quiet_scope": {
+      "options": {
+        "battery": "Tylko urządzenia na baterie",
+        "all": "Wszystkie urządzenia"
+      }
+    },
+    "integration_thresholds": {
+      "fields": {
+        "integration": "Integracja",
+        "hours": "Godziny"
+      }
+    },
+    "notify_policy": {
+      "options": {
+        "instant": "Natychmiast, z przypomnieniami",
+        "daily": "W podsumowaniu dziennym",
+        "weekly": "W podsumowaniu tygodniowym",
+        "none": "Nigdy"
+      }
+    },
+    "digest_weekday": {
+      "options": {
+        "monday": "Poniedziałek",
+        "tuesday": "Wtorek",
+        "wednesday": "Środa",
+        "thursday": "Czwartek",
+        "friday": "Piątek",
+        "saturday": "Sobota",
+        "sunday": "Niedziela"
+      }
+    }
+  },
+  "services": {
+    "snooze": {
+      "name": "Wycisz",
+      "description": "Wycisza urządzenie na jakiś czas. Jego dane są nadal raportowane, ale liczy się jako OK i nie wysyła powiadomień.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+        },
+        "days": {
+          "name": "Dni",
+          "description": "Na jak długo wyciszyć. Domyślnie 7."
+        },
+        "until": {
+          "name": "Do",
+          "description": "Dokładny czas zakończenia zamiast liczby dni."
+        }
+      }
+    },
+    "unsnooze": {
+      "name": "Wyłącz wyciszenie",
+      "description": "Kończy wyciszenie przed czasem.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+        }
+      }
+    },
+    "set_device_settings": {
+      "name": "Ustaw ustawienia urządzenia",
+      "description": "Zmienia to, co Pulse Check wie o jednym urządzeniu. Zmieniane są tylko podane pola; pusta wartość czyści dane ustawienie.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+        },
+        "name": {
+          "name": "Wyświetlana nazwa",
+          "description": "Pokazywana zamiast nazwy z rejestru. Nie zmienia nazwy urządzenia."
+        },
+        "area": {
+          "name": "Obszar",
+          "description": "Pokazywany zamiast obszaru z rejestru i używany przez filtry obszarów."
+        },
+        "quiet_threshold_hours": {
+          "name": "Milczy po",
+          "description": "Liczba godzin bez raportu, po której to urządzenie uznaje się za milczące."
+        },
+        "battery_type": {
+          "name": "Typ baterii",
+          "description": "Na przykład CR2032 lub AA."
+        },
+        "battery_count": {
+          "name": "Liczba baterii",
+          "description": "Ile ogniw przyjmuje urządzenie."
+        },
+        "rechargeable": {
+          "name": "Akumulator",
+          "description": "Ładuj zamiast wymieniać."
+        },
+        "notify_policy": {
+          "name": "Zasady powiadomień",
+          "description": "Jak dostarczać powiadomienia tego urządzenia, zastępując domyślne ustawienia według ważności."
+        },
+        "sparkline_days": {
+          "name": "Dni trendu",
+          "description": "Ile dni historii pokazuje wykres trendu na karcie dla tego urządzenia (od 1 do 365)."
+        }
+      }
+    },
+    "mark_replaced": {
+      "name": "Oznacz baterię jako wymienioną",
+      "description": "Zapisuje, że bateria została właśnie wymieniona, zamykając bieżący cykl.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+        },
+        "battery_type": {
+          "name": "Typ baterii",
+          "description": "Co zostało włożone, do zapisu."
+        }
+      }
+    },
+    "mark_charged": {
+      "name": "Oznacz baterię jako naładowaną",
+      "description": "Zapisuje, że bateria została właśnie naładowana, zamykając bieżący cykl.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+        }
+      }
+    },
+    "refresh": {
+      "name": "Odśwież",
+      "description": "Przelicza teraz i ponownie wczytuje historię baterii z rejestratora."
+    },
+    "maintenance_mode": {
+      "name": "Tryb konserwacji",
+      "description": "Wstrzymuje wszystkie powiadomienia na jakiś czas, na czas prac, które inaczej wywołałyby lawinę alertów, np. przejścia na nowy koordynator Zigbee. Problemy są nadal śledzone, a zdarzenie nadal jest wywoływane. Po zakończeniu jedna wiadomość wymienia problemy, które pojawiły się w tym czasie i nadal występują.",
+      "fields": {
+        "hours": {
+          "name": "Godziny",
+          "description": "Jak długo, licząc od teraz. 0 kończy tryb konserwacji od razu. Pomiń, aby użyć wartości domyślnej z opcji."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Pulse Check nie jest skonfigurowany."
+    },
+    "unknown_device": {
+      "message": "Pulse Check nie zna urządzenia \"{device_id}\"."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "problem": {
+        "name": "Problem"
+      },
+      "maintenance_mode": {
+        "name": "Tryb konserwacji",
+        "state_attributes": {
+          "until": {
+            "name": "Do"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "attention": {
+        "name": "Wymaga uwagi"
+      },
+      "low_batteries": {
+        "name": "Słabe baterie"
+      },
+      "critical_batteries": {
+        "name": "Krytyczne baterie"
+      },
+      "offline": {
+        "name": "Offline"
+      },
+      "quiet": {
+        "name": "Milczące"
+      },
+      "next_to_run_out": {
+        "name": "Następna do wyczerpania"
+      },
+      "device_days_left": {
+        "name": "Pozostałe dni baterii"
+      },
+      "device_last_replaced": {
+        "name": "Ostatnia wymiana baterii"
+      }
+    }
+  }
+}

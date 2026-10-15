@@ -1,0 +1,26 @@
+{
+  "issue_offline": "{name}: offline",
+  "issue_quiet": "{name}: brak sygnału od {hours} h",
+  "issue_battery_critical": "{name}: krytyczny poziom baterii ({level})",
+  "issue_battery_warning": "{name}: słaba bateria ({level})",
+  "level_percent": "{level} %",
+  "level_low": "zgłasza niski poziom",
+  "resolved_offline": "{name}: znów online",
+  "resolved_quiet": "{name}: znów się zgłasza",
+  "resolved_battery_critical": "{name}: krytyczny poziom baterii rozwiązany",
+  "resolved_battery_warning": "{name}: ostrzeżenie baterii rozwiązane",
+  "reminder": {
+    "one": "Nadal nierozwiązane po {count} dniu. {message}",
+    "few": "Nadal nierozwiązane po {count} dniach. {message}",
+    "many": "Nadal nierozwiązane po {count} dniach. {message}",
+    "other": "Nadal nierozwiązane po {count} dniach. {message}"
+  },
+  "digest_daily": "Dzienne podsumowanie Pulse Check",
+  "digest_weekly": "Tygodniowe podsumowanie Pulse Check",
+  "digest_all_clear": "Wszystkie urządzenia OK.",
+  "maintenance_summary": "Tryb konserwacji zakończony. Nowe od jego rozpoczęcia:",
+  "action_mark_replaced": "Oznacz wymianę",
+  "action_mark_charged": "Oznacz ładowanie",
+  "action_remind_later": "Przypomnij później",
+  "action_snooze_day": "Wycisz na 1 dzień"
+}
