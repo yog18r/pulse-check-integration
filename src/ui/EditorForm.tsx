@@ -334,18 +334,10 @@ export function EditorForm({ config, onChange, hass }: Props) {
       />
 
       <DeviceSettingsRows
-        // eslint-disable-next-line @typescript-eslint/no-deprecated -- read the old key so legacy YAML shows up
-        value={config.device_settings ?? config.device_overrides ?? []}
+        value={config.device_settings ?? []}
         hass={hass}
         onChange={(v) => {
-          // Writing the new key retires the old one in the same edit, so the
-          // two can never disagree. One emit, not two: `set` reads `config`
-          // from this render, so calling it twice would lose the first change.
-          const entries = Object.entries(config).filter(
-            ([k]) => k !== 'device_settings' && k !== 'device_overrides',
-          );
-          if (v !== undefined) entries.push(['device_settings', v]);
-          onChange(Object.fromEntries(entries));
+          set('device_settings', v);
         }}
       />
 

@@ -13,8 +13,6 @@
  */
 
 export const TAB_IDS = ['batteries', 'connectivity', 'actions'] as const;
-/** Older names still accepted in YAML. */
-const TAB_ALIASES: Record<string, string> = { shopping: 'actions' };
 
 /**
  * How the Batteries tab is ordered.
@@ -49,9 +47,6 @@ export interface DeviceSettings {
   rechargeable?: boolean;
 }
 
-/** @deprecated Older name for DeviceSettings; still accepted in YAML as `device_overrides`. */
-export type DeviceOverride = DeviceSettings;
-
 /** Raw user input. All optional. */
 export interface CardConfig {
   type?: string;
@@ -65,8 +60,6 @@ export interface CardConfig {
   /** Per-integration quiet thresholds, keyed by platform, e.g. { zwave_js: 48 }. */
   integration_thresholds?: Record<string, number>;
   device_settings?: DeviceSettings[];
-  /** @deprecated Use device_settings. Merged in when both are present. */
-  device_overrides?: DeviceSettings[];
   exclude_integrations?: string[];
   exclude_devices?: string[];
   /** Entity ids to ignore entirely, e.g. a settings sensor mis-labelled as a battery. */
@@ -229,14 +222,14 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     }
   }
 
-  // device_settings (and the older device_overrides): one entry per device
+  // device_settings: one entry per device; a later duplicate replaces an earlier one
   const device_settings: DeviceSettings[] = [];
   const seenDevices = new Set<string>();
-  const parseSettingsList = (rawList: unknown, key: string) => {
-    if (rawList === undefined) return;
-    if (!Array.isArray(rawList)) throw new ConfigError(`"${key}" must be a list.`);
-    rawList.forEach((item: unknown, i) => {
-      const where = `${key}[${String(i)}]`;
+  const rawSettings = raw.device_settings;
+  if (rawSettings !== undefined) {
+    if (!Array.isArray(rawSettings)) throw new ConfigError('"device_settings" must be a list.');
+    rawSettings.forEach((item: unknown, i) => {
+      const where = `device_settings[${String(i)}]`;
       if (!isRecord(item) || typeof item.device_id !== 'string' || item.device_id === '') {
         throw new ConfigError(`${where} needs a "device_id".`);
       }
@@ -269,8 +262,6 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
         }
         entry.rechargeable = item.rechargeable;
       }
-      // Later entries for the same device win, so device_settings beats
-      // device_overrides and duplicates don't pile up.
       if (seenDevices.has(entry.device_id)) {
         const at = device_settings.findIndex((d) => d.device_id === entry.device_id);
         device_settings[at] = entry;
@@ -279,9 +270,7 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
         device_settings.push(entry);
       }
     });
-  };
-  parseSettingsList(raw.device_overrides, 'device_overrides');
-  parseSettingsList(raw.device_settings, 'device_settings');
+  }
 
   const exclude_integrations = stringArrayOrDefault(
     raw.exclude_integrations,
@@ -360,9 +349,7 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
 
   // show_tabs
   let show_tabs: TabId[] = DEFAULT_CONFIG.show_tabs;
-  const rawTabs = Array.isArray(raw.show_tabs)
-    ? raw.show_tabs.map((t: unknown) => (typeof t === 'string' ? (TAB_ALIASES[t] ?? t) : t))
-    : raw.show_tabs;
+  const rawTabs = raw.show_tabs;
   if (rawTabs !== undefined) {
     if (!Array.isArray(rawTabs) || rawTabs.length === 0 || !rawTabs.every(isTabId)) {
       throw new ConfigError(
@@ -376,10 +363,7 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
   let default_tab: TabId = show_tabs.includes(DEFAULT_CONFIG.default_tab)
     ? DEFAULT_CONFIG.default_tab
     : (show_tabs[0] ?? DEFAULT_CONFIG.default_tab);
-  const rawDefault =
-    typeof raw.default_tab === 'string'
-      ? (TAB_ALIASES[raw.default_tab] ?? raw.default_tab)
-      : raw.default_tab;
+  const rawDefault = raw.default_tab;
   if (rawDefault !== undefined) {
     if (!isTabId(rawDefault)) {
       throw new ConfigError(`"default_tab" must be one of: ${TAB_IDS.join(', ')}.`);

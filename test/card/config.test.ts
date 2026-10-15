@@ -13,7 +13,7 @@ describe('resolveConfig', () => {
       battery_critical: 20,
       quiet_threshold_hours: 12,
       integration_thresholds: { zwave_js: 48 },
-      device_overrides: [{ device_id: 'abc', quiet_threshold_hours: 72, battery_type: 'CR2032' }],
+      device_settings: [{ device_id: 'abc', quiet_threshold_hours: 72, battery_type: 'CR2032' }],
       exclude_integrations: ['mobile_app'],
       exclude_devices: ['xyz'],
       show_tabs: ['connectivity'],
@@ -44,16 +44,16 @@ describe('resolveConfig', () => {
     );
   });
 
-  it('validates integration_thresholds and device_overrides shapes', () => {
+  it('validates integration_thresholds and device_settings shapes', () => {
     expect(() => resolveConfig({ integration_thresholds: [1] })).toThrow(/mapping/);
     expect(() => resolveConfig({ integration_thresholds: { zha: 'soon' } })).toThrow(
       /integration_thresholds.zha/,
     );
-    expect(() => resolveConfig({ device_overrides: 'abc' })).toThrow(/must be a list/);
-    expect(() => resolveConfig({ device_overrides: [{}] })).toThrow(/device_overrides\[0\]/);
-    expect(() =>
-      resolveConfig({ device_overrides: [{ device_id: 'a', battery_type: 3 }] }),
-    ).toThrow(/battery_type/);
+    expect(() => resolveConfig({ device_settings: 'abc' })).toThrow(/must be a list/);
+    expect(() => resolveConfig({ device_settings: [{}] })).toThrow(/device_settings\[0\]/);
+    expect(() => resolveConfig({ device_settings: [{ device_id: 'a', battery_type: 3 }] })).toThrow(
+      /battery_type/,
+    );
   });
 
   it('validates exclude_entities and quiet_scope', () => {
@@ -72,28 +72,21 @@ describe('resolveConfig', () => {
     expect(() => resolveConfig({ battery_sort: 'random' })).toThrow(/battery_sort/);
   });
 
-  it('accepts the actions tab, and "shopping" as its old name', () => {
+  it('accepts the actions tab', () => {
     const resolved = resolveConfig({ show_tabs: ['batteries', 'actions'], default_tab: 'actions' });
     expect(resolved.show_tabs).toEqual(['batteries', 'actions']);
     expect(resolved.default_tab).toBe('actions');
-    const legacy = resolveConfig({ show_tabs: ['shopping'], default_tab: 'shopping' });
-    expect(legacy.show_tabs).toEqual(['actions']);
-    expect(legacy.default_tab).toBe('actions');
   });
 
-  it('parses device_settings with count and rechargeable, merging legacy device_overrides', () => {
+  it('parses device_settings with count and rechargeable; a later duplicate wins', () => {
     const resolved = resolveConfig({
-      device_overrides: [
-        { device_id: 'old', battery_type: 'AA' },
-        { device_id: 'both', battery_type: 'AAA' },
-      ],
       device_settings: [
+        { device_id: 'both', battery_type: 'AAA' },
         { device_id: 'both', battery_type: 'CR2032', battery_count: 2, rechargeable: false },
         { device_id: 'blind', rechargeable: true, battery_type: 'Built-in rechargeable' },
       ],
     });
     expect(resolved.device_settings).toEqual([
-      { device_id: 'old', battery_type: 'AA' },
       { device_id: 'both', battery_type: 'CR2032', battery_count: 2, rechargeable: false },
       { device_id: 'blind', rechargeable: true, battery_type: 'Built-in rechargeable' },
     ]);
@@ -103,6 +96,12 @@ describe('resolveConfig', () => {
     expect(() =>
       resolveConfig({ device_settings: [{ device_id: 'a', rechargeable: 'yes' }] }),
     ).toThrow(/rechargeable/);
+  });
+
+  it('ignores unknown keys such as the retired device_overrides and shopping tab', () => {
+    const resolved = resolveConfig({ device_overrides: [{ device_id: 'x' }] });
+    expect(resolved.device_settings).toEqual([]);
+    expect(() => resolveConfig({ show_tabs: ['shopping'] })).toThrow(/show_tabs/);
   });
 
   it('validates max_rows, sparklines and the new filters', () => {
