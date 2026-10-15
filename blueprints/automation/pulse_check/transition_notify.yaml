@@ -1,0 +1,59 @@
+blueprint:
+  name: Pulse Check transition notification
+  description: >
+    Send a notification when Pulse Check reports that a device entered or left a
+    state: went offline, went quiet, or its battery dropped to warning or
+    critical. Pulse Check fires a `pulse_check_transition` event for every such
+    change whatever its own notification settings, so this blueprint lets you
+    route them however you like.
+  domain: automation
+  source_url: https://github.com/yog18r/pulse-check-integration/blob/main/blueprints/automation/pulse_check/transition_notify.yaml
+  input:
+    notify_action:
+      name: Notification action
+      description: The notify action to call, for example notify.mobile_app_pixel_9.
+      selector:
+        text:
+    kinds:
+      name: Which transitions
+      description: Entering a state, leaving it, or both.
+      default:
+        - entered
+      selector:
+        select:
+          multiple: true
+          options:
+            - entered
+            - resolved
+    severities:
+      name: Which severities
+      default:
+        - critical
+        - warning
+      selector:
+        select:
+          multiple: true
+          options:
+            - critical
+            - warning
+
+triggers:
+  - trigger: event
+    event_type: pulse_check_transition
+
+conditions:
+  - condition: template
+    value_template: >
+      {{ trigger.event.data.kind in kinds and trigger.event.data.severity in severities }}
+
+variables:
+  kinds: !input kinds
+  severities: !input severities
+
+actions:
+  - action: !input notify_action
+    data:
+      title: Pulse Check
+      message: "{{ trigger.event.data.message }}"
+
+mode: queued

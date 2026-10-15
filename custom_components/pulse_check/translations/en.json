@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "Pulse Check watches every device's battery and connectivity using the state Home Assistant already has. It never contacts the devices themselves. Thresholds and filters can be set afterwards with Configure."
+        "description": "Pulse Check watches every device's battery and connectivity using the state Home Assistant already has. It never contacts the devices themselves. Thresholds, filters and notifications can be set afterwards with Configure."
       }
     },
     "abort": {
@@ -48,6 +48,27 @@
               "include_areas": "Devices without an area are left out when this is set.",
               "exclude_entities": "For example a settings sensor an integration labels as a battery."
             }
+          },
+          "notifications": {
+            "name": "Notifications",
+            "description": "A message when a device enters a state (goes offline, goes quiet, drops to warning or critical), never on every update. Leave the targets empty for no notifications; the pulse_check_transition event fires either way.",
+            "data": {
+              "notify_targets": "Send to",
+              "notify_critical": "Critical problems",
+              "notify_warning": "Warnings",
+              "reminder_days": "Remind after",
+              "reminder_max": "Reminders at most",
+              "digest_time": "Digest time",
+              "digest_weekday": "Weekly digest day",
+              "weekly_all_clear": "Weekly \"all clear\" when there is nothing to report"
+            },
+            "data_description": {
+              "notify_targets": "Notify services (notify.mobile_app_…) or notify entities.",
+              "notify_critical": "Default delivery for offline devices and critical batteries. A device's own setting overrides it.",
+              "notify_warning": "Default delivery for quiet devices and low batteries.",
+              "reminder_days": "Days an instant notification may stay unresolved before it is sent again.",
+              "reminder_max": "0 turns reminders off."
+            }
           }
         }
       }
@@ -68,6 +89,129 @@
         "integration": "Integration",
         "hours": "Hours"
       }
+    },
+    "notify_policy": {
+      "options": {
+        "instant": "Instantly, with reminders",
+        "daily": "In the daily digest",
+        "weekly": "In the weekly digest",
+        "none": "Never"
+      }
+    },
+    "digest_weekday": {
+      "options": {
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday"
+      }
+    }
+  },
+  "services": {
+    "snooze": {
+      "name": "Snooze",
+      "description": "Mute a device for a while. Its facts are still reported, but it counts as OK and sends no notifications.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The device id, or the entity id of a battery sensor that has no device."
+        },
+        "days": {
+          "name": "Days",
+          "description": "How long to snooze for. Default 7."
+        },
+        "until": {
+          "name": "Until",
+          "description": "An exact end time instead of a number of days."
+        }
+      }
+    },
+    "unsnooze": {
+      "name": "Unsnooze",
+      "description": "Lift a snooze early.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The device id, or the entity id of a battery sensor that has no device."
+        }
+      }
+    },
+    "set_device_settings": {
+      "name": "Set device settings",
+      "description": "Change what Pulse Check knows about one device. Only the fields given are changed; an empty value clears that setting.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The device id, or the entity id of a battery sensor that has no device."
+        },
+        "name": {
+          "name": "Display name",
+          "description": "Shown instead of the registry name. Does not rename the device."
+        },
+        "area": {
+          "name": "Area",
+          "description": "Shown instead of the registry area and used by the area filters."
+        },
+        "quiet_threshold_hours": {
+          "name": "Quiet after",
+          "description": "Hours without a report before this device is quiet."
+        },
+        "battery_type": {
+          "name": "Battery type",
+          "description": "For example CR2032 or AA."
+        },
+        "battery_count": {
+          "name": "Battery count",
+          "description": "How many cells the device takes."
+        },
+        "rechargeable": {
+          "name": "Rechargeable",
+          "description": "Charge it rather than replace it."
+        },
+        "notify_policy": {
+          "name": "Notification policy",
+          "description": "How to deliver this device's notifications, overriding the defaults by severity."
+        }
+      }
+    },
+    "mark_replaced": {
+      "name": "Mark battery replaced",
+      "description": "Record that the battery was replaced now, closing the current cycle.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The device id, or the entity id of a battery sensor that has no device."
+        },
+        "battery_type": {
+          "name": "Battery type",
+          "description": "What went in, for the record."
+        }
+      }
+    },
+    "mark_charged": {
+      "name": "Mark battery charged",
+      "description": "Record that the battery was charged now, closing the current cycle.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The device id, or the entity id of a battery sensor that has no device."
+        }
+      }
+    },
+    "refresh": {
+      "name": "Refresh",
+      "description": "Recompute now and re-read battery history from the recorder."
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Pulse Check is not set up."
+    },
+    "unknown_device": {
+      "message": "Pulse Check does not know a device \"{device_id}\"."
     }
   },
   "entity": {

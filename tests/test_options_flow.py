@@ -35,6 +35,7 @@ def test_nest_and_flatten_round_trip() -> None:
     assert nested == {
         "thresholds": {CONF_BATTERY_WARNING: 40, CONF_QUIET_SCOPE: "all"},
         "filters": {CONF_EXCLUDE_INTEGRATIONS: ["mobile_app"]},
+        "notifications": {},
     }
     assert flatten_options(nested) == flat
 
