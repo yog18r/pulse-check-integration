@@ -1,0 +1,4 @@
+dist
+coverage
+# A canned websocket snapshot used by the tests and the demo
+test/fixtures/*.json

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pulse Check Card – demo</title>
+    <style>
+      /*
+       * Fake just enough of a Home Assistant dashboard for the card to look
+       * at home: the theme variables it reads, and a card-ish column width.
+       */
+      :root {
+        --primary-text-color: #212121;
+        --secondary-text-color: #727272;
+        --primary-color: #03a9f4;
+        --card-background-color: #ffffff;
+        --secondary-background-color: #f0f0f0;
+        --primary-background-color: #fafafa;
+        --divider-color: #e0e0e0;
+        --error-color: #db4437;
+        --warning-color: #ffa600;
+        --success-color: #43a047;
+        --ha-card-border-radius: 12px;
+        --ha-card-box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14);
+      }
+      body[data-theme='dark'] {
+        --primary-text-color: #e1e1e1;
+        --secondary-text-color: #9b9b9b;
+        --card-background-color: #1c1c1c;
+        --secondary-background-color: #282828;
+        --primary-background-color: #111111;
+        --divider-color: #333333;
+        --ha-card-box-shadow: none;
+      }
+      body {
+        margin: 0;
+        padding: 24px 16px;
+        background: var(--primary-background-color);
+        color: var(--primary-text-color);
+        font-family: Roboto, system-ui, sans-serif;
+      }
+      main {
+        max-width: 520px;
+        margin: 0 auto;
+        display: grid;
+        gap: 16px;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        color: var(--secondary-text-color);
+        font-size: 14px;
+      }
+      .toolbar button,
+      .toolbar select {
+        font: inherit;
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        cursor: pointer;
+      }
+      .editor-panel {
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        background: var(--card-background-color);
+        padding: 12px 16px;
+      }
+      .editor-panel summary {
+        cursor: pointer;
+        color: var(--secondary-text-color);
+        font-size: 14px;
+      }
+      .editor-panel #editor-host {
+        margin-top: 12px;
+      }
+      .editor-panel pre {
+        margin: 12px 0 0;
+        padding: 10px;
+        border-radius: 8px;
+        background: var(--secondary-background-color);
+        font-size: 12px;
+        overflow: auto;
+      }
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        padding: 10px 16px;
+        border-radius: 8px;
+        background: var(--primary-text-color);
+        color: var(--card-background-color);
+        font-size: 14px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="toolbar">
+        <strong>Pulse Check Card demo</strong>
+        <span>·</span>
+        <button id="theme" type="button">Toggle dark mode</button>
+        <select id="scenario" aria-label="Scenario">
+          <option value="default">Default config</option>
+          <option value="grouped">Grouped by area, 5 rows, Connectivity first</option>
+          <option value="actions">Actions tab + replace-soon order</option>
+          <option value="healthy">Everything healthy</option>
+          <option value="missing">Integration not installed</option>
+          <option value="broken">Broken config (shows error)</option>
+        </select>
+      </div>
+      <div id="card-host"></div>
+
+      <details class="editor-panel">
+        <summary>Visual editor (what HA shows under "Edit card")</summary>
+        <div id="editor-host"></div>
+        <pre id="editor-output" aria-label="Config emitted by the editor"></pre>
+      </details>
+    </main>
+    <script type="module" src="/src/demo/main.ts"></script>
+  </body>
+</html>

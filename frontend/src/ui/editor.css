@@ -1,0 +1,365 @@
+/* Styles for the visual config editor. Injected into its own shadow root. */
+
+:host {
+  display: block;
+}
+
+.editor {
+  display: grid;
+  gap: 14px;
+  color: var(--primary-text-color, #212121);
+  font-family: var(--paper-font-body1_-_font-family, Roboto, system-ui, sans-serif);
+  font-size: 14px;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.field > span,
+.field > legend {
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+  padding: 0;
+}
+
+.field input[type='text'],
+.field input[type='number'],
+.field select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.field input:focus-visible,
+.field select:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: -1px;
+}
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.note {
+  margin: 0;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+}
+
+.note code {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--secondary-background-color, #f0f0f0);
+}
+
+.error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--error-color, #db4437) 12%, transparent);
+  color: var(--error-color, #db4437);
+}
+
+/* ---- repeating rows (thresholds, overrides) --------------------------- */
+
+.hint {
+  margin: 0;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+}
+
+.listrow {
+  display: grid;
+  grid-template-columns: 1fr 88px auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.listrow.device {
+  grid-template-columns: 1fr 88px 110px auto;
+}
+
+.listrow select,
+.listrow input {
+  min-width: 0;
+}
+
+.listrow .unit {
+  color: var(--secondary-text-color, #727272);
+}
+
+.remove,
+.add {
+  appearance: none;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  border-radius: 6px;
+  background: none;
+  color: var(--secondary-text-color, #727272);
+  font: inherit;
+  cursor: pointer;
+  padding: 6px 10px;
+}
+
+.remove:hover,
+.add:hover {
+  color: var(--primary-text-color, #212121);
+  border-color: var(--primary-text-color, #212121);
+}
+
+.add {
+  justify-self: start;
+  color: var(--primary-color, #03a9f4);
+  border-color: var(--primary-color, #03a9f4);
+}
+
+.add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (max-width: 480px) {
+  .listrow,
+  .listrow.device {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ---- per-device settings rows ---------------------------------------- */
+
+.settingsrow {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid var(--divider-color, #e0e0e0);
+}
+
+/*
+ * Each line of the per-device panel is a wrapping flex row, so it fits the
+ * ~740 px editor pane in Home Assistant and a phone alike: nothing has a
+ * fixed width wider than the pane, and every control may shrink.
+ */
+.settingsline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.settingsline > * {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.settingsline .grow {
+  flex: 1 1 180px;
+}
+
+.settingsline .grow input,
+.settingsline .grow select {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.inline input[type='number'] {
+  width: 72px;
+  box-sizing: border-box;
+}
+
+.inline select {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.typefield {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.typefield > select {
+  flex: 1 1 140px;
+}
+
+.typefield > .inline {
+  flex: 1 1 140px;
+}
+
+/* Inline feedback after a per-device setting is saved through the integration. */
+.feedback {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--secondary-text-color, #727272);
+}
+
+.feedback[data-kind='saved'] {
+  color: var(--success-color, #43a047);
+}
+
+.feedback[data-kind='error'] {
+  color: var(--error-color, #db4437);
+}
+
+.typefield select,
+.typefield input {
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+/* ---- searchable device picker ----------------------------------------- */
+
+.picker {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.picker input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.picker .results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 3;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  border-radius: 8px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.picker .results li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.picker .results li.active {
+  background: var(--secondary-background-color, #f0f0f0);
+}
+
+.picker .results li[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.picker .results li.noresults {
+  color: var(--secondary-text-color, #727272);
+  cursor: default;
+  font-size: 0.85em;
+}
+
+.picker .pmeta {
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .settingsline.details {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.settingsline input[type='text'] {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.settingsline.namearea {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.settingsline.namearea select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+/* Per-device settings: the "edited devices" chips. */
+.chip {
+  padding: 2px 10px;
+  border: 1px solid var(--divider-color, rgba(128, 128, 128, 0.4));
+  border-radius: 999px;
+  background: none;
+  color: var(--primary-text-color);
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+.chip[aria-pressed='true'] {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}

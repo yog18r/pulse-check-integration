@@ -1,0 +1,499 @@
+/*
+ * Card styles. Injected into the shadow root, so nothing here leaks out and
+ * nothing from the HA page leaks in.
+ *
+ * Every colour is a Home Assistant theme variable with a fallback, so the
+ * card matches whatever theme the user runs, light or dark.
+ */
+
+:host {
+  display: block;
+}
+
+.card {
+  /* Mimic <ha-card> so the demo page looks right without HA's components. */
+  background: var(--ha-card-background, var(--card-background-color, #fff));
+  color: var(--primary-text-color, #212121);
+  border-radius: var(--ha-card-border-radius, 12px);
+  border-width: var(--ha-card-border-width, 1px);
+  border-style: solid;
+  border-color: var(--ha-card-border-color, var(--divider-color, #e0e0e0));
+  box-shadow: var(--ha-card-box-shadow, none);
+  font-family: var(--paper-font-body1_-_font-family, Roboto, system-ui, sans-serif);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow: hidden;
+}
+
+/* ---- header ---------------------------------------------------------- */
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.3em;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.verdict {
+  text-align: right;
+}
+
+/* No title: the verdict takes the left edge instead of floating right. */
+.header[data-untitled='true'] .verdict {
+  text-align: left;
+}
+
+.headline {
+  margin: 0;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.95em;
+  white-space: nowrap;
+}
+
+.breakdown {
+  margin: 2px 0 0;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.8em;
+}
+
+.headline[data-severity='critical'] {
+  color: var(--error-color, #db4437);
+}
+.headline[data-severity='warning'] {
+  color: var(--warning-color, #ffa600);
+}
+
+/* ---- tabs ------------------------------------------------------------ */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--divider-color, #e0e0e0);
+}
+
+.tab {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--secondary-text-color, #727272);
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 12px;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--primary-text-color, #212121);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.tab[aria-selected='true'] {
+  color: var(--primary-color, #03a9f4);
+  border-bottom-color: var(--primary-color, #03a9f4);
+}
+
+.tab .count {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--secondary-background-color, #f0f0f0);
+  color: var(--primary-text-color, #212121);
+  font-size: 0.8em;
+  text-align: center;
+}
+
+/* ---- rows ------------------------------------------------------------ */
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.row[data-snoozed='true'] .rowbutton {
+  opacity: 0.6;
+}
+
+/* The whole row is a button: reset the browser's button styling, then lay
+   out stripe | main | status as a grid. */
+.rowbutton {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 4px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 16px 8px 12px;
+  box-sizing: border-box;
+}
+
+.rowbutton:hover {
+  background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
+}
+
+.rowbutton:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: -2px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--divider-color, #e0e0e0);
+}
+
+.row .stripe {
+  display: block;
+  width: 4px;
+  height: 100%;
+  min-height: 32px;
+  border-radius: 2px;
+  background: var(--divider-color, #e0e0e0);
+}
+.row[data-severity='warning'] .stripe {
+  background: var(--warning-color, #ffa600);
+}
+.row[data-severity='critical'] .stripe {
+  background: var(--error-color, #db4437);
+}
+
+.row .main {
+  display: block;
+  min-width: 0;
+}
+
+.row .name {
+  display: block;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row .meta {
+  display: flex;
+  margin-top: 2px;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: center;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--secondary-background-color, #f0f0f0);
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.9em;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.badge[data-severity='warning'] {
+  background: color-mix(in srgb, var(--warning-color, #ffa600) 20%, transparent);
+  color: var(--warning-color, #ffa600);
+}
+.badge[data-severity='critical'] {
+  background: color-mix(in srgb, var(--error-color, #db4437) 20%, transparent);
+  color: var(--error-color, #db4437);
+}
+
+.row .status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row .status .label {
+  font-weight: 500;
+}
+.row .status .label[data-severity='warning'] {
+  color: var(--warning-color, #ffa600);
+}
+.row .status .label[data-severity='critical'] {
+  color: var(--error-color, #db4437);
+}
+
+.row .status .sub {
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+}
+
+/* ---- battery bar ------------------------------------------------------ */
+
+.battery {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar {
+  position: relative;
+  width: 64px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--secondary-background-color, #f0f0f0);
+  overflow: hidden;
+}
+
+.bar .fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 4px;
+  background: var(--success-color, #43a047);
+  transition: width 300ms ease;
+}
+.bar .fill[data-severity='warning'] {
+  background: var(--warning-color, #ffa600);
+}
+.bar .fill[data-severity='critical'] {
+  background: var(--error-color, #db4437);
+}
+
+/* ---- empty / error ---------------------------------------------------- */
+
+.empty {
+  padding: 28px 16px 32px;
+  text-align: center;
+  color: var(--secondary-text-color, #727272);
+}
+
+.empty .emoji {
+  font-size: 2.2em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.empty .lead {
+  color: var(--primary-text-color, #212121);
+  font-weight: 500;
+}
+
+.error {
+  padding: 16px;
+  color: var(--error-color, #db4437);
+  white-space: pre-wrap;
+}
+
+/* ---- motion ----------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .bar .fill {
+    transition: none;
+  }
+}
+
+/* ---- shopping list ---------------------------------------------------- */
+
+.group + .group {
+  border-top: 1px solid var(--divider-color, #e0e0e0);
+}
+
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 16px 4px;
+  font-size: 0.95em;
+  font-weight: 500;
+  color: var(--secondary-text-color, #727272);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.group .hint {
+  margin: 0;
+  padding: 0 16px 4px;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.85em;
+}
+
+.group .hint code {
+  font-size: 0.95em;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--secondary-background-color, #f0f0f0);
+}
+
+/* ---- charging / snoozed badges --------------------------------------- */
+
+.badge[data-kind='charging'] {
+  background: color-mix(in srgb, var(--success-color, #43a047) 18%, transparent);
+  color: var(--success-color, #43a047);
+}
+
+.badge[data-kind='snoozed'] {
+  background: color-mix(in srgb, var(--primary-color, #03a9f4) 15%, transparent);
+  color: var(--primary-color, #03a9f4);
+}
+
+/* ---- snooze control --------------------------------------------------- */
+
+.snoozewrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.snooze {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.05em;
+  line-height: 1;
+  padding: 8px;
+  margin-right: 8px;
+  opacity: 0.55;
+}
+
+.snooze:hover,
+.snooze:focus-visible,
+.snooze[aria-expanded='true'] {
+  opacity: 1;
+  background: var(--secondary-background-color, #f0f0f0);
+}
+
+.snooze:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+}
+
+.menu {
+  position: absolute;
+  right: 8px;
+  top: 100%;
+  z-index: 2;
+  display: grid;
+  min-width: 96px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+
+.menu button {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: var(--primary-text-color, #212121);
+  cursor: pointer;
+  font: inherit;
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.menu button:hover,
+.menu button:focus-visible {
+  background: var(--secondary-background-color, #f0f0f0);
+  outline: none;
+}
+
+/* ---- snoozed footer --------------------------------------------------- */
+
+.footer {
+  border-top: 1px solid var(--divider-color, #e0e0e0);
+}
+
+.footerbutton {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: var(--secondary-text-color, #727272);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85em;
+  padding: 8px 16px;
+  width: 100%;
+  text-align: left;
+}
+
+.footerbutton:hover {
+  color: var(--primary-text-color, #212121);
+}
+
+/* ---- sparkline -------------------------------------------------------- */
+
+.gauge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spark path {
+  stroke: var(--success-color, #43a047);
+}
+.spark[data-severity='warning'] path {
+  stroke: var(--warning-color, #ffa600);
+}
+.spark[data-severity='critical'] path {
+  stroke: var(--error-color, #db4437);
+}
+
+/* ---- actions tab ------------------------------------------------------ */
+
+.tobuy {
+  margin: 0;
+  padding: 12px 16px 4px;
+}
+
+.tobuyhint {
+  padding: 0 16px 8px;
+}
+
+/* "Done" on the Actions tab (integration mode): records a replacement. */
+.done {
+  flex: none;
+  align-self: center;
+  margin-right: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--divider-color, rgba(128, 128, 128, 0.4));
+  border-radius: 6px;
+  background: none;
+  color: var(--primary-text-color);
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+.done:hover,
+.done:focus-visible {
+  background: var(--secondary-background-color, rgba(128, 128, 128, 0.15));
+}

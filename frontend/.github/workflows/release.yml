@@ -1,0 +1,30 @@
+name: Release
+
+# Tag a commit `vX.Y.Z` and push the tag. This builds the bundle and attaches
+# it to a GitHub release, which is where both manual installs and HACS get it.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run check
+
+      - name: Create release with bundle attached
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/pulse-check-card.js
+          generate_release_notes: true
