@@ -1,13 +1,13 @@
 {
   "name": "pulse-check-card",
-  "version": "0.4.0",
   "description": "A universal device health card for Home Assistant: batteries, offline and gone-quiet devices across every protocol.",
   "type": "module",
   "private": true,
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yog18r/pulse-check-card.git"
+    "url": "https://github.com/yog18r/pulse-check-integration.git",
+    "directory": "frontend"
   },
   "keywords": [
     "home-assistant",

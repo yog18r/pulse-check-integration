@@ -1,24 +1,33 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+// The integration's manifest.json is the one place the version lives.
+import manifest from '../custom_components/pulse_check/manifest.json' with { type: 'json' };
 
 /**
  * Vite does two jobs here:
  *  1. `vite dev`   serves the demo page (index.html) with hot reload.
- *  2. `vite build` produces ONE JavaScript file, dist/pulse-check-card.js,
- *     with React and all CSS bundled in. That single file is what a user
- *     copies into Home Assistant's /config/www/ folder.
+ *  2. `vite build` produces ONE JavaScript file, pulse-check-card.js, with
+ *     React and all CSS bundled in, written straight into the integration's
+ *     folder. The integration serves that file and registers it with the
+ *     dashboards, so it ships inside the same HACS download.
  */
 export default defineConfig({
   plugins: [react()],
 
-  // React reads process.env.NODE_ENV at runtime. Home Assistant has no Node
-  // environment, so we bake the value in at build time.
   define: {
+    // React reads process.env.NODE_ENV at runtime. Home Assistant has no Node
+    // environment, so we bake the value in at build time.
     'process.env.NODE_ENV': JSON.stringify('production'),
+    // Shown in the browser console banner (see src/index.ts).
+    __CARD_VERSION__: JSON.stringify(manifest.version),
   },
 
   build: {
+    // Outside this folder, so Vite needs telling that emptying it is fine.
+    // It holds nothing but the bundle.
+    outDir: '../custom_components/pulse_check/frontend',
+    emptyOutDir: true,
     // "Library mode": bundle an entry module instead of an HTML page.
     lib: {
       entry: 'src/index.ts',

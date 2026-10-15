@@ -1,15 +1,16 @@
 /**
  * Entry point for the Pulse Check Card bundle.
  *
- * This file runs once when Home Assistant loads /local/pulse-check-card.js.
- * It registers the custom element and announces the card to the dashboard
- * card picker.
+ * This file runs once when Home Assistant loads the bundle, which the
+ * integration serves at /pulse_check/pulse-check-card.js. It registers the
+ * custom element and announces the card to the dashboard card picker.
  */
 import { PulseCheckCardEditor } from './card/PulseCheckCardEditor';
 import { EDITOR_TAG, PulseCheckCardElement } from './card/PulseCheckCardElement';
 
 export const CARD_TAG = 'pulse-check-card';
-export const CARD_VERSION = '0.4.0';
+/** The integration's version, read from its manifest.json at build time. */
+export const CARD_VERSION = __CARD_VERSION__;
 
 // Guard against double registration (HA can load a resource twice during
 // dashboard edits; `customElements.define` throws on a duplicate name).
@@ -42,7 +43,7 @@ if (!window.customCards.some((c) => c.type === CARD_TAG)) {
     name: 'Pulse Check Card',
     description: 'Battery levels, offline and gone-quiet devices across every integration.',
     preview: true,
-    documentationURL: 'https://github.com/yog18r/pulse-check-card',
+    documentationURL: 'https://github.com/yog18r/pulse-check-integration',
   });
 }
 

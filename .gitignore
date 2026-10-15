@@ -221,3 +221,10 @@ __marimo__/
 
 # Claude desktop app session files (launch config for the card demo)
 .claude/
+
+# The card bundle is built from frontend/ (npm run build) and shipped in
+# the release zip; it is never committed.
+custom_components/pulse_check/frontend/
+
+# Node
+node_modules/
