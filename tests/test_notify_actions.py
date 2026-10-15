@@ -234,7 +234,7 @@ async def test_remind_me_later_keeps_the_reminder_schedule(
     kitchen_messages = [c.data["message"] for c in phone if "Kitchen" in c.data["message"]]
     assert kitchen_messages == [
         "Kitchen H&T: battery critical (5 %)",
-        "Still unresolved after 1 days. Kitchen H&T: battery critical (5 %)",
+        "Still unresolved after 1 day. Kitchen H&T: battery critical (5 %)",
     ]
 
 

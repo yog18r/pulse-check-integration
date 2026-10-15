@@ -304,7 +304,7 @@ async def test_reminders_while_unresolved(
     # The motion sensor, the smoke alarm and the remote. Not the dead lock:
     # never seen online in this run, so never recorded as offline.
     assert len(reminders) == 3
-    assert "Still unresolved after 1 days. Living Room Motion: battery critical (12 %)" in reminders
+    assert "Still unresolved after 1 day. Living Room Motion: battery critical (12 %)" in reminders
 
     # Not again until another interval has passed.
     calls.clear()

@@ -92,6 +92,7 @@ from .const import (
 )
 from .core.models import as_utc, to_iso
 from .core.thresholds import battery_severity
+from .messages import Catalog, Messages
 from .notify_actions import (
     EVENT_NOTIFICATION_ACTION,
     MARK_CHARGED,
@@ -114,11 +115,12 @@ _LOGGER = logging.getLogger(__name__)
 
 TITLE = "Pulse Check"
 
-ACTION_TITLES = {
-    MARK_REPLACED: "Mark replaced",
-    MARK_CHARGED: "Mark charged",
-    REMIND_LATER: "Remind me later",
-    SNOOZE_DAY: "Snooze 1 day",
+# Button verb -> message key of its label.
+ACTION_TITLE_KEYS = {
+    MARK_REPLACED: "action_mark_replaced",
+    MARK_CHARGED: "action_mark_charged",
+    REMIND_LATER: "action_remind_later",
+    SNOOZE_DAY: "action_snooze_day",
 }
 
 type IssueKey = Literal["offline", "quiet", "battery_critical", "battery_warning"]
@@ -173,29 +175,32 @@ def last_digest_slot(now: datetime, hour: int, minute: int, weekday: int | None 
     return slot
 
 
-def device_issues(device: DeviceHealth, config: CoreConfig, now: datetime) -> dict[str, Issue]:
-    """The issues a device currently has. A snoozed device has none."""
+def device_issues(
+    device: DeviceHealth, config: CoreConfig, now: datetime, text: Catalog
+) -> dict[str, Issue]:
+    """The issues a device currently has, worded by `text`. A snoozed device has none."""
     if device.snoozed_until is not None:
         return {}
     issues: dict[str, Issue] = {}
     name = device.name
     if device.is_offline:
-        issues["offline"] = Issue("offline", "critical", f"{name}: offline")
+        issues["offline"] = Issue("offline", "critical", text("issue_offline", name=name))
     elif device.is_quiet:
         hours = _hours_since(device.last_heard, now)
-        issues["quiet"] = Issue("quiet", "warning", f"{name}: not heard from for {hours} h")
+        issues["quiet"] = Issue("quiet", "warning", text("issue_quiet", name=name, hours=hours))
     battery = device.battery
     if battery is not None:
         severity = battery_severity(battery, config)
-        level = f"{battery.level} %" if battery.level is not None else "reports low"
+        if battery.level is not None:
+            level = text("level_percent", level=battery.level)
+        else:
+            level = text("level_low")
         if severity == "critical":
-            issues["battery_critical"] = Issue(
-                "battery_critical", "critical", f"{name}: battery critical ({level})"
-            )
+            message = text("issue_battery_critical", name=name, level=level)
+            issues["battery_critical"] = Issue("battery_critical", "critical", message)
         elif severity == "warning":
-            issues["battery_warning"] = Issue(
-                "battery_warning", "warning", f"{name}: battery low ({level})"
-            )
+            message = text("issue_battery_warning", name=name, level=level)
+            issues["battery_warning"] = Issue("battery_warning", "warning", message)
     return issues
 
 
@@ -203,10 +208,15 @@ class Notifier:
     """Watches coordinator updates and sends what the policies allow."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, coordinator: PulseCheckCoordinator
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        coordinator: PulseCheckCoordinator,
+        messages: Messages,
     ) -> None:
         """Keep references; nothing happens until `async_setup`."""
         self.hass = hass
+        self.messages = messages
         self.entry = entry
         self.coordinator = coordinator
         self.store = coordinator.store
@@ -222,6 +232,11 @@ class Notifier:
         self._maintenance_timer_at: datetime | None = None
 
     # -- options -------------------------------------------------------------
+
+    @property
+    def text(self) -> Catalog:
+        """Messages in Home Assistant's language, looked up as they are sent."""
+        return self.messages.catalog(self.hass.config.language)
 
     @property
     def targets(self) -> list[str]:
@@ -418,7 +433,7 @@ class Notifier:
         changed = False
         for device in data.devices:
             stored: dict[str, dict[str, Any]] = state.get(device.device_id, {})
-            current = device_issues(device, data.config, now)
+            current = device_issues(device, data.config, now, self.text)
             if device.device_id not in self._seen_online:
                 # Not loaded yet: its battery can still be judged, but
                 # offline and quiet mean nothing until it has come up once.
@@ -482,8 +497,8 @@ class Notifier:
             if not record.get("confirmed", True):
                 continue  # healed within the window: it never happened
             severity = ISSUE_SEVERITY.get(key, "warning")
-            label = key.replace("_", " ")
-            resolved = Issue(key, severity, f"{device.name}: {label} resolved")  # type: ignore[arg-type]
+            message = self.text(f"resolved_{key}", name=device.name)
+            resolved = Issue(key, severity, message)  # type: ignore[arg-type]
             policy = self.policy_for(device.device_id, severity)
             self._fire(device, resolved, "resolved", policy)
         return changed
@@ -517,7 +532,7 @@ class Notifier:
         days = (as_utc(now) - _at(record["since"])).days
         reminders = record.get("reminders", 0) + 1
         await self._send(
-            f"Still unresolved after {days} days. {issue.message}",
+            self.text("reminder", count=days, message=issue.message),
             self._actions(device, issue, reminders_sent=reminders),
         )
         record["notified_at"] = to_iso(now)
@@ -533,12 +548,13 @@ class Notifier:
         follow: reminders are on and this message is not the last one.
         """
         settings = self.store.device_settings.get(device.device_id, {})
+        text = self.text
         return notification_actions(
             issue.key,
             device.device_id,
             rechargeable=bool(settings.get("rechargeable")),
             another_reminder=reminders_sent < self.reminder_max,
-            titles=ACTION_TITLES,
+            titles={verb: text(key) for verb, key in ACTION_TITLE_KEYS.items()},
         )
 
     @callback
@@ -581,7 +597,7 @@ class Notifier:
         lines: list[str] = []
         for device in data.devices:
             stored = self.store.notify.get(device.device_id, {})
-            for key, issue in device_issues(device, data.config, now).items():
+            for key, issue in device_issues(device, data.config, now, self.text).items():
                 record = stored.get(key)
                 if record is None or not record.get("confirmed", True):
                     continue
@@ -597,7 +613,7 @@ class Notifier:
         _LOGGER.debug("Maintenance mode over; %d new problems", len(lines))
         if lines:
             body = "\n".join(f"- {line}" for line in lines)
-            await self._send(f"Maintenance mode is over. New since it began:\n{body}")
+            await self._send(f"{self.text('maintenance_summary')}\n{body}")
 
     # -- digests -------------------------------------------------------------
 
@@ -639,7 +655,7 @@ class Notifier:
         lines: list[str] = []
         for device in data.devices:
             stored = self.store.notify.get(device.device_id, {})
-            for key, issue in device_issues(device, data.config, now).items():
+            for key, issue in device_issues(device, data.config, now, self.text).items():
                 if not stored.get(key, {}).get("confirmed", False):
                     continue
                 if self.policy_for(device.device_id, issue.severity) == kind:
@@ -648,8 +664,10 @@ class Notifier:
         if self.store.in_maintenance(now):
             _LOGGER.debug("Skipping the %s digest: maintenance mode", kind)
         elif lines or all_clear:
-            heading = f"{TITLE} {kind} digest"
-            body = "\n".join(f"- {line}" for line in lines) if lines else "All devices OK."
+            heading = self.text(f"digest_{kind}")
+            body = (
+                "\n".join(f"- {line}" for line in lines) if lines else self.text("digest_all_clear")
+            )
             await self._send(f"{heading}\n{body}")
         self.store.digests[kind] = to_iso(now)
         self.store.async_save()
