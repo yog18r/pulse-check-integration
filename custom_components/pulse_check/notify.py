@@ -15,6 +15,11 @@ Two guards keep restarts and hiccups quiet:
   it counts as a transition. A missed poll or a Zigbee hiccup that heals
   within the window produces nothing at all. Battery levels do not
   flicker, so battery transitions count at once.
+- Offline or quiet only counts for a device that has been seen online at
+  least once since Home Assistant started. An integration that takes ten
+  minutes to come up after a restart leaves its devices unavailable well
+  past the confirmation window; those devices are "not loaded yet", not
+  offline, until they have appeared once.
 
 Per device, a *policy* decides how a notification is delivered:
 
@@ -154,6 +159,8 @@ class Notifier:
         self.ready_at: datetime | None = None
         # True until the first evaluation after `ready_at` has recorded the baseline.
         self.baseline_pending = True
+        # Devices seen online (not offline) at least once in this run.
+        self._seen_online: set[str] = set()
 
     # -- options -------------------------------------------------------------
 
@@ -263,6 +270,11 @@ class Notifier:
         """Compare the latest result with what was last seen; act on the difference."""
         data: PulseCheckData = self.coordinator.data
         now = data.computed_at
+        # Learn which devices are up, even during the grace period: a device
+        # never seen online in this run cannot have "gone" offline.
+        for device in data.devices:
+            if not device.is_offline:
+                self._seen_online.add(device.device_id)
         if not self._is_ready():
             return
         baseline = self.baseline_pending
@@ -273,6 +285,10 @@ class Notifier:
         for device in data.devices:
             stored: dict[str, dict[str, Any]] = state.get(device.device_id, {})
             current = device_issues(device, data.config, now)
+            if device.device_id not in self._seen_online:
+                # Not loaded yet: its battery can still be judged, but
+                # offline and quiet mean nothing until it has come up once.
+                current = {k: v for k, v in current.items() if k not in CONFIRMED_ISSUES}
             changed |= await self._process_device(device, current, stored, now, baseline)
             if stored:
                 state[device.device_id] = stored

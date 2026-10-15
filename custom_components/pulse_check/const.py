@@ -70,7 +70,7 @@ DEFAULT_REMINDER_MAX = 3
 DEFAULT_DIGEST_TIME = "09:00:00"
 WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 DEFAULT_DIGEST_WEEKDAY = "monday"
-DEFAULT_STARTUP_GRACE_MINUTES = 2
+DEFAULT_STARTUP_GRACE_MINUTES = 5
 DEFAULT_CONFIRM_MINUTES = 5
 
 EVENT_TRANSITION = "pulse_check_transition"

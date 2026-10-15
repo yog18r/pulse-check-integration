@@ -91,8 +91,9 @@ async def test_nothing_is_announced_at_startup(
     # ...but they are remembered, so they will not be announced later either.
     await _tick(hass, freezer, timedelta(seconds=5))
     notify_state = hass_storage["pulse_check.data"]["data"]["notify"]
+    # The dead lock is not among them: it has never been seen online in
+    # this run, so it is "not loaded yet" rather than offline.
     assert {key for records in notify_state.values() for key in records} == {
-        "offline",
         "quiet",
         "battery_critical",
         "battery_warning",
@@ -127,6 +128,40 @@ async def test_a_restart_storm_of_unavailable_devices_sends_nothing(
     await _tick(hass, freezer, timedelta(minutes=DEFAULT_CONFIRM_MINUTES + 1))
     assert calls == []
     assert [e for e in events if e.data["kind"] == "entered"] == []
+
+
+async def test_a_device_never_seen_online_is_not_offline(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """An integration that loads ten minutes after a restart is not an outage."""
+    freezer.move_to(fixed_now)
+    # The Shelly H&T is unavailable from the very start of this run.
+    fixture = {**fixture_snapshot, "states": dict(fixture_snapshot["states"])}
+    fixture["states"]["sensor.kitchen_ht_temperature"] = {
+        **fixture_snapshot["states"]["sensor.kitchen_ht_temperature"],
+        "state": "unavailable",
+    }
+    events = async_capture_events(hass, EVENT_TRANSITION)
+    _, _, calls = await _set_up(hass, fixture, freezer, fixed_now)
+    await _ready(hass, freezer)
+    await _tick(hass, freezer, timedelta(minutes=10))
+    assert calls == []
+    assert [e for e in events if e.data["name"] == "Kitchen H&T"] == []
+
+    # It comes up: nothing to announce either.
+    hass.states.async_set("sensor.kitchen_ht_temperature", "21.7", TEMPERATURE)
+    await _tick(hass, freezer, timedelta(minutes=1))
+    assert calls == []
+
+    # Now a real outage: unavailable for the confirmation window.
+    hass.states.async_set("sensor.kitchen_ht_temperature", "unavailable", TEMPERATURE)
+    await _tick(hass, freezer, timedelta(seconds=3))  # the recompute that first sees it
+    assert calls == []
+    await _tick(hass, freezer, timedelta(minutes=DEFAULT_CONFIRM_MINUTES + 1))
+    assert _messages(calls) == ["Kitchen H&T: offline"]
 
 
 async def test_a_new_battery_problem_is_announced_at_once(
@@ -252,8 +287,10 @@ async def test_reminders_while_unresolved(
 
     await _tick(hass, freezer, timedelta(days=1, minutes=1))
     reminders = [m for m in _messages(calls) if m.startswith("Still unresolved")]
-    assert len(reminders) == 4  # the lock, the motion sensor, the smoke alarm, the remote
-    assert "Still unresolved after 1 days. Front Door Lock: offline" in reminders
+    # The motion sensor, the smoke alarm and the remote. Not the dead lock:
+    # never seen online in this run, so never recorded as offline.
+    assert len(reminders) == 3
+    assert "Still unresolved after 1 days. Living Room Motion: battery critical (12 %)" in reminders
 
     # Not again until another interval has passed.
     calls.clear()
