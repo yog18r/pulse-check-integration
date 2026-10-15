@@ -1,6 +1,6 @@
 {
   "name": "pulse-check-card",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A universal device health card for Home Assistant: batteries, offline and gone-quiet devices across every protocol.",
   "type": "module",
   "private": true,
