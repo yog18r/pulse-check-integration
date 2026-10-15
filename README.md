@@ -5,11 +5,12 @@ A [Home Assistant](https://www.home-assistant.io/) integration that watches ever
 It brings entities, notifications, services, a blueprint and a **dashboard card**. One install provides all of them: the integration serves the card itself and adds it to your dashboards, so it simply appears in the card picker.
 
 <p align="center">
-  <img src="frontend/docs/screenshot-batteries.jpg" alt="Batteries tab in a dark theme: devices sorted lowest battery first with coloured bars" width="420" />
-  <img src="frontend/docs/screenshot-connectivity.jpg" alt="Connectivity tab in a light theme: one offline lock and three quiet devices" width="420" />
+  <img src="frontend/docs/screenshot-batteries.jpg" alt="Batteries tab, dark theme: devices sorted lowest battery first, with coloured bars, trend sparklines and days left" width="280" />
+  <img src="frontend/docs/screenshot-connectivity.jpg" alt="Connectivity tab, light theme, grouped by area: one offline lock and two quiet sensors" width="280" />
+  <img src="frontend/docs/screenshot-actions.jpg" alt="Actions tab, dark theme: what to buy, which batteries to replace and which devices to charge, each with a Done button" width="280" />
 </p>
 
-<p align="center"><em>The card, rendered from its demo page with mock data. Dark and light themes.</em></p>
+<p align="center"><em>The card's Batteries, Connectivity and Actions tabs, rendered from its demo page with mock data.</em></p>
 
 [![CI](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml)
 
@@ -394,6 +395,8 @@ npm run dev      # demo page with a fake subscription, no Home Assistant needed
 npm run check    # typecheck, lint, format check, tests (68), build
 ```
 
+With the demo running, `python frontend/docs/screenshots.py` retakes the README screenshots from it.
+
 CI runs ruff, mypy, pytest, the card's checks and build, [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest/) (on the integration with the built card inside) and the HACS validation action on every push. Pushing a `v*` tag that matches `manifest.json` builds the card and publishes `pulse_check.zip` as a release.
 
 To try a development build on a live instance, run `npm run build` in `frontend/`, delete any `__pycache__` folders, copy `custom_components/pulse_check` into `/config/custom_components/`, restart Home Assistant and refresh the browser. The card is served without long-lived cache headers, so a rebuilt card with the same version is picked up on a normal reload.
@@ -407,7 +410,7 @@ To try a development build on a live instance, run `npm run build` in `frontend/
 5. ~~The card becomes a renderer of this integration's data over a websocket subscription, with `group_by` and a per-device settings editor~~
 6. ~~One repository: the card ships inside the integration and registers itself~~
 
-Ideas for later: a UI for per-device settings (today they are set through the service), catching up missed digests after a restart, and watching entities that have no registry entry.
+Ideas for later: catching up missed digests after a restart, watching entities that have no registry entry, and translations beyond English.
 
 ## License
 

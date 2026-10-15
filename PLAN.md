@@ -1,177 +1,176 @@
-# Pulse Check integration: plan
+# Pulse Check: the plan, as built
 
-A Home Assistant custom integration (domain `pulse_check`) that computes device
-battery and connectivity health server-side, exposes it as entities, sends
-notifications, and tracks battery replacements. It is the backend companion to
-the Pulse Check Card (now in `frontend/`), but it
-**must be fully useful with no card installed**: entities, notifications,
-services and the blueprint stand on their own. The card is one optional view.
+Pulse Check is a Home Assistant custom integration (domain `pulse_check`)
+that computes device battery and connectivity health server-side, exposes it
+as entities, sends notifications, tracks battery replacements, and serves its
+own dashboard card. This file is the design record: what was decided, why,
+and what is still open. The [README](README.md) is the reference for how
+things behave today; where the two disagree, the README wins and this file
+needs a fix.
 
-Portfolio context: the author is a Python/Django developer learning TypeScript.
-Keep code clean and well commented so it reads well to a hiring manager; brief
-explanations of Home Assistant concepts (config entries, coordinators, entity
-platforms, storage, services) are welcome as they are introduced. Plain tone
-over playful in user-facing text.
+Portfolio context: the author is a Python/Django developer learning
+TypeScript. Code should read well to a hiring manager; brief explanations of
+Home Assistant and React concepts are welcome where they are introduced.
+Plain tone over playful in user-facing text.
 
-## Rules to port (from the card's `src/core`)
+## How it got here
 
-The card's pure TypeScript core is the spec. Port it faithfully to Python and
-check both against the same fixture:
+1. **A standalone card.** Pulse Check began as a Lovelace card with its own
+   TypeScript core: detection rules, thresholds, filters, snoozes in the
+   browser, and a drain estimate from the recorder's statistics.
+2. **An integration beside it.** Notifications, shared settings and
+   replacement history do not belong in a browser, so the rules were ported
+   to Python as this integration. The port was proven against the card's own
+   fixture, exported as `tests/fixtures/hass.json` with a golden output file.
+3. **The card requires the integration.** Two implementations of the same
+   rules would drift, and a card-only install could not share snoozes or
+   settings. The card became a pure renderer of the integration's websocket
+   snapshot; its analysis, thresholds and filters were removed. The golden
+   file is now frozen in this repository as the permanent spec.
+4. **One repository.** The card moved into `frontend/` (git subtree, history
+   kept). The integration serves the built bundle and registers the dashboard
+   resource itself, so one HACS install delivers both and versions can never
+   mismatch. The old card repository was deleted.
 
-- **Battery**: `sensor` with `device_class: battery` and numeric state; a
+All planned phases are complete. Remaining ideas are listed at the end.
+
+## Detection rules
+
+The core (`custom_components/pulse_check/core/`) is pure Python with no Home
+Assistant imports, tested against the frozen fixture and golden file. A rule
+change must come with a deliberate change to the golden file.
+
+- **Battery**: a `sensor` with `device_class: battery` and a numeric state; a
   `binary_sensor` with `device_class: battery` (on = low); any entity with a
-  numeric `battery_level` attribute. A battery sensor with a non-numeric state
-  falls through to the attribute rule. Entities with `entity_category: config`
-  are never batteries. Per device: prefer sensor > attribute > binary, lowest
-  numeric level wins, any binary "low" flags the device.
-- **Charging**: `binary_sensor` `device_class: battery_charging` on; a sensor
-  whose id contains "battery" reading `charging`/`full`; a `vacuum` that is
-  `docked`; attributes `is_charging` / `charging` / `battery_charging` true or
-  `battery_state: charging`. A charging device is never flagged for battery.
-- **Offline**: every primary entity (no `entity_category`) is `unavailable`;
-  fall back to all entities if there are no primary ones.
-- **Last heard**: newest `last_reported` across the device's live entities.
-  Static entities are ignored: `entity_category: config`, and domains
-  `number`, `select`, `button`, `update`, `text`, `scene`, `script`. (The
-  backend has `last_reported` directly; the card could only use
-  `last_updated` plus an on-demand lookup.)
-- **Quiet**: last heard older than the threshold. Resolution: per-device >
-  per-integration > global (default 24h). By default only battery devices can
-  be quiet (`quiet_scope: battery`); `all` judges mains devices too. Offline
-  devices are not also quiet. Devices with no device registry entry can only
-  be battery readings, never offline or quiet.
+  numeric `battery_level` attribute. A battery sensor with a non-numeric
+  state falls through to the attribute rule. `entity_category: config`
+  entities are never batteries. Per device: sensor > attribute > binary,
+  lowest numeric level wins, any binary low flags the device.
+- **Charging**: `battery_charging` binary sensor on; a battery-state sensor
+  reading `charging`/`full`; a docked vacuum; `is_charging` / `charging` /
+  `battery_charging` / `battery_state` attributes. Charging devices are
+  never flagged for their level.
+- **Offline**: every primary entity (no entity category) is `unavailable`;
+  all entities if there are no primary ones. A dead Z-Wave JS node is
+  offline regardless.
+- **Last heard and quiet**: newest `last_reported` across live entities,
+  ignoring settings-type entities (`entity_category: config`; domains
+  `number`, `select`, `button`, `update`, `text`, `scene`, `script`). Quiet
+  when older than the threshold: per-device > per-integration > global
+  (default 24 h). `quiet_scope: battery` (default) judges only battery
+  devices; `all` judges mains devices too. Offline devices are not also
+  quiet; device-less entities are never offline or quiet.
 - **Severity**: critical = offline, battery at/below critical (default 15),
-  binary low, or an enhancer says so; warning = battery at/below warning
-  (default 30) or quiet; snoozed devices read as ok.
-- **Grouping**: by device registry entry; entities with no device get a
-  synthetic id `entity:<entity_id>` and are included only if they carry a
-  battery. Skip `entry_type: service` and disabled devices. Integration =
-  most common `platform` among the device's entities. Name = `name_by_user`
-  > `name`, overridable per device.
-- **Enhancers**: Z-Wave JS node status (`dead` = offline/critical),
-  Zigbee2MQTT `linkquality` (warning <= 30) and optional `last_seen`, ZHA
-  `lqi`/`rssi`. Same interface idea: optional extras that never break the core.
-- **Drain estimate**: least-squares slope over the last 14 days of daily
-  means plus the live reading; needs 3+ samples over 2+ days and a slope of at
-  least 0.1 %/day; flat or rising series give no estimate; days left =
-  level / rate. Statistics from the recorder, raw history as fallback for
-  sensors without statistics, attribute history for attribute-based batteries.
+  binary low, or an enhancer says so; warning = at/below warning (default
+  30) or quiet. Snoozed devices read as ok.
+- **Grouping**: by device registry entry; device-less entities get
+  `entity:<entity_id>` and count only as battery readings. Service and
+  disabled devices are skipped. Integration = most common platform among
+  the device's entities. Name = `name_by_user` > `name`, overridable.
+- **Device type**: lock, cover, vacuum, phone, media, remote, climate,
+  motion, contact, light, switch or other, from the primary entities'
+  domains and device classes.
+- **Enhancers**: Z-Wave JS node status, Zigbee2MQTT link quality and
+  `last_seen`, ZHA LQI/RSSI. Optional extras that never break the core.
 - **Actions**: a device at/below warning (or binary low), not charging, not
-  snoozed, becomes "replace N × TYPE in DEVICE" or "charge DEVICE" when
-  `rechargeable`; a to-buy total per battery type.
-- **Filters**: include/exclude areas (id or name, case-insensitive; an include
-  list drops devices with no area), include/exclude integrations, exclude
-  devices and entities. Per-device `area` override counts for the filters.
+  snoozed, becomes "Replace N × TYPE in DEVICE", or "Charge DEVICE" when
+  marked rechargeable, plus a to-buy total per battery type.
+- **Filters**: include/exclude areas and integrations (id or name), exclude
+  devices and entities. A per-device `area` override counts for the filters.
 
-Port the fixture: export the card's `test/fixtures/hass.ts` as JSON
-(`tests/fixtures/hass.json`) together with a golden file of expected
-`DeviceHealth` output, and make the card's tests also assert against the same
-golden file, so the two implementations cannot drift.
+## Days left: the cycle-aware estimate
+
+The first estimator was a least-squares slope over 14 days of daily means.
+It was replaced after live use showed two failures: a phone charged every
+night read "8 months left", and a lock whose battery reading dipped for a
+day lost its estimate. The rule now is **never invent an estimate**: a
+stand-in such as "assume a year" was considered and rejected.
+
+`core/cycles.py` cuts up to a year of daily means (plus a fortnight of
+hourly means) into cycles at a rise of 15+ points within 48 h, at a
+`mark_replaced` / `mark_charged` call, or when a charging signal turns on. A
+lone dip far below both neighbours is a glitch, not a cycle. Each battery
+gets a kind: **charged** (phone, marked rechargeable, charging seen, or
+cycles shorter than 30 days), **replaceable** (every cycle began near full),
+or **unknown** (no estimate). Replaceable batteries are estimated from the
+current cycle's trend when it spans a week, else from completed cycles, with
+"flat for 90+ days" and "slow drain over a fortnight" tiers that read "more
+than a year" where appropriate. Charged batteries get "charge in ~N days"
+until the warning level, suppressed under a day, so phones show nothing.
+Every estimate carries a basis and a confidence. "Unusual" flags apply only
+to replaceable batteries, comparing the current cycle with the device's own
+past cycles like for like, or on a sudden 20-point drop.
 
 ## What the integration owns
 
-**State in Home Assistant storage** (`homeassistant.helpers.storage.Store`),
-shared across every browser and device:
-- per-device settings: `name`, `area`, `quiet_threshold_hours`,
-  `battery_type`, `battery_count`, `rechargeable`, `notify_policy`
-- snoozes (device id -> until)
-- replacement/charge history per device: timestamp, kind (replaced/charged),
-  battery type, level before/after, and the cycle length and average drain of
-  each completed cycle
-
-**Entities**
-- `sensor.pulse_check_attention`: count of devices needing attention, with the
-  full device list as attributes in the card's `DeviceHealth` shape (id, name,
-  area, integration, battery level/isLow/isCharging, lastHeard, isOffline,
-  isQuiet, severity, extras, daysLeft, lastReplaced, unusual)
-- `sensor.pulse_check_low_batteries`, `..._critical_batteries`,
-  `..._offline`, `..._quiet`: plain counts for independent automations
-- `sensor.pulse_check_next_to_run_out`: name of the device with the fewest
-  days left, with days as an attribute
-- `binary_sensor.pulse_check_problem`: on when anything needs attention
-- Optionally per-device: a `sensor.<device>_days_left` and
-  `sensor.<device>_last_replaced` for battery devices (diagnostic category)
-
-**Notifications** (built in, configured in the options flow; not dependent on
-the card):
-- notify action(s) to call (any `notify.*`), chosen in the options flow
-- per-device thresholds as today; per-device **notify policy**: `instant`,
-  `daily`, `weekly`, `none`, with defaults by severity (critical -> instant,
-  warning -> weekly digest). Example: a leak detector instant, blinds weekly.
-- **once per event**: notify when a device *transitions* into a state (enters
-  warning, enters critical, goes offline, goes quiet), never on every state
-  update. Track per-device "last notified state" in storage so a restart
-  does not re-notify.
-- **reminders**: if the problem remains unresolved after a configurable
-  interval (default 3 days), send again; configurable cap.
-- **digests**: daily/weekly summary at a configured time for devices on those
-  policies; nothing is sent when there is nothing to say (optional
-  "all clear" weekly line).
-- also fire an event `pulse_check_transition` for every transition so users
-  can build their own automations, and ship a blueprint that uses it.
-
-**Replacement tracking**
-- `pulse_check.mark_replaced` / `mark_charged` services (device, optional
-  battery type) record an entry and start a new cycle
-- **auto-detect** a replacement or charge: a jump of >= 20 points, or the
-  charging signal followed by a higher level, closes the cycle automatically
-- remaining days from the current drain estimate; **unusual behaviour** flags
-  when the current cycle drains markedly faster than the device's own
-  history (e.g. > 2× the average rate of past cycles) or after a sudden drop,
-  surfaced as `unusual: "draining 3× faster than usual"` on the device
-
-**Grouping and categories**
-- compute a `device_type` per device from its primary entities' domains and
-  device classes (lock, cover/blind, vacuum, phone, motion, contact,
-  climate, remote, light, switch, media, other) so views can group by type
-- group-by for the card: `none | area | integration | device_type`
-  (phase 4, card side); the integration exposes the fields
-
-**Services**: `snooze`, `unsnooze`, `mark_replaced`, `mark_charged`,
-`set_device_settings`, `refresh`.
+- **Storage** (`.storage`, shared by every browser and user): per-device
+  settings (`name`, `area`, `quiet_threshold_hours`, `battery_type`,
+  `battery_count`, `rechargeable`, `notify_policy`, `sparkline_days`),
+  snoozes, notification state, and replacement/charge history with cycle
+  statistics.
+- **Entities**: attention count with a summary attribute; low, critical,
+  offline and quiet counts; next to run out; a problem binary sensor;
+  optional per-device diagnostic sensors. Nothing time-stamped goes on an
+  entity, so an unchanged result writes no recorder row.
+- **Notifications**: once per transition (enters warning, enters critical,
+  goes offline, goes quiet), never per update. Per-device policy `instant`,
+  `daily`, `weekly` or `none`, defaulting by severity; reminders while
+  unresolved with a cap; daily and weekly digests; a `pulse_check_transition`
+  event and a blueprint. On startup: a baseline, a grace period, and a
+  confirmation window; a device must have been seen online since startup
+  before it can be reported offline, so slow-starting integrations do not
+  produce a flood of false alarms after a restart.
+- **Services**: `snooze`, `unsnooze`, `set_device_settings`,
+  `mark_replaced`, `mark_charged`, `refresh`.
+- **Websocket API**: `pulse_check/subscribe` streams the snapshot (devices,
+  summary, actions, config, device settings) and re-sends it after every
+  recompute, option change or service call; `pulse_check/history` returns a
+  battery's trend points for sparklines.
+- **The card**: `card.py` serves `frontend/pulse-check-card.js` and keeps a
+  single dashboard resource current with `?v=<version>`; the version lives
+  only in `manifest.json`.
 
 ## How it runs
 
-- Config entry with an options flow (thresholds, quiet scope, filters,
-  notify targets, digest schedule, reminder interval).
-- A `DataUpdateCoordinator` that listens to `state_changed` for all entities,
-  recomputes with a short debounce (about 2 s), and also refreshes every few
-  minutes so time-based transitions (quiet, snooze expiry) happen on their own.
-- Drain estimates from recorder statistics every 6 h, via the recorder's
-  `statistics_during_period` in the executor; raw history fallback as in the
-  card.
-- Notifications evaluated after each recompute from the transition set.
+- Config entry with an options flow: thresholds, quiet scope, per-integration
+  thresholds, filters, notify targets, policies, reminders, digest schedule,
+  startup grace and confirmation minutes, per-device sensors.
+- A `DataUpdateCoordinator` listening to `state_changed`. Only changes that
+  can alter the result get through (availability, battery and charging
+  values, node status, `battery_level` attributes); relevant changes are
+  debounced to one recompute per 10 s, and a timer recomputes every 5 min
+  for time-based transitions. The analysis runs in a worker thread.
+- Battery history re-read from the recorder every 6 h, after Home Assistant
+  has started; insights survive a reload.
+- Nothing is ever polled from a device.
+
+## The card
+
+A renderer over the subscription with presentation-only options: `title`,
+`show_tabs`, `default_tab`, `max_rows`, `sort` (`level`, `name`,
+`replace_soon`), `group_by` (`none`, `area`, `integration`, `device_type`),
+view filters `areas` / `integrations` / `device_types`, `problems_only`,
+`show_sparklines`, `sparkline_days`. The visual editor covers all of them
+and has a per-device settings panel that saves through
+`pulse_check.set_device_settings`. Snooze and Done call services. The demo
+page (`npm run dev` in `frontend/`) replays a canned snapshot and takes
+`?scenario=…&theme=…&shot` for the README screenshots.
 
 ## Tooling
 
-- Python as required by the current Home Assistant release (3.13 today; 3.14
-  is installed on this machine, so install 3.13 via `py`/winget if needed).
-- `custom_components/pulse_check/` layout, `manifest.json`, `hacs.json`,
-  `strings.json` + `translations/en.json`.
-- Ruff (lint + format), mypy, pytest with `pytest-homeassistant-custom-component`.
-- GitHub Actions: ruff, mypy, pytest, hassfest, HACS validation on every push;
-  a release workflow on `v*` tags.
-- Small meaningful commits with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
-- README for users and reviewers: what it does, install (HACS custom repo or
-  copy the folder), options reference, entities, services, notifications,
-  how detection works, architecture, running tests, roadmap.
+- Python 3.14 (Home Assistant 2026.10); `probatio` replaced voluptuous in
+  2026.9, so `hacs.json` requires 2026.9.0 or newer. Ruff, mypy, pytest with
+  `pytest-homeassistant-custom-component` (under WSL on Windows).
+- Node 24, Vite, React, TypeScript strict, Vitest, ESLint and Prettier in
+  `frontend/`; the bundle is built in CI and the release workflow, not
+  committed.
+- GitHub Actions: ruff, mypy, pytest, the card's checks and build, hassfest,
+  HACS validation; a `v*` tag matching `manifest.json` publishes
+  `pulse_check.zip`.
+- Small, meaningful commits.
 
-## Phases
+## Still open
 
-1. **Scaffold + core**: repo tooling, config flow (no options yet), the
-   ported pure core with the shared fixture and golden tests, the attention
-   sensor. Installable.
-2. **Entities + options**: all sensors and the binary sensor, options flow
-   for thresholds/scope/filters, drain estimates, HACS metadata, CI, README.
-3. **Notifications + storage**: Store, per-device settings and services,
-   snooze, transition tracking, notify policies, reminders, digests, events,
-   blueprint.
-4. **Replacement tracking**: history, auto-detect, cycle stats, unusual
-   behaviour, per-device sensors.
-5. **Card integration mode** (in the card, now `frontend/`): `source: integration` reads
-   the attention sensor instead of analysing; snooze and mark-replaced call
-   services; `group_by` option. Standalone mode stays, deprecated later.
-
-Testing on the author's live instance: copy `custom_components/pulse_check`
-into `/config/custom_components/`, restart, add the integration from
-Settings > Devices & services. Tell the author when a phase is ready to try.
+- Catching up missed digests after a restart.
+- Watching entities that have no registry entry beyond battery readings.
+- Translations beyond English; HACS default-store submission once released.
