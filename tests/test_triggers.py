@@ -12,6 +12,7 @@ from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from tests.conftest import load_fixture_into_hass
@@ -100,3 +101,62 @@ async def test_a_recompute_that_changes_nothing_writes_no_new_state(
     assert after is not None
     assert after.last_updated == before.last_updated
     assert after.last_changed == before.last_changed
+
+
+async def test_a_new_battery_without_a_registry_entry_is_picked_up(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """A YAML template sensor brings no registry event: its first state is the signal."""
+    freezer.move_to(fixed_now)
+    await load_fixture_into_hass(hass, fixture_snapshot)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = config_entry.runtime_data
+    runs: list[int] = []
+    config_entry.async_on_unload(coordinator.async_add_listener(lambda: runs.append(1)))
+
+    # A new entity that is not a battery: ignored.
+    hass.states.async_set("sensor.shed_temperature", "14", {"device_class": "temperature"})
+    await _settle(hass, freezer)
+    assert runs == []
+
+    # A new battery: one run, and it is a device from then on.
+    battery = {"device_class": "battery", "unit_of_measurement": "%"}
+    hass.states.async_set("sensor.shed_battery", "60", battery)
+    await _settle(hass, freezer)
+    assert len(runs) == 1
+    shed = {d.device_id: d for d in coordinator.data.devices}["entity:sensor.shed_battery"]
+    assert shed.battery is not None
+    assert shed.battery.level == 60
+
+    # Its level changing is a change like any other battery's.
+    hass.states.async_set("sensor.shed_battery", "59", battery)
+    await _settle(hass, freezer)
+    assert len(runs) == 2
+
+
+async def test_a_disabled_entity_is_not_read_as_an_unregistered_one(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """A disabled entity's state lingers until its integration reloads; skip it."""
+    freezer.move_to(fixed_now)
+    await load_fixture_into_hass(hass, fixture_snapshot)
+    registry = er.async_get(hass)
+    registry.async_update_entity(
+        "sensor.remote_battery_template", disabled_by=er.RegistryEntryDisabler.USER
+    )
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.remote_battery_template") is not None
+    ids = {device.device_id for device in config_entry.runtime_data.data.devices}
+    assert "entity:sensor.remote_battery_template" not in ids
+    assert "entity:sensor.garden_soil_moisture" in ids  # the one truly unregistered
