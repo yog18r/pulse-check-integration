@@ -13,8 +13,11 @@ describe('resolveConfig', () => {
       show_tabs: ['connectivity', 'actions'],
       default_tab: 'actions',
       max_rows: 'all',
-      battery_sort: 'replace_soon',
+      sort: 'replace_soon',
       group_by: 'area',
+      areas: ['Kitchen', 'hallway'],
+      integrations: ['zha'],
+      device_types: ['lock'],
       problems_only: true,
       show_sparklines: false,
       sparkline_days: 30,
@@ -24,8 +27,11 @@ describe('resolveConfig', () => {
       show_tabs: ['connectivity', 'actions'],
       default_tab: 'actions',
       max_rows: 'all',
-      battery_sort: 'replace_soon',
+      sort: 'replace_soon',
       group_by: 'area',
+      areas: ['Kitchen', 'hallway'],
+      integrations: ['zha'],
+      device_types: ['lock'],
       problems_only: true,
       show_sparklines: false,
       sparkline_days: 30,
@@ -44,7 +50,8 @@ describe('resolveConfig', () => {
       /not in "show_tabs"/,
     );
     expect(() => resolveConfig({ max_rows: 0 })).toThrow(/max_rows/);
-    expect(() => resolveConfig({ battery_sort: 'random' })).toThrow(/level, replace_soon/);
+    expect(() => resolveConfig({ sort: 'random' })).toThrow(/level, name, replace_soon/);
+    expect(() => resolveConfig({ areas: 'Kitchen' })).toThrow(/"areas" must be a list/);
     expect(() => resolveConfig({ group_by: 'colour' })).toThrow(/none, area, integration/);
     expect(() => resolveConfig({ problems_only: 'yes' })).toThrow(/true or false/);
     expect(() => resolveConfig({ sparkline_days: 400 })).toThrow(/1 to 365/);
@@ -55,6 +62,11 @@ describe('resolveConfig', () => {
     expect(resolveConfig({ show_tabs: ['batteries', 'batteries'] }).show_tabs).toEqual([
       'batteries',
     ]);
+  });
+
+  it('still accepts the older battery_sort spelling', () => {
+    expect(resolveConfig({ battery_sort: 'replace_soon' }).sort).toBe('replace_soon');
+    expect(resolveConfig({ battery_sort: 'level', sort: 'name' }).sort).toBe('name');
   });
 
   it('ignores the analysis keys that used to exist', () => {

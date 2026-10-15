@@ -42,3 +42,27 @@ export interface ActionList {
 }
 
 export const EMPTY_ACTIONS: ActionList = { replace: [], charge: [], shopping: [] };
+
+/** Keep only the items for the given devices, with the to-buy totals redone. */
+export function filterActions(actions: ActionList, deviceIds: ReadonlySet<string>): ActionList {
+  const replace = actions.replace.filter((item) => deviceIds.has(item.deviceId));
+  const charge = actions.charge.filter((item) => deviceIds.has(item.deviceId));
+  const totals = new Map<string, ShoppingLine>();
+  for (const item of replace) {
+    const line = totals.get(item.batteryType) ?? {
+      batteryType: item.batteryType,
+      count: 0,
+      devices: 0,
+    };
+    line.count += item.count;
+    line.devices += 1;
+    totals.set(item.batteryType, line);
+  }
+  const shopping = [...totals.values()].sort((a, b) => {
+    const ua = a.batteryType === UNKNOWN_BATTERY_TYPE;
+    const ub = b.batteryType === UNKNOWN_BATTERY_TYPE;
+    if (ua !== ub) return ua ? 1 : -1;
+    return b.count - a.count || a.batteryType.localeCompare(b.batteryType);
+  });
+  return { replace, charge, shopping };
+}

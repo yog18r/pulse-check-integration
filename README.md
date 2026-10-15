@@ -50,26 +50,40 @@ title: Device Health # leave out for no title row
 show_tabs: [batteries, connectivity, actions]
 default_tab: batteries
 max_rows: 12 # or "all"
-battery_sort: level # or replace_soon
+sort: level # level, name or replace_soon
 group_by: none # none, area, integration or device_type
+areas: [] # view filters: names or ids; empty means all
+integrations: []
+device_types: []
 problems_only: false # Batteries tab shows only warning/critical rows
 show_sparklines: true
 sparkline_days: 14 # 1 to 365
 ```
 
-| Option            | Type    | Default                     | Notes                                                                     |
-| ----------------- | ------- | --------------------------- | ------------------------------------------------------------------------- |
-| `title`           | string  | none                        | Leave out (or blank) for no title row.                                    |
-| `show_tabs`       | list    | `[batteries, connectivity]` | Any of `batteries`, `connectivity`, `actions`.                            |
-| `default_tab`     | string  | `batteries`                 | Must be in `show_tabs`.                                                   |
-| `max_rows`        | number  | `12`                        | Or `all`. A "show more" control reveals the rest.                         |
-| `battery_sort`    | string  | `level`                     | `level` or `replace_soon` (fewest days left first, from the integration). |
-| `group_by`        | string  | `none`                      | `none`, `area`, `integration` or `device_type`.                           |
-| `problems_only`   | boolean | `false`                     | Batteries tab shows only warning/critical rows.                           |
-| `show_sparklines` | boolean | `true`                      | Trend lines from recorder history, via the integration.                   |
-| `sparkline_days`  | number  | `14`                        | 1 to 365. A device's own "Trend days" setting overrides it.               |
+| Option            | Type    | Default                     | Notes                                                                                                                                     |
+| ----------------- | ------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`           | string  | none                        | Leave out (or blank) for no title row.                                                                                                    |
+| `show_tabs`       | list    | `[batteries, connectivity]` | Any of `batteries`, `connectivity`, `actions`.                                                                                            |
+| `default_tab`     | string  | `batteries`                 | Must be in `show_tabs`.                                                                                                                   |
+| `max_rows`        | number  | `12`                        | Or `all`. A "show more" control reveals the rest.                                                                                         |
+| `sort`            | string  | `level`                     | `level`, `name` or `replace_soon`. See "Sort order" below. `battery_sort` still works.                                                    |
+| `areas`           | list    | `[]`                        | Show only these areas (names or ids, case-insensitive). Empty means all.                                                                  |
+| `integrations`    | list    | `[]`                        | Show only these integrations, e.g. `zwave_js`.                                                                                            |
+| `device_types`    | list    | `[]`                        | Show only these types: `lock`, `cover`, `vacuum`, `phone`, `media`, `remote`, `climate`, `motion`, `contact`, `light`, `switch`, `other`. |
+| `group_by`        | string  | `none`                      | `none`, `area`, `integration` or `device_type`.                                                                                           |
+| `problems_only`   | boolean | `false`                     | Batteries tab shows only warning/critical rows.                                                                                           |
+| `show_sparklines` | boolean | `true`                      | Trend lines from recorder history, via the integration.                                                                                   |
+| `sparkline_days`  | number  | `14`                        | 1 to 365. A device's own "Trend days" setting overrides it.                                                                               |
 
 Keys from older versions (`battery_warning`, `device_settings`, `exclude_*`, `quiet_*` and so on) are ignored: those settings now live in the integration.
+
+### Sort order
+
+Rows on the Batteries tab are always grouped by severity first (critical, then warning, then ok, with charging devices last in their band). `sort` decides the order inside each band: `level` (lowest percentage first), `name` (alphabetical), or `replace_soon` (fewest days left first). For `replace_soon`, a device with no estimate yet gets a stand-in of its level × 3.65 days, which assumes about a year of life from 100 %, so a battery at 1 % with no history still sorts near the top and one at 99 % near the bottom, interleaved with the devices that do have estimates.
+
+### What a card shows versus what the integration monitors
+
+The integration's Configure dialog decides what is monitored at all: its exclusions remove a device from every card, every count and every notification. The card's `areas`, `integrations` and `device_types` lists only decide what _this_ card shows, so one shared integration can feed a hallway card, a locks-only card and a whole-house card. The header counts follow the card's filters. In the visual editor these are tick-to-keep lists: everything ticked means "show all" and writes nothing; untick what this card should leave out.
 
 ### Per-device settings
 

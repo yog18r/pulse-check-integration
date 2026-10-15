@@ -22,13 +22,15 @@ export const TAB_IDS = ['batteries', 'connectivity', 'actions'] as const;
 export type TabId = (typeof TAB_IDS)[number];
 
 /**
- * How the Batteries tab is ordered.
+ * How the Batteries tab is ordered, within each severity band.
  *  - level: lowest percentage first (the default)
- *  - replace_soon: soonest to run out first, using the integration's drain
- *    estimates. Devices without enough history fall back to level.
+ *  - name: alphabetical by display name
+ *  - replace_soon: soonest to run out first. Devices without an estimate
+ *    get a stand-in of level × 3.65 days (about a year from 100 %), so a
+ *    1 % battery with no history still sorts near the top.
  */
-export const BATTERY_SORTS = ['level', 'replace_soon'] as const;
-export type BatterySort = (typeof BATTERY_SORTS)[number];
+export const SORT_ORDERS = ['level', 'name', 'replace_soon'] as const;
+export type SortOrder = (typeof SORT_ORDERS)[number];
 
 /** Raw user input. All optional. */
 export interface CardConfig {
@@ -38,7 +40,13 @@ export interface CardConfig {
   default_tab?: TabId;
   /** Rows shown per tab before a "show more" control. A number, or "all". */
   max_rows?: number | 'all';
-  battery_sort?: BatterySort;
+  sort?: SortOrder;
+  /** Older name for `sort`, still accepted. */
+  battery_sort?: SortOrder;
+  /** View filters: what this card shows. Names or ids; empty means all. */
+  areas?: string[];
+  integrations?: string[];
+  device_types?: string[];
   /** Split the lists into sections: none, area, integration or device_type. */
   group_by?: GroupBy;
   /** Start the Batteries tab showing only devices that need attention. */
@@ -55,8 +63,11 @@ export interface ResolvedConfig {
   show_tabs: TabId[];
   default_tab: TabId;
   max_rows: number | 'all';
-  battery_sort: BatterySort;
+  sort: SortOrder;
   group_by: GroupBy;
+  areas: string[];
+  integrations: string[];
+  device_types: string[];
   problems_only: boolean;
   show_sparklines: boolean;
   sparkline_days: number;
@@ -67,8 +78,11 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
   show_tabs: ['batteries', 'connectivity'],
   default_tab: 'batteries',
   max_rows: 12,
-  battery_sort: 'level',
+  sort: 'level',
   group_by: 'none',
+  areas: [],
+  integrations: [],
+  device_types: [],
   problems_only: false,
   show_sparklines: true,
   sparkline_days: 14,
@@ -103,6 +117,14 @@ function oneOf<T extends string>(
     throw new ConfigError(`"${key}" must be one of: ${allowed.join(', ')}.`);
   }
   return value as T;
+}
+
+function stringList(value: unknown, key: string): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || !value.every((v) => typeof v === 'string')) {
+    throw new ConfigError(`"${key}" must be a list of names or ids.`);
+  }
+  return value;
 }
 
 function booleanOr(value: unknown, key: string, fallback: boolean): boolean {
@@ -164,8 +186,12 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     }
   }
 
-  const battery_sort = oneOf(raw.battery_sort, 'battery_sort', BATTERY_SORTS, 'level');
+  // `sort` wins; `battery_sort` is the older spelling.
+  const sort = oneOf(raw.sort ?? raw.battery_sort, 'sort', SORT_ORDERS, 'level');
   const group_by = oneOf(raw.group_by, 'group_by', GROUP_BYS, 'none');
+  const areas = stringList(raw.areas, 'areas');
+  const integrations = stringList(raw.integrations, 'integrations');
+  const device_types = stringList(raw.device_types, 'device_types');
   const problems_only = booleanOr(raw.problems_only, 'problems_only', false);
   const show_sparklines = booleanOr(raw.show_sparklines, 'show_sparklines', true);
 
@@ -190,8 +216,11 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     show_tabs,
     default_tab,
     max_rows,
-    battery_sort,
+    sort,
     group_by,
+    areas,
+    integrations,
+    device_types,
     problems_only,
     show_sparklines,
     sparkline_days,

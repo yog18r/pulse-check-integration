@@ -17,17 +17,20 @@
  * flows back down as the new value. One-way data flow, no hidden state.
  */
 import {
-  BATTERY_SORTS,
   DEFAULT_CONFIG,
   resolveConfig,
+  SORT_ORDERS,
   TAB_IDS,
-  type BatterySort,
   type CardConfig,
+  type SortOrder,
   type TabId,
 } from '../card/config';
+import { DEVICE_TYPES, deviceTypeLabel } from '../core/deviceType';
 import { GROUP_BYS, type GroupBy } from '../core/grouping';
-import type { HassLike, HassBox } from '../core/types';
+import { listIntegrations } from '../core/registryOptions';
+import type { HassBox, HassLike } from '../core/types';
 import { DeviceSettingsPanel } from './DeviceSettingsPanel';
+import { KeepList } from './KeepList';
 
 interface Props {
   config: CardConfig;
@@ -48,6 +51,12 @@ const GROUP_LABELS: Record<GroupBy, string> = {
   area: 'Area',
   integration: 'Integration',
   device_type: 'Device type',
+};
+
+const SORT_LABELS: Record<SortOrder, string> = {
+  level: 'Lowest level first',
+  name: 'Name',
+  replace_soon: 'Soonest to run out first',
 };
 
 function parseNumber(text: string): number | undefined {
@@ -75,6 +84,17 @@ export function EditorForm({ config, onChange, hass, hassBox }: Props) {
   }
 
   const shownTabs: TabId[] = config.show_tabs ?? DEFAULT_CONFIG.show_tabs;
+
+  // Options for the view filters, from the registries.
+  const areaOptions = hass
+    ? Object.values(hass.areas)
+        .map((a) => ({ id: a.area_id, label: a.name }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    : [];
+  const integrationOptions = hass
+    ? listIntegrations(hass).map((o) => ({ id: o.id, label: o.id }))
+    : [];
+  const typeOptions = DEVICE_TYPES.map((t) => ({ id: t, label: deviceTypeLabel(t) }));
 
   function toggleTab(tab: TabId, on: boolean) {
     const next = TAB_IDS.filter((t) => (t === tab ? on : shownTabs.includes(t)));
@@ -155,17 +175,22 @@ export function EditorForm({ config, onChange, hass, hassBox }: Props) {
 
       <div className="grid2">
         <label className="field">
-          <span>Battery order</span>
+          <span>Sort order</span>
           <select
-            value={config.battery_sort ?? 'level'}
+            value={config.sort ?? config.battery_sort ?? 'level'}
             onChange={(e) => {
-              const v = e.target.value as BatterySort;
-              set('battery_sort', v === 'level' ? undefined : v);
+              const v = e.target.value as SortOrder;
+              // Writing `sort` retires the older `battery_sort` spelling.
+              const entries = Object.entries(config).filter(
+                ([k]) => k !== 'sort' && k !== 'battery_sort',
+              );
+              if (v !== 'level') entries.push(['sort', v]);
+              onChange(Object.fromEntries(entries));
             }}
           >
-            {BATTERY_SORTS.map((s) => (
+            {SORT_ORDERS.map((s) => (
               <option key={s} value={s}>
-                {s === 'level' ? 'Lowest level first' : 'Soonest to run out first'}
+                {SORT_LABELS[s]}
               </option>
             ))}
           </select>
@@ -238,9 +263,36 @@ export function EditorForm({ config, onChange, hass, hassBox }: Props) {
         </label>
       </div>
 
+      <KeepList
+        legend="Areas shown on this card"
+        hint="Untick an area to leave its devices out of this card. The integration still monitors them."
+        options={areaOptions}
+        value={config.areas}
+        onChange={(v) => {
+          set('areas', v);
+        }}
+      />
+      <KeepList
+        legend="Integrations shown on this card"
+        options={integrationOptions}
+        value={config.integrations}
+        onChange={(v) => {
+          set('integrations', v);
+        }}
+      />
+      <KeepList
+        legend="Device types shown on this card"
+        options={typeOptions}
+        value={config.device_types}
+        onChange={(v) => {
+          set('device_types', v);
+        }}
+      />
+
       <p className="note">
-        Thresholds, quiet rules, filters and notifications are set in the integration: Settings →
-        Devices &amp; services → Pulse Check → Configure.
+        What is monitored at all, thresholds, quiet rules, exclusions and notifications are set in
+        the integration: Settings → Devices &amp; services → Pulse Check → Configure. The lists
+        above only change what this card shows.
       </p>
 
       <DeviceSettingsPanel hass={hass} hassBox={hassBox} />

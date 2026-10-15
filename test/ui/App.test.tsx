@@ -127,6 +127,17 @@ describe('App', () => {
     });
   });
 
+  it('view filters narrow the card, header included', async () => {
+    renderApp({ areas: ['Hallway'], show_tabs: ['batteries', 'connectivity'] });
+    expect(await screen.findByText('⚠️ 2 devices need attention')).toBeInTheDocument();
+    expect(screen.getByText('1 low battery · 1 offline')).toBeInTheDocument();
+    const rows = screen.getAllByRole('listitem');
+    expect(rows.map((r) => r.textContent)).toEqual(
+      expect.arrayContaining([expect.stringContaining('Hallway Smoke Alarm')]),
+    );
+    expect(screen.queryByText('Living Room Motion')).not.toBeInTheDocument();
+  });
+
   it('groups rows when asked', async () => {
     renderApp({ group_by: 'device_type' });
     await screen.findByText(/devices need attention/);

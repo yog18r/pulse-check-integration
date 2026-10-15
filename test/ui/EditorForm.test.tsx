@@ -75,8 +75,9 @@ describe('EditorForm: presentation options', () => {
     await user.selectOptions(screen.getByLabelText('Group by'), 'none');
     expect(latest()).not.toHaveProperty('group_by');
 
-    await user.selectOptions(screen.getByLabelText('Battery order'), 'replace_soon');
-    expect(latest().battery_sort).toBe('replace_soon');
+    await user.selectOptions(screen.getByLabelText('Sort order'), 'replace_soon');
+    expect(latest().sort).toBe('replace_soon');
+    expect(latest()).not.toHaveProperty('battery_sort');
 
     await user.click(screen.getByRole('checkbox', { name: 'Show all rows' }));
     expect(latest().max_rows).toBe('all');
@@ -85,16 +86,42 @@ describe('EditorForm: presentation options', () => {
     expect(latest().problems_only).toBe(true);
   });
 
+  it('view filters are tick-to-keep lists that write only what is still ticked', async () => {
+    const { latest } = renderEditor();
+    const user = userEvent.setup();
+
+    const garage = screen.getByRole('checkbox', { name: 'Garage' });
+    expect(garage).toBeChecked();
+    await user.click(garage);
+    expect([...(latest().areas ?? [])].sort()).toEqual([
+      'bedroom',
+      'hallway',
+      'kitchen',
+      'living_room',
+      'office',
+    ]);
+    // Ticking it again means "all areas": the key disappears.
+    await user.click(screen.getByRole('checkbox', { name: 'Garage' }));
+    expect(latest()).not.toHaveProperty('areas');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Locks' }));
+    expect(latest().device_types).toHaveLength(11);
+    expect(latest().device_types).not.toContain('lock');
+
+    await user.click(screen.getByRole('checkbox', { name: 'mobile_app' }));
+    expect(latest().integrations).not.toContain('mobile_app');
+  });
+
   it('shows the validation message the card would show', () => {
     renderEditor({ default_tab: 'actions', show_tabs: ['batteries'] });
     expect(screen.getByRole('alert')).toHaveTextContent(/not in "show_tabs"/);
   });
 
-  it('does not offer thresholds or filters: those belong to the integration', async () => {
+  it('offers view filters but no thresholds: those belong to the integration', async () => {
     renderEditor();
-    await screen.findByText(/Thresholds, quiet rules, filters and notifications are set/);
+    await screen.findByText(/set in\s+the integration/);
     expect(screen.queryByLabelText(/Battery warning/)).not.toBeInTheDocument();
-    expect(screen.queryByText('Areas')).not.toBeInTheDocument();
+    expect(screen.getByText('Areas shown on this card')).toBeInTheDocument();
   });
 });
 

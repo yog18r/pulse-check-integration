@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { parseSnapshot } from '../../src/card/snapshot';
-import { batteryList, connectivityList, sortableBatteryLevel } from '../../src/core/sort';
+import {
+  batteryList,
+  connectivityList,
+  daysLeftFor,
+  sortableBatteryLevel,
+} from '../../src/core/sort';
 import type { DeviceHealth } from '../../src/core/types';
 import { SNAPSHOT_PAYLOAD } from '../fixtures/snapshot';
 
@@ -26,17 +31,50 @@ describe('batteryList', () => {
     ]);
   });
 
-  it('replace_soon puts the fewest days left first, using the integration estimates', () => {
-    const withDays = devices.map((d) => (d.name === 'Window Sensor' ? { ...d, daysLeft: 3 } : d));
-    const list = names(batteryList(withDays, thresholds, 'replace_soon'));
-    // Critical rows stay on top; within the ok band the 40 % sensor with
-    // 3 days left now beats the 44 % tracker without an estimate.
-    expect(list.indexOf('Window Sensor')).toBeLessThan(list.indexOf('Dog Collar Tracker'));
+  it('name sorts alphabetically within each severity band', () => {
+    const list = names(batteryList(devices, thresholds, 'name'));
+    // Critical band first (alphabetical), then the warning, then the rest by name.
+    expect(list.slice(0, 3)).toEqual([
+      'Hallway Smoke Alarm',
+      'Living Room Motion',
+      'TV Remote Battery',
+    ]);
+    expect(list[3]).toBe('Bedroom Temp & Humidity');
+    expect(list.slice(4, 10)).toEqual([
+      'Dog Collar Tracker',
+      'Front Door Sensor',
+      'Garage Multisensor',
+      'Kitchen H&T',
+      'Pixel 9',
+      'Window Sensor',
+    ]);
+  });
+
+  it('replace_soon interleaves real estimates with a stand-in for devices without one', () => {
+    // A lock with a year-plus estimate must not outrank a 1 % device with no history.
+    const tweaked = devices.map((d) => {
+      if (d.name === 'Front Door Sensor') return { ...d, daysLeft: 400 }; // 87 %, "1y+"
+      if (d.name === 'Window Sensor') return { ...d, daysLeft: 3 }; // 40 %, nearly empty
+      return d;
+    });
+    const list = names(batteryList(tweaked, thresholds, 'replace_soon'));
+    // Critical rows stay on top whatever the estimates say.
     expect(list.slice(0, 3)).toEqual([
       'Hallway Smoke Alarm',
       'TV Remote Battery',
       'Living Room Motion',
     ]);
+    // Within the ok band: 3 days (estimate), then the stand-ins by level
+    // (44 % ≈ 160 d, 55 % ≈ 200 d, 71 % ≈ 259 d, 92 % ≈ 336 d), then 400 d.
+    expect(list.slice(4, 10)).toEqual([
+      'Window Sensor',
+      'Dog Collar Tracker',
+      'Garage Multisensor',
+      'Pixel 9',
+      'Kitchen H&T',
+      'Front Door Sensor',
+    ]);
+    expect(daysLeftFor(devices.find((d) => d.name === 'Kitchen H&T')!)).toBeCloseTo(92 * 3.65);
   });
 
   it('prefers a fetched history estimate over the snapshot one', () => {
@@ -45,7 +83,7 @@ describe('batteryList', () => {
     ]);
     const list = names(batteryList(devices, thresholds, 'replace_soon', drains));
     expect(list[3]).toBe('Bedroom Temp & Humidity'); // still the only warning
-    expect(list[4]).toBe('Kitchen H&T'); // 1 day left beats every ok level
+    expect(list[4]).toBe('Kitchen H&T'); // 1 day left beats every stand-in
   });
 
   it('sortableBatteryLevel puts binary low first and binary ok last', () => {

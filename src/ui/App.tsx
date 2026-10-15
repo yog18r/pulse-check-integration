@@ -19,9 +19,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ResolvedConfig, TabId } from '../card/config';
 import { callPulseCheck, type Snapshot } from '../card/snapshot';
-import type { ActionKind } from '../core/actions';
+import { filterActions, type ActionKind } from '../core/actions';
+import { filterDevices } from '../core/filters';
 import { batteryList, connectivityList } from '../core/sort';
-import { breakdown, headline } from '../core/summarise';
+import { breakdown, headline, summarise } from '../core/summarise';
 import { batterySeverity, connectivitySeverity } from '../core/thresholds';
 import type { DeviceHealth, HassBox } from '../core/types';
 import { ActionsTab } from './ActionsTab';
@@ -62,7 +63,18 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
     ? selected
     : (config.show_tabs[0] ?? config.default_tab);
 
-  const devices = useMemo(() => snapshot?.devices ?? [], [snapshot]);
+  // What this card shows: the integration's devices, through the card's
+  // own view filters (a per-room card, a locks-only card).
+  const areaNames = useMemo(() => {
+    const areas = hassBox.latest?.areas ?? {};
+    return Object.fromEntries(Object.values(areas).map((a) => [a.area_id, a.name]));
+    // The registries only change on rename; re-reading them per snapshot is cheap.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hassBox, snapshot]);
+  const devices = useMemo(
+    () => filterDevices(snapshot?.devices ?? [], config, areaNames),
+    [snapshot, config, areaNames],
+  );
   const rules = useMemo(
     () => snapshot?.config ?? { battery_warning: 30, battery_critical: 15 },
     [snapshot],
@@ -88,12 +100,12 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
   const histories = useHistory(
     hassBox,
     requests,
-    config.show_sparklines || config.battery_sort === 'replace_soon',
+    config.show_sparklines || config.sort === 'replace_soon',
   );
 
   const batteries = useMemo(
-    () => batteryList(devices, rules, config.battery_sort, histories),
-    [devices, rules, config.battery_sort, histories],
+    () => batteryList(devices, rules, config.sort, histories),
+    [devices, rules, config.sort, histories],
   );
   const problemBatteries = useMemo(
     () => batteries.filter((d) => batterySeverity(d.battery, rules) !== 'ok'),
@@ -103,6 +115,15 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
   const connectivity = useMemo(() => connectivityList(devices), [devices]);
   const snoozed = useMemo(() => devices.filter((d) => d.snoozedUntil), [devices]);
   const byId = useMemo(() => new Map(devices.map((d) => [d.deviceId, d])), [devices]);
+  const summary = useMemo(() => summarise(devices, rules), [devices, rules]);
+  const actions = useMemo(
+    () =>
+      filterActions(
+        snapshot?.actions ?? { replace: [], charge: [], shopping: [] },
+        new Set(byId.keys()),
+      ),
+    [snapshot, byId],
+  );
 
   // Snoozes and replacements are the integration's business: one service
   // call, and the next snapshot shows the result everywhere.
@@ -150,7 +171,6 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
     );
   }
 
-  const { summary, actions } = snapshot;
   const tabCounts: Record<TabId, number> = {
     batteries: summary.lowBatteries,
     connectivity: connectivity.length,

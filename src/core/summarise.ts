@@ -1,7 +1,9 @@
 /**
- * The header summary: the integration's counts, and the one-line verdict
- * and breakdown the card makes from them.
+ * The header summary: the counts, and the one-line verdict and breakdown
+ * the card makes from them.
  */
+import { batterySeverity, type Thresholds } from './thresholds';
+import type { DeviceHealth } from './types';
 
 /** The `summary` the integration sends. */
 export interface Summary {
@@ -32,6 +34,33 @@ export const EMPTY_SUMMARY: Summary = {
   quiet: 0,
   snoozed: 0,
 };
+
+/**
+ * Count the devices a card shows. The integration sends whole-house
+ * counts; a card with view filters needs its own, and for an unfiltered
+ * card this gives the same numbers.
+ */
+export function summarise(devices: DeviceHealth[], thresholds: Thresholds): Summary {
+  const summary = { ...EMPTY_SUMMARY };
+  for (const d of devices) {
+    if (d.snoozedUntil) {
+      summary.snoozed += 1;
+      continue;
+    }
+    if (d.severity === 'critical') summary.critical += 1;
+    if (d.severity === 'warning') summary.warning += 1;
+    if (d.severity !== 'ok') summary.attention += 1;
+    if (d.battery) {
+      summary.batteryDevices += 1;
+      const battery = batterySeverity(d.battery, thresholds);
+      if (battery !== 'ok') summary.lowBatteries += 1;
+      if (battery === 'critical') summary.criticalBatteries += 1;
+    }
+    if (d.isOffline) summary.offline += 1;
+    if (d.isQuiet) summary.quiet += 1;
+  }
+  return summary;
+}
 
 /** Short and plain. Reads well in a screen reader too. */
 export function headline(summary: Summary): string {

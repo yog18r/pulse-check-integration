@@ -6,7 +6,7 @@
  *                     quietest. Healthy devices are left out, because a list
  *                     of 80 fine devices hides the 3 that matter.
  */
-import type { BatterySort } from '../card/config';
+import type { SortOrder } from '../card/config';
 import type { DrainEstimate } from './drain';
 import { batterySeverity, SEVERITY_RANK, type Thresholds } from './thresholds';
 import type { DeviceHealth } from './types';
@@ -29,21 +29,30 @@ function byName(a: DeviceHealth, b: DeviceHealth): number {
 /** Battery history (points + optional drain estimate) keyed by battery entity id. */
 export type DrainMap = ReadonlyMap<string, { estimate?: DrainEstimate | undefined }>;
 
-/** Days left for "replace soon": the history's fit, else the integration's own estimate. */
-function daysLeftFor(device: DeviceHealth, drains: DrainMap | undefined): number | undefined {
+/**
+ * Without history, assume about a year of life from 100 %, so a device at
+ * 1 % with no estimate still sorts near the top and one at 99 % near the
+ * bottom, interleaved with real estimates.
+ */
+export const STAND_IN_DAYS_PER_PERCENT = 3.65;
+
+/** Days left for "replace soon": the history's fit, the integration's estimate, else the stand-in. */
+export function daysLeftFor(device: DeviceHealth, drains?: DrainMap): number {
   const id = device.battery?.entityId;
   const fitted = id ? drains?.get(id)?.estimate?.daysLeft : undefined;
-  return fitted ?? device.daysLeft;
+  const estimate = fitted ?? device.daysLeft;
+  if (estimate !== undefined) return estimate;
+  const level = device.battery?.level;
+  if (level === undefined) return device.battery?.isLow ? 0 : 365;
+  return level * STAND_IN_DAYS_PER_PERCENT;
 }
 
 export function batteryList(
   devices: DeviceHealth[],
   thresholds: Thresholds,
-  sort: BatterySort = 'level',
+  sort: SortOrder = 'level',
   drains?: DrainMap,
 ): DeviceHealth[] {
-  const useDrain = sort === 'replace_soon';
-
   return devices
     .filter((d) => d.battery !== undefined)
     .sort((a, b) => {
@@ -59,14 +68,13 @@ export function batteryList(
         Number(a.battery?.isCharging ?? false) - Number(b.battery?.isCharging ?? false);
       if (charging !== 0) return charging;
 
-      // "Replace soon": fewest days left first. Devices without an estimate
-      // come after those with one, ordered by level.
-      if (useDrain) {
-        const da = daysLeftFor(a, drains);
-        const db = daysLeftFor(b, drains);
-        if (da !== undefined && db !== undefined && da !== db) return da - db;
-        if (da !== undefined && db === undefined) return -1;
-        if (da === undefined && db !== undefined) return 1;
+      if (sort === 'name') return byName(a, b);
+
+      // "Replace soon": fewest days left first, with a stand-in for devices
+      // that have no estimate, so the two kinds interleave.
+      if (sort === 'replace_soon') {
+        const days = daysLeftFor(a, drains) - daysLeftFor(b, drains);
+        if (days !== 0) return days;
       }
 
       const level = sortableBatteryLevel(a) - sortableBatteryLevel(b);
