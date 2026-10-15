@@ -79,6 +79,7 @@ const DEMO_SETTINGS: Record<string, Record<string, unknown>> = {
   dev_z2m_motion: { battery_type: 'AAA', battery_count: 2 },
   dev_smoke_alarm: { battery_type: '9V', battery_count: 1 },
   'entity:sensor.remote_battery_template': { battery_type: 'AA', battery_count: 2 },
+  'entity:sensor.garden_soil_moisture': { battery_type: 'AA', battery_count: 2 },
   dev_zha_temp: { battery_type: 'CR2450', battery_count: 1 },
   dev_legacy_tracker: {
     battery_type: 'Built-in rechargeable',
@@ -184,6 +185,7 @@ const DRAIN_PER_DAY: Record<string, number> = {
   'sensor.kitchen_ht_battery': 0.3,
   'sensor.garage_multisensor_battery_level': 0.8,
   'sensor.remote_battery_template': 0.5,
+  'sensor.garden_soil_moisture': 0.2,
 };
 
 /** Fake `pulse_check/history`: a straight drain over the window. */
