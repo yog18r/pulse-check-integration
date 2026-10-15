@@ -10,9 +10,9 @@ jobs:
     name: Lint, type-check, test, build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -35,7 +35,7 @@ jobs:
         run: npm run build
 
       - name: Upload bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pulse-check-card
           path: dist/pulse-check-card.js
