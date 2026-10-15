@@ -5,16 +5,16 @@ A [Home Assistant](https://www.home-assistant.io/) integration that watches ever
 It brings entities, notifications, services, a blueprint and a **dashboard card**. One install provides all of them: the integration serves the card itself and adds it to your dashboards, so it simply appears in the card picker.
 
 <p align="center">
-  <img src="frontend/docs/screenshot-batteries.jpg" alt="Batteries tab, dark theme: devices sorted lowest battery first, with coloured bars, trend sparklines and days left" width="280" />
-  <img src="frontend/docs/screenshot-connectivity.jpg" alt="Connectivity tab, light theme, grouped by area: one offline lock and two quiet sensors" width="280" />
-  <img src="frontend/docs/screenshot-actions.jpg" alt="Actions tab, dark theme: what to buy, which batteries to replace and which devices to charge, each with a Done button" width="280" />
+  <img src="https://raw.githubusercontent.com/yog18r/pulse-check-integration/main/frontend/docs/screenshot-batteries.jpg" alt="Batteries tab, dark theme: devices sorted lowest battery first, with coloured bars, trend sparklines and days left" width="280" />
+  <img src="https://raw.githubusercontent.com/yog18r/pulse-check-integration/main/frontend/docs/screenshot-connectivity.jpg" alt="Connectivity tab, light theme, grouped by area: one offline lock and two quiet sensors" width="280" />
+  <img src="https://raw.githubusercontent.com/yog18r/pulse-check-integration/main/frontend/docs/screenshot-actions.jpg" alt="Actions tab, dark theme: what to buy, which batteries to replace and which devices to charge, each with a Done button" width="280" />
 </p>
 
 <p align="center"><em>The card's Batteries, Connectivity and Actions tabs, rendered from its demo page with mock data.</em></p>
 
 [![CI](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml)
 
-> **Status: feature complete, lightly tested.** Everything in the [plan](PLAN.md) is built: detection rules, entities, options, notifications, services, replacement tracking and the card. It has run on one real instance. Expect rough edges; issues are welcome. See [Roadmap](#roadmap).
+> **Status: feature complete, lightly tested.** Everything in the [plan](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) is built: detection rules, entities, options, notifications, services, replacement tracking and the card. It has run on one real instance. Expect rough edges; issues are welcome. See [Roadmap](#roadmap).
 
 ---
 
@@ -242,7 +242,7 @@ Each device has a policy: **instant** (sent at once, then a reminder every few d
 
 A digest whose time passes while Home Assistant is off, or still starting, is not lost. The integration stores when each digest was last due and dealt with, whether or not there was anything to say. When the quiet period after the next start ends, a digest that has fallen due since then is sent once, with what is wrong at that moment, however many were missed; then the normal schedule resumes. The same rules apply as at the usual time: nothing is sent when there is nothing to say, unless the weekly "all clear" is on. A new install starts counting from the moment it is set up, so it never sends a digest for a time before that.
 
-Every transition also fires a `pulse_check_transition` event with `device_id`, `name`, `area`, `integration`, `issue` (`offline`, `quiet`, `battery_warning`, `battery_critical`), `kind` (`entered` or `resolved`), `severity`, `message`, `policy` and `level`. The blueprint in [`blueprints/automation/pulse_check/transition_notify.yaml`](blueprints/automation/pulse_check/transition_notify.yaml) turns those into notifications of your own design; import it from Settings → Automations → Blueprints with the file's GitHub URL.
+Every transition also fires a `pulse_check_transition` event with `device_id`, `name`, `area`, `integration`, `issue` (`offline`, `quiet`, `battery_warning`, `battery_critical`), `kind` (`entered` or `resolved`), `severity`, `message`, `policy` and `level`. The blueprint in [`blueprints/automation/pulse_check/transition_notify.yaml`](https://github.com/yog18r/pulse-check-integration/blob/main/blueprints/automation/pulse_check/transition_notify.yaml) turns those into notifications of your own design; import it from Settings → Automations → Blueprints with the file's GitHub URL.
 
 ## Services
 
@@ -331,7 +331,7 @@ Rows are also flagged as `unusual` when the current cycle drains more than twice
 One repository, two halves that meet at the websocket API above:
 
 - **`custom_components/pulse_check/`**, the integration in Python, does all the work: detection, history, notifications, storage, services.
-- **`frontend/`**, the card in TypeScript and React, built with Vite into one JavaScript file inside the integration folder. It renders the `pulse_check/subscribe` snapshot, fetches sparklines with `pulse_check/history` and calls the `pulse_check.*` services. See [frontend/README.md](frontend/README.md).
+- **`frontend/`**, the card in TypeScript and React, built with Vite into one JavaScript file inside the integration folder. It renders the `pulse_check/subscribe` snapshot, fetches sparklines with `pulse_check/history` and calls the `pulse_check.*` services. See [frontend/README.md](https://github.com/yog18r/pulse-check-integration/blob/main/frontend/README.md).
 
 The card used to be a separate repository; it moved here with its history so a single HACS install delivers both, and so the two can never be installed at mismatched versions. `manifest.json` holds the one version number; the card's build reads it from there.
 
@@ -401,7 +401,7 @@ To try a development build on a live instance, run `npm run build` in `frontend/
 
 ## Roadmap
 
-Everything planned is built; [PLAN.md](PLAN.md) records how the design got here. Still to come:
+Everything planned is built; [PLAN.md](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) records how the design got here. Still to come:
 
 - Translations beyond English
 
