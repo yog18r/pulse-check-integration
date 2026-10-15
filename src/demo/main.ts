@@ -71,6 +71,8 @@ function healthy(raw: Record<string, unknown>): Record<string, unknown> {
 /**
  * A fake subscription: sends the snapshot now and again whenever a service
  * call changes it (snooze, mark replaced), the way the integration does.
+ * Several subscribers at once (the card and the editor's settings panel)
+ * each get every event, as they would from Home Assistant.
  */
 function fakeConnection(scenario: Scenario): {
   connection: HassConnection;
@@ -78,7 +80,7 @@ function fakeConnection(scenario: Scenario): {
 } {
   let current = shifted(payload, Date.now() - COMPUTED_AT);
   if (scenario === 'healthy') current = healthy(current);
-  let subscriber: ((message: unknown) => void) | undefined;
+  const subscribers = new Set<(message: unknown) => void>();
   const connection: HassConnection = {
     subscribeMessage(callback: (message: unknown) => void) {
       if (scenario === 'missing') {
@@ -86,10 +88,12 @@ function fakeConnection(scenario: Scenario): {
         // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
         return Promise.reject({ code: 'not_loaded', message: 'Pulse Check is not set up' });
       }
-      subscriber = callback;
-      setTimeout(() => subscriber?.(current), 300);
+      subscribers.add(callback);
+      setTimeout(() => {
+        if (subscribers.has(callback)) callback(current);
+      }, 300);
       return Promise.resolve(() => {
-        subscriber = undefined;
+        subscribers.delete(callback);
         return Promise.resolve();
       });
     },
@@ -100,7 +104,7 @@ function fakeConnection(scenario: Scenario): {
       const next = structuredClone(current);
       fn(next);
       current = next;
-      subscriber?.(current);
+      for (const subscriber of subscribers) subscriber(current);
     },
   };
 }

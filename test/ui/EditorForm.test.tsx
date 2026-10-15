@@ -193,6 +193,26 @@ describe('EditorForm: per-device settings', () => {
     });
   });
 
+  it('confirms each save inline, and reports a failure', async () => {
+    const { callService } = renderEditor();
+    const user = userEvent.setup();
+    await screen.findByPlaceholderText('Search devices to edit…');
+    const picker = screen.getByRole('combobox', { name: 'Device' });
+    await user.click(picker);
+    await user.type(picker, 'kitchen');
+    await user.keyboard('{Enter}');
+
+    await user.click(screen.getByLabelText('Rechargeable'));
+    expect(await screen.findByRole('status')).toHaveTextContent('Saved to Pulse Check');
+
+    callService.mockRejectedValueOnce(new Error('Pulse Check does not know a device "x"'));
+    await user.click(screen.getByLabelText('Rechargeable'));
+    expect(await screen.findByRole('status')).toHaveTextContent(/Not saved: Pulse Check does not/);
+
+    // The hint explains why the dialog's own Save button stays disabled.
+    expect(screen.getByText(/Save button only applies to the card/)).toBeInTheDocument();
+  });
+
   it('says so when the integration is missing', async () => {
     renderEditor(
       { type: 'custom:pulse-check-card' },

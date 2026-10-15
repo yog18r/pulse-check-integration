@@ -4,16 +4,18 @@
  *
  * Pick a device (any device in the house, or a battery sensor that has no
  * device), then change its display name, area, battery type and count,
- * rechargeable, quiet hours or notification policy. Every change is sent
- * straight to `pulse_check.set_device_settings`; the next snapshot from
- * the subscription shows it saved. Nothing lands in the card's YAML, so
- * every card and every notification sees the same settings.
+ * rechargeable, quiet hours, trend window or notification policy. Every
+ * change is sent straight to `pulse_check.set_device_settings`; the next
+ * snapshot from the subscription shows it saved. Nothing lands in the
+ * card's YAML, so every card and every notification sees the same
+ * settings. That also means Home Assistant's own Save button in the
+ * dialog has nothing to do with these fields, which the panel says.
  *
  * React note: text fields keep a local draft while typing and save on
  * blur (or Enter), so each keystroke is not a service call. Selects and
  * checkboxes save immediately.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   callPulseCheck,
   NOTIFY_POLICIES,
@@ -27,7 +29,7 @@ import {
   listOrphanBatteryEntities,
   type DeviceOption,
 } from '../core/registryOptions';
-import type { HassLike, HassBox } from '../core/types';
+import type { HassBox, HassLike } from '../core/types';
 import { DevicePicker } from './DevicePicker';
 import { useSnapshot } from './useSnapshot';
 
@@ -45,6 +47,14 @@ const POLICY_LABELS: Record<NotifyPolicy, string> = {
   none: 'Never',
 };
 
+/** How long "Saved to Pulse Check" stays on screen. */
+const FEEDBACK_MS = 3000;
+
+interface Feedback {
+  kind: 'saved' | 'error';
+  text: string;
+}
+
 /**
  * A text or number field that saves when the user leaves it. The parent
  * keys each one by its saved value, so a save (or a new device) remounts
@@ -58,6 +68,7 @@ function DraftField({
   min,
   step,
   unit,
+  grow = false,
   onSave,
 }: {
   label: string;
@@ -67,6 +78,8 @@ function DraftField({
   min?: number;
   step?: string;
   unit?: string;
+  /** Take the remaining width of the line (text fields). */
+  grow?: boolean;
   onSave: (value: string) => void;
 }) {
   const [draft, setDraft] = useState(value);
@@ -74,7 +87,7 @@ function DraftField({
     if (draft !== value) onSave(draft);
   };
   return (
-    <label className="inline">
+    <label className={grow ? 'inline grow' : 'inline'}>
       <span>{label}</span>
       <input
         type={type}
@@ -156,6 +169,18 @@ function BatteryTypeField({
 export function DeviceSettingsPanel({ hass, hassBox }: Props) {
   const { status, snapshot } = useSnapshot(hassBox, hassBox.latest?.connection);
   const [selectedId, setSelectedId] = useState<string>('');
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+
+  // "Saved" fades after a few seconds; an error stays until the next save.
+  useEffect(() => {
+    if (feedback?.kind !== 'saved') return;
+    const timer = setTimeout(() => {
+      setFeedback(null);
+    }, FEEDBACK_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [feedback]);
 
   // Real devices plus battery sensors that have no device, so a cloud or
   // template sensor can be renamed or typed like anything else.
@@ -178,21 +203,33 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
   const selected = options.find((o) => o.id === selectedId);
   const settings: DeviceSettings = settingsMap[selectedId] ?? {};
   const registryArea = selected?.area;
+  const keyFor = (field: string, value: string | number | undefined) =>
+    `${field}:${selectedId}:${value === undefined ? '' : String(value)}`;
 
   function save(patch: Record<string, unknown>) {
-    void callPulseCheck(hassBox.latest, 'set_device_settings', {
+    callPulseCheck(hassBox.latest, 'set_device_settings', {
       device_id: selectedId,
       ...patch,
-    });
+    }).then(
+      () => {
+        setFeedback({ kind: 'saved', text: 'Saved to Pulse Check' });
+      },
+      (err: unknown) => {
+        const reason = err instanceof Error ? err.message : String(err);
+        setFeedback({ kind: 'error', text: `Not saved: ${reason}` });
+      },
+    );
   }
 
   return (
     <fieldset className="field">
       <legend>Per-device settings</legend>
       <p className="hint">
-        Stored by the Pulse Check integration, so every card and notification uses them. Battery
-        type and count feed the Actions tab; tick rechargeable for devices you charge rather than
-        replace. Trend days sets this device's sparkline window (phones: 1 day).
+        These are stored by the Pulse Check integration the moment you change them, so every card
+        and notification uses them. The dialog&apos;s Save button only applies to the card&apos;s
+        layout options above. Battery type and count feed the Actions tab; tick rechargeable for
+        devices you charge rather than replace; trend days sets this device&apos;s sparkline window
+        (phones: 1 day).
       </p>
 
       {status === 'missing' && (
@@ -214,6 +251,7 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
                 aria-pressed={id === selectedId}
                 onClick={() => {
                   setSelectedId(id);
+                  setFeedback(null);
                 }}
               >
                 {option ? option.name : id}
@@ -227,7 +265,10 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
         <DevicePicker
           value={selectedId}
           options={options}
-          onChange={setSelectedId}
+          onChange={(id) => {
+            setSelectedId(id);
+            setFeedback(null);
+          }}
           placeholder="Search devices to edit…"
         />
       </div>
@@ -237,17 +278,18 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
           className="settingsrow"
           aria-label={`Settings for ${selected ? deviceLabel(selected) : selectedId}`}
         >
-          <div className="settingsline namearea">
+          <div className="settingsline">
             <DraftField
-              key={`name:${selectedId}:${settings.name ?? ''}`}
+              key={keyFor('name', settings.name)}
               label="Display name"
+              grow
               value={settings.name ?? ''}
               placeholder={selected?.name ?? 'Display name (optional)'}
               onSave={(name) => {
                 save({ name: name.trim() });
               }}
             />
-            <label className="inline">
+            <label className="inline grow">
               <span>Area</span>
               <select
                 aria-label="Area"
@@ -271,16 +313,17 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
               </select>
             </label>
           </div>
-          <div className="settingsline details">
+
+          <div className="settingsline">
             <BatteryTypeField
-              key={`type:${selectedId}:${settings.battery_type ?? ''}`}
+              key={keyFor('type', settings.battery_type)}
               value={settings.battery_type}
               onChange={(type) => {
                 save({ battery_type: type ?? '' });
               }}
             />
             <DraftField
-              key={`count:${selectedId}:${String(settings.battery_count ?? '')}`}
+              key={keyFor('count', settings.battery_count)}
               label="Battery count"
               type="number"
               min={1}
@@ -301,8 +344,11 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
               />
               Rechargeable
             </label>
+          </div>
+
+          <div className="settingsline">
             <DraftField
-              key={`quiet:${selectedId}:${String(settings.quiet_threshold_hours ?? '')}`}
+              key={keyFor('quiet', settings.quiet_threshold_hours)}
               label="Quiet hours"
               type="number"
               min={0.01}
@@ -320,7 +366,7 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
               }}
             />
             <DraftField
-              key={`trend:${selectedId}:${String(settings.sparkline_days ?? '')}`}
+              key={keyFor('trend', settings.sparkline_days)}
               label="Trend days"
               type="number"
               min={1}
@@ -353,6 +399,13 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
               </select>
             </label>
           </div>
+
+          {feedback && (
+            <p className="feedback" role="status" data-kind={feedback.kind}>
+              {feedback.kind === 'saved' ? '✓ ' : '⚠ '}
+              {feedback.text}
+            </p>
+          )}
         </div>
       )}
     </fieldset>

@@ -158,16 +158,33 @@
   border-top: 1px solid var(--divider-color, #e0e0e0);
 }
 
+/*
+ * Each line of the per-device panel is a wrapping flex row, so it fits the
+ * ~740 px editor pane in Home Assistant and a phone alike: nothing has a
+ * fixed width wider than the pane, and every control may shrink.
+ */
 .settingsline {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   align-items: center;
+  min-width: 0;
 }
 
-.settingsline.details {
-  grid-template-columns: minmax(0, 2fr) auto auto auto auto;
-  align-items: center;
+.settingsline > * {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.settingsline .grow {
+  flex: 1 1 180px;
+}
+
+.settingsline .grow input,
+.settingsline .grow select {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
 }
 
 .inline {
@@ -180,19 +197,51 @@
 }
 
 .inline input[type='number'] {
-  width: 64px;
+  width: 72px;
+  box-sizing: border-box;
+}
+
+.inline select {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .typefield {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  flex: 1 1 200px;
   min-width: 0;
+}
+
+.typefield > select {
+  flex: 1 1 140px;
+}
+
+.typefield > .inline {
+  flex: 1 1 140px;
+}
+
+/* Inline feedback after a per-device setting is saved through the integration. */
+.feedback {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--secondary-text-color, #727272);
+}
+
+.feedback[data-kind='saved'] {
+  color: var(--success-color, #43a047);
+}
+
+.feedback[data-kind='error'] {
+  color: var(--error-color, #db4437);
 }
 
 .typefield select,
 .typefield input {
   box-sizing: border-box;
-  width: 100%;
+  width: auto;
+  min-width: 0;
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid var(--divider-color, #e0e0e0);
