@@ -26,6 +26,9 @@ ATTR_DEVICES = "devices"
 ATTR_SUMMARY = "summary"
 ATTR_ACTIONS = "actions"
 ATTR_COMPUTED_AT = "computed_at"
+# The thresholds and per-device settings the list was computed with, so the
+# card can colour rows and build action labels the same way.
+ATTR_CONFIG = "config"
 
 # Options (Settings > Devices & services > Pulse Check > Configure).
 # The keys match the card's YAML config so the two stay easy to compare.

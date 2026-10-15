@@ -152,6 +152,20 @@ async def test_set_device_settings_changes_the_analysis(
     actions = hass.states.get(ATTENTION).attributes["actions"]  # type: ignore[union-attr]
     labels = [item["label"] for item in actions["replace"]]
     assert "Replace 2 × CR2450 in Bedroom Climate" in labels
+    # The card reads the same settings back from the sensor in integration mode.
+    published = hass.states.get(ATTENTION).attributes["config"]  # type: ignore[union-attr]
+    assert published["battery_warning"] == 30
+    assert published["battery_critical"] == 15
+    assert published["device_settings"] == [
+        {
+            "device_id": zha,
+            "quiet_threshold_hours": 48,
+            "battery_type": "CR2450",
+            "battery_count": 2,
+            "name": "Bedroom Climate",
+            "area": "Attic",
+        }
+    ]
 
     # An empty value clears a setting.
     await hass.services.async_call(

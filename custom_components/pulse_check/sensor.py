@@ -32,6 +32,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     ATTR_ACTIONS,
     ATTR_COMPUTED_AT,
+    ATTR_CONFIG,
     ATTR_DEVICES,
     ATTR_SUMMARY,
     CONF_PER_DEVICE_SENSORS,
@@ -142,7 +143,9 @@ class AttentionSensor(PulseCheckEntity, SensorEntity):
     _attr_icon = "mdi:heart-pulse"
     # The recorder would otherwise store the whole device list in the
     # database on every change. Only the count is worth keeping as history.
-    _unrecorded_attributes = frozenset({ATTR_DEVICES, ATTR_SUMMARY, ATTR_ACTIONS, ATTR_COMPUTED_AT})
+    _unrecorded_attributes = frozenset(
+        {ATTR_DEVICES, ATTR_SUMMARY, ATTR_ACTIONS, ATTR_CONFIG, ATTR_COMPUTED_AT}
+    )
 
     def __init__(self, coordinator: PulseCheckCoordinator, entry: PulseCheckConfigEntry) -> None:
         """Create the attention sensor."""
@@ -161,6 +164,7 @@ class AttentionSensor(PulseCheckEntity, SensorEntity):
             ATTR_DEVICES: [device.to_dict() for device in data.devices],
             ATTR_SUMMARY: data.summary.to_dict(),
             ATTR_ACTIONS: data.actions.to_dict(),
+            ATTR_CONFIG: data.config.to_dict(),
             ATTR_COMPUTED_AT: to_iso(data.computed_at),
         }
 

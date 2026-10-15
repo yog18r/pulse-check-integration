@@ -117,6 +117,22 @@ class DeviceSettings:
     # Area shown for this device and used by the area filters.
     area: str | None = None
 
+    def to_dict(self) -> dict[str, Any]:
+        """The card's `DeviceSettings` shape, without unset fields."""
+        out: dict[str, Any] = {"device_id": self.device_id}
+        for key in (
+            "quiet_threshold_hours",
+            "battery_type",
+            "battery_count",
+            "rechargeable",
+            "name",
+            "area",
+        ):
+            value = getattr(self, key)
+            if value is not None:
+                out[key] = plain_number(value) if isinstance(value, float) else value
+        return out
+
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> DeviceSettings:
         """Build from a plain mapping, ignoring unknown keys."""
@@ -153,6 +169,19 @@ class CoreConfig:
     include_areas: tuple[str, ...] = ()
     exclude_areas: tuple[str, ...] = ()
     include_integrations: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        """The rules' inputs, in the card's YAML key names, for the card to reuse."""
+        return {
+            "battery_warning": plain_number(self.battery_warning),
+            "battery_critical": plain_number(self.battery_critical),
+            "quiet_threshold_hours": plain_number(self.quiet_threshold_hours),
+            "quiet_scope": self.quiet_scope,
+            "integration_thresholds": {
+                k: plain_number(v) for k, v in self.integration_thresholds.items()
+            },
+            "device_settings": [item.to_dict() for item in self.device_settings],
+        }
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> CoreConfig:
