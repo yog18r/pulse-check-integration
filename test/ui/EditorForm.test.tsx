@@ -144,6 +144,13 @@ describe('EditorForm: per-device settings', () => {
       area: '',
     });
 
+    await user.type(screen.getByLabelText('Trend days'), '3');
+    await user.tab();
+    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
+      device_id: 'dev_shelly_ht',
+      sparkline_days: 3,
+    });
+
     await user.selectOptions(screen.getByLabelText('Notification policy'), 'weekly');
     expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
       device_id: 'dev_shelly_ht',

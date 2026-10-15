@@ -67,13 +67,13 @@ sparkline_days: 14 # 1 to 365
 | `group_by`        | string  | `none`                      | `none`, `area`, `integration` or `device_type`.                           |
 | `problems_only`   | boolean | `false`                     | Batteries tab shows only warning/critical rows.                           |
 | `show_sparklines` | boolean | `true`                      | Trend lines from recorder history, via the integration.                   |
-| `sparkline_days`  | number  | `14`                        | 1 to 365.                                                                 |
+| `sparkline_days`  | number  | `14`                        | 1 to 365. A device's own "Trend days" setting overrides it.               |
 
 Keys from older versions (`battery_warning`, `device_settings`, `exclude_*`, `quiet_*` and so on) are ignored: those settings now live in the integration.
 
 ### Per-device settings
 
-The card's visual editor has a **Per-device settings** panel: pick any device (or a battery sensor that has no device), then set its display name, area, battery type and count, whether it is rechargeable, its quiet threshold and its notification policy. Each change is saved immediately through the integration's `pulse_check.set_device_settings` service, not into the card's YAML, so it applies everywhere: every card, the Actions tab's labels and shopping list, and the integration's notifications.
+The card's visual editor has a **Per-device settings** panel: pick any device (or a battery sensor that has no device), then set its display name, area, battery type and count, whether it is rechargeable, its quiet threshold, its notification policy and its own sparkline window (a phone that charges daily reads better over one day than fourteen). Each change is saved immediately through the integration's `pulse_check.set_device_settings` service, not into the card's YAML, so it applies everywhere: every card, the Actions tab's labels and shopping list, and the integration's notifications.
 
 Thresholds, quiet rules, filters and notification targets are in the integration's own dialog: **Settings → Devices & services → Pulse Check → Configure**.
 

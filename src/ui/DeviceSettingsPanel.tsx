@@ -192,7 +192,7 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
       <p className="hint">
         Stored by the Pulse Check integration, so every card and notification uses them. Battery
         type and count feed the Actions tab; tick rechargeable for devices you charge rather than
-        replace.
+        replace. Trend days sets this device's sparkline window (phones: 1 day).
       </p>
 
       {status === 'missing' && (
@@ -317,6 +317,22 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
               onSave={(text) => {
                 const n = Number(text);
                 save({ quiet_threshold_hours: text.trim() === '' || !(n > 0) ? '' : n });
+              }}
+            />
+            <DraftField
+              key={`trend:${selectedId}:${String(settings.sparkline_days ?? '')}`}
+              label="Trend days"
+              type="number"
+              min={1}
+              placeholder="card default"
+              unit="d"
+              value={settings.sparkline_days !== undefined ? String(settings.sparkline_days) : ''}
+              onSave={(text) => {
+                const n = Number(text);
+                save({
+                  sparkline_days:
+                    text.trim() === '' || !(n >= 1) ? '' : Math.min(365, Math.floor(n)),
+                });
               }}
             />
             <label className="inline">

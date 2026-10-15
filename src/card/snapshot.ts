@@ -45,6 +45,8 @@ export interface DeviceSettings {
   battery_count?: number;
   rechargeable?: boolean;
   notify_policy?: NotifyPolicy;
+  /** Sparkline window for this device, in days (1-365). Overrides the card's. */
+  sparkline_days?: number;
 }
 
 export const NOTIFY_POLICIES = ['instant', 'daily', 'weekly', 'none'] as const;
@@ -253,6 +255,8 @@ export function parseDeviceSettings(raw: unknown): DeviceSettings {
   if (policy !== undefined && (NOTIFY_POLICIES as readonly string[]).includes(policy)) {
     settings.notify_policy = policy as NotifyPolicy;
   }
+  const days = num(raw.sparkline_days);
+  if (days !== undefined && days >= 1) settings.sparkline_days = Math.floor(days);
   return settings;
 }
 

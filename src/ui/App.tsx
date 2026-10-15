@@ -69,14 +69,21 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
   );
 
   // Sparkline history for the batteries on screen, from the integration.
+  // A device's own `sparkline_days` setting (phones: 1 day) wins over the card's.
+  const deviceSettings = snapshot?.deviceSettings;
   const requests = useMemo<HistoryRequest[]>(
     () =>
       devices.flatMap((d) =>
         d.battery?.level !== undefined
-          ? [{ entityId: d.battery.entityId, days: config.sparkline_days }]
+          ? [
+              {
+                entityId: d.battery.entityId,
+                days: deviceSettings?.[d.deviceId]?.sparkline_days ?? config.sparkline_days,
+              },
+            ]
           : [],
       ),
-    [devices, config.sparkline_days],
+    [devices, deviceSettings, config.sparkline_days],
   );
   const histories = useHistory(
     hassBox,

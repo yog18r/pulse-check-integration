@@ -125,6 +125,29 @@ describe('App', () => {
     expect(headings.at(-1)).toMatch(/^Other/);
   });
 
+  it("asks for each battery's history with its own sparkline window", async () => {
+    const history = vi.fn((_entityId: string, days: number) => ({
+      days,
+      points: [],
+      estimate: null,
+    }));
+    renderApp(
+      { sparkline_days: 14 },
+      {
+        history,
+        payload: {
+          ...SNAPSHOT_PAYLOAD,
+          device_settings: { dev_phone: { sparkline_days: 1 } },
+        },
+      },
+    );
+    await screen.findByText(/devices need attention/);
+    await vi.waitFor(() => {
+      expect(history).toHaveBeenCalledWith('sensor.pixel_9_battery_level', 1);
+    });
+    expect(history).toHaveBeenCalledWith('sensor.kitchen_ht_battery', 14);
+  });
+
   it('explains itself when the integration is not installed', async () => {
     renderApp({}, { reject: { code: 'not_loaded', message: 'Pulse Check is not set up' } });
     expect(await screen.findByText('Pulse Check integration not found')).toBeInTheDocument();
