@@ -6,7 +6,7 @@ It is the backend companion to the [Pulse Check Card](https://github.com/yog18r/
 
 [![CI](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml)
 
-> **Status: early.** Phases 1 and 2 of the [plan](PLAN.md) are done: the detection rules, the entities, the options dialog and drain estimates. Notifications, per-device settings, services and replacement tracking are on their way. See [Roadmap](#roadmap).
+> **Status: feature complete, lightly tested.** All five phases of the [plan](PLAN.md) are built: detection rules, entities, options, notifications, services, replacement tracking and the card's integration mode. It has run on one real instance. Expect rough edges; issues are welcome. See [Roadmap](#roadmap).
 
 ---
 
@@ -20,6 +20,9 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 - **Offline** devices: every primary entity unavailable
 - **Quiet** devices: no report within a threshold, judged per device and per integration
 - **Actions**: "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", and a to-buy total per battery type
+- **Notifications** once per transition, not once per update: a device goes offline, goes quiet, or drops to warning or critical. Instant with reminders, or collected into a daily or weekly digest, chosen per device
+- **Days left** from the recorder's history, **replacement tracking** with cycle statistics, and a flag when a battery drains much faster than it used to
+- **Snooze** a device for a while; snoozes are shared across every browser and user
 - Everything grouped by **device**, not entity, so each physical thing appears once
 
 It reads only what Home Assistant already knows: the state machine and the registries. **It never contacts a device**, so it cannot wake or drain anything.
@@ -65,6 +68,27 @@ Open **Settings → Devices & services → Pulse Check → Configure**. Everythi
 
 The option keys match the card's YAML (`battery_warning`, `exclude_entities`, `integration_thresholds`, …), so a card config translates one to one.
 
+**Notifications** (collapsed by default)
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| Send to | none | Notify services (`notify.mobile_app_…`) or notify entities. Empty means no notifications; the event still fires |
+| Critical problems | Instantly | Default delivery for offline devices and critical batteries |
+| Warnings | Weekly digest | Default delivery for quiet devices and low batteries |
+| Remind after | 3 days | How long an instant notification may stay unresolved before it is sent again |
+| Reminders at most | 3 | 0 turns reminders off |
+| Digest time | 09:00 | When the daily digest goes out, and the weekly one on its day |
+| Weekly digest day | Monday | |
+| Weekly "all clear" | off | Send the weekly digest even when there is nothing to report |
+
+A device's own `notify_policy` (set with the `set_device_settings` service) overrides the defaults: `instant`, `daily`, `weekly` or `none`. A leak detector can be instant while the blinds wait for the weekly digest.
+
+**Entities** (collapsed by default)
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| Per-device battery sensors | off | Adds "Battery days left" and "Battery last replaced" diagnostic sensors to every battery device's own page |
+
 ## Entities
 
 | Entity | State | Attributes |
@@ -77,7 +101,7 @@ The option keys match the card's YAML (`battery_warning`, `exclude_entities`, `i
 | `sensor.pulse_check_next_to_run_out` | Name of the battery device with the fewest days left (`unknown` until there is enough history) | `days_left`, `device_id`, `entity_id`, `level` |
 | `binary_sensor.pulse_check_problem` | On when anything needs attention | |
 
-Snoozed devices (phase 3) count in nothing.
+Snoozed devices count in nothing. With the per-device option on, every battery device also gets `sensor.<device>_battery_days_left` and `sensor.<device>_battery_last_replaced` (diagnostic), the latter with the device's cycle statistics as attributes.
 
 The `devices` attribute uses the same shape as the card's `DeviceHealth`, one entry per device:
 
@@ -100,6 +124,33 @@ The `devices` attribute uses the same shape as the card's `DeviceHealth`, one en
 ```
 
 The large attributes are excluded from the recorder; only the count is kept as history.
+
+Each device entry also carries `deviceType` (lock, cover, vacuum, phone, media, remote, climate, motion, contact, light, switch or other), `daysLeft`, `lastReplaced` and `unusual` when known, and `snoozedUntil` while snoozed.
+
+## Notifications
+
+A message is sent when a device *enters* a state: goes offline, goes quiet, or its battery drops to warning or critical. Nothing is sent on every update, and the states each device is in are stored, so a restart does not repeat old news. When the problem goes away nothing is sent either, but the event below fires with `kind: resolved`.
+
+Each device has a policy: **instant** (sent at once, then a reminder every few days while it stays unresolved, up to a cap), **daily** or **weekly** (collected into one digest message at the configured time; no message when there is nothing to say), or **none**. The defaults are by severity (critical instant, warning weekly) and any device can override them.
+
+Every transition also fires a `pulse_check_transition` event with `device_id`, `name`, `area`, `integration`, `issue` (`offline`, `quiet`, `battery_warning`, `battery_critical`), `kind` (`entered` or `resolved`), `severity`, `message`, `policy` and `level`. The blueprint in [`blueprints/automation/pulse_check/transition_notify.yaml`](blueprints/automation/pulse_check/transition_notify.yaml) turns those into notifications of your own design; import it from Settings → Automations → Blueprints with the file's GitHub URL.
+
+## Services
+
+| Service | What it does |
+| --- | --- |
+| `pulse_check.snooze` | Mute a device for `days` (default 7) or `until` a time. Its facts are still reported but it counts as ok and sends nothing |
+| `pulse_check.unsnooze` | Lift a snooze early |
+| `pulse_check.set_device_settings` | `name`, `area`, `quiet_threshold_hours`, `battery_type`, `battery_count`, `rechargeable`, `notify_policy`. Only given fields change; an empty value clears one |
+| `pulse_check.mark_replaced` | Record a replacement now (optional `battery_type`), closing the current cycle |
+| `pulse_check.mark_charged` | The same for a charge |
+| `pulse_check.refresh` | Recompute now and re-read battery history |
+
+`device_id` is the device registry id, or the entity id of a battery sensor that has no device (`sensor.remote_battery_template` or `entity:sensor.remote_battery_template`). Everything is stored in `.storage/pulse_check.data`.
+
+## Replacement tracking
+
+`mark_replaced` and `mark_charged` record an event; the cycle that just ended is summarised (how many days it lasted, how fast it drained). A level that rises by 20 points or more in one step is detected as a replacement by itself (a charge for devices marked rechargeable, or that were charging). Once a device has completed cycles on record, a current drain rate more than twice its own average is flagged as `unusual: "draining 3× faster than usual"`; a sudden drop of 20 points is flagged for a week. Days left always comes from the current drain estimate.
 
 ### Automation examples
 
@@ -162,6 +213,10 @@ custom_components/pulse_check/
 │   └── enhancers/    Z-Wave JS, Zigbee2MQTT, ZHA
 ├── coordinator.py    when to recompute; builds the snapshot from HA
 ├── history.py        battery history from the recorder, for days-left
+├── notify.py         transitions, policies, reminders, digests, the event
+├── replacements.py   replacement and charge history, cycles, unusual drain
+├── storage.py        the .storage file: settings, snoozes, notify state, history
+├── services.py       the pulse_check.* services
 ├── options.py        entry.options -> the core's configuration
 ├── entity.py         the base entity (one "Pulse Check" service device)
 ├── sensor.py         the sensors
@@ -188,7 +243,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (45 tests) runs in a few seconds. CI runs ruff, mypy, pytest, [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest/) and the HACS validation action on every push, plus the golden-file drift check.
+The test suite (59 tests) runs in a few seconds. CI runs ruff, mypy, pytest, [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest/) and the HACS validation action on every push, plus the golden-file drift check.
 
 To try a development build on a live instance, copy `custom_components/pulse_check` into `/config/custom_components/` and restart Home Assistant.
 
@@ -196,9 +251,11 @@ To try a development build on a live instance, copy `custom_components/pulse_che
 
 1. ~~Scaffold and core: tooling, config flow, the ported core with shared golden tests, the attention sensor~~
 2. ~~Entities and options: count sensors, the problem binary sensor, an options flow for thresholds, quiet scope and filters, drain estimates from recorder statistics~~
-3. Notifications and storage: per-device settings and services, snooze, notifications on transitions with per-device policies (instant, daily, weekly, none), reminders, digests, a `pulse_check_transition` event and a blueprint
-4. Replacement tracking: mark replaced or charged, auto-detect, cycle statistics, remaining days, "unusual behaviour" flags, per-device diagnostic sensors
-5. Card integration mode: the card reads this integration instead of analysing in the browser
+3. ~~Notifications and storage: per-device settings and services, snooze, notifications on transitions with per-device policies (instant, daily, weekly, none), reminders, digests, a `pulse_check_transition` event and a blueprint~~
+4. ~~Replacement tracking: mark replaced or charged, auto-detect, cycle statistics, remaining days, "unusual behaviour" flags, per-device diagnostic sensors~~
+5. ~~Card integration mode: the card reads this integration instead of analysing in the browser (`source: integration`), with `group_by`~~
+
+Ideas for later: a UI for per-device settings (today they are set through the service), catching up missed digests after a restart, and watching entities that have no registry entry.
 
 ## License
 

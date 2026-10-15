@@ -13,6 +13,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "contact",
           "extras": [
             {
               "label": "LQI",
@@ -45,6 +46,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "motion",
           "extras": [
             {
               "label": "LQI",
@@ -76,6 +78,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "climate",
           "extras": [
             {
               "label": "LQI",
@@ -114,6 +117,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "motion",
           "extras": [
             {
               "label": "Node",
@@ -146,6 +150,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "lock",
           "extras": [
             {
               "label": "Node",
@@ -171,6 +176,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "sensor.plant_monitor_soil_moisture",
@@ -189,6 +195,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "climate",
           "extras": [],
           "entityIds": [
             "sensor.kitchen_ht_temperature",
@@ -213,6 +220,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "switch",
           "extras": [],
           "entityIds": [
             "switch.office_plug",
@@ -231,6 +239,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "contact",
           "extras": [],
           "entityIds": [
             "binary_sensor.window_sensor_opening",
@@ -255,6 +264,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "phone",
           "extras": [],
           "entityIds": [
             "sensor.pixel_9_battery_level",
@@ -279,6 +289,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "binary_sensor.hallway_smoke_alarm_smoke",
@@ -302,6 +313,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "phone",
           "extras": [],
           "entityIds": [
             "device_tracker.dog_collar"
@@ -323,6 +335,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "sensor.remote_battery_template"
@@ -343,6 +356,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "vacuum",
           "extras": [],
           "entityIds": [
             "vacuum.mr_roboto",
@@ -368,6 +382,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "light",
           "extras": [
             {
               "label": "LQI",
@@ -458,6 +473,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "contact",
           "extras": [
             {
               "label": "LQI",
@@ -490,6 +506,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "motion",
           "extras": [
             {
               "label": "LQI",
@@ -521,6 +538,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "climate",
           "extras": [
             {
               "label": "LQI",
@@ -559,6 +577,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "motion",
           "extras": [
             {
               "label": "Node",
@@ -591,6 +610,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "lock",
           "extras": [
             {
               "label": "Node",
@@ -616,6 +636,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "sensor.plant_monitor_soil_moisture",
@@ -634,6 +655,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "climate",
           "extras": [],
           "entityIds": [
             "sensor.kitchen_ht_temperature",
@@ -658,6 +680,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "switch",
           "extras": [],
           "entityIds": [
             "switch.office_plug",
@@ -676,6 +699,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "contact",
           "extras": [],
           "entityIds": [
             "binary_sensor.window_sensor_opening",
@@ -700,6 +724,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "phone",
           "extras": [],
           "entityIds": [
             "sensor.pixel_9_battery_level",
@@ -724,6 +749,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "binary_sensor.hallway_smoke_alarm_smoke",
@@ -747,6 +773,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "phone",
           "extras": [],
           "entityIds": [
             "device_tracker.dog_collar"
@@ -768,6 +795,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "sensor.remote_battery_template"
@@ -788,6 +816,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "vacuum",
           "extras": [],
           "entityIds": [
             "vacuum.mr_roboto",
@@ -813,6 +842,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "light",
           "extras": [
             {
               "label": "LQI",
@@ -942,6 +972,7 @@
           "isQuiet": false,
           "quietThresholdHours": 1,
           "severity": "ok",
+          "deviceType": "contact",
           "extras": [
             {
               "label": "LQI",
@@ -974,6 +1005,7 @@
           "isQuiet": false,
           "quietThresholdHours": 1,
           "severity": "critical",
+          "deviceType": "motion",
           "extras": [],
           "entityIds": [
             "binary_sensor.living_room_motion_occupancy",
@@ -998,6 +1030,7 @@
           "isQuiet": true,
           "quietThresholdHours": 0.5,
           "severity": "critical",
+          "deviceType": "climate",
           "extras": [
             {
               "label": "LQI",
@@ -1036,6 +1069,7 @@
           "isQuiet": false,
           "quietThresholdHours": 48,
           "severity": "warning",
+          "deviceType": "motion",
           "extras": [
             {
               "label": "Node",
@@ -1068,6 +1102,7 @@
           "isQuiet": false,
           "quietThresholdHours": 48,
           "severity": "critical",
+          "deviceType": "lock",
           "extras": [
             {
               "label": "Node",
@@ -1093,6 +1128,7 @@
           "isQuiet": false,
           "quietThresholdHours": 1,
           "severity": "ok",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "sensor.plant_monitor_soil_moisture",
@@ -1111,6 +1147,7 @@
           "isQuiet": true,
           "quietThresholdHours": 1,
           "severity": "warning",
+          "deviceType": "climate",
           "extras": [],
           "entityIds": [
             "sensor.kitchen_ht_temperature",
@@ -1135,6 +1172,7 @@
           "isQuiet": false,
           "quietThresholdHours": 100,
           "severity": "ok",
+          "deviceType": "switch",
           "extras": [],
           "entityIds": [
             "switch.office_plug",
@@ -1153,6 +1191,7 @@
           "isQuiet": true,
           "quietThresholdHours": 1,
           "severity": "critical",
+          "deviceType": "contact",
           "extras": [],
           "entityIds": [
             "binary_sensor.window_sensor_opening",
@@ -1177,6 +1216,7 @@
           "isQuiet": false,
           "quietThresholdHours": 1,
           "severity": "ok",
+          "deviceType": "phone",
           "extras": [],
           "entityIds": [
             "sensor.pixel_9_battery_level",
@@ -1202,6 +1242,7 @@
           "isQuiet": true,
           "quietThresholdHours": 0.5,
           "severity": "critical",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "binary_sensor.hallway_smoke_alarm_smoke",
@@ -1225,6 +1266,7 @@
           "isQuiet": false,
           "quietThresholdHours": 1,
           "severity": "critical",
+          "deviceType": "phone",
           "extras": [],
           "entityIds": [
             "device_tracker.dog_collar"
@@ -1246,6 +1288,7 @@
           "isQuiet": false,
           "quietThresholdHours": 1,
           "severity": "critical",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "sensor.remote_battery_template"
@@ -1266,6 +1309,7 @@
           "isQuiet": false,
           "quietThresholdHours": 1,
           "severity": "ok",
+          "deviceType": "vacuum",
           "extras": [],
           "entityIds": [
             "vacuum.mr_roboto",
@@ -1291,6 +1335,7 @@
           "isQuiet": false,
           "quietThresholdHours": 1,
           "severity": "ok",
+          "deviceType": "light",
           "extras": [
             {
               "label": "LQI",
@@ -1427,6 +1472,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "climate",
           "extras": [
             {
               "label": "LQI",
@@ -1465,6 +1511,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "motion",
           "extras": [
             {
               "label": "Node",
@@ -1497,6 +1544,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "contact",
           "extras": [],
           "entityIds": [
             "binary_sensor.window_sensor_opening",
@@ -1521,6 +1569,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "light",
           "extras": [
             {
               "label": "LQI",
@@ -1596,6 +1645,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "motion",
           "extras": [
             {
               "label": "LQI",
@@ -1627,6 +1677,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "climate",
           "extras": [
             {
               "label": "LQI",
@@ -1665,6 +1716,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "motion",
           "extras": [
             {
               "label": "Node",
@@ -1697,6 +1749,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "sensor.plant_monitor_soil_moisture",
@@ -1715,6 +1768,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "climate",
           "extras": [],
           "entityIds": [
             "sensor.kitchen_ht_temperature",
@@ -1739,6 +1793,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "switch",
           "extras": [],
           "entityIds": [
             "switch.office_plug",
@@ -1757,6 +1812,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "contact",
           "extras": [],
           "entityIds": [
             "binary_sensor.window_sensor_opening",
@@ -1781,6 +1837,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "phone",
           "extras": [],
           "entityIds": [
             "device_tracker.dog_collar"
@@ -1802,6 +1859,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "vacuum",
           "extras": [],
           "entityIds": [
             "vacuum.mr_roboto"
@@ -1826,6 +1884,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "light",
           "extras": [
             {
               "label": "LQI",
@@ -1912,6 +1971,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "contact",
           "extras": [
             {
               "label": "LQI",
@@ -1944,6 +2004,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "motion",
           "extras": [
             {
               "label": "LQI",
@@ -1975,6 +2036,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "binary_sensor.hallway_smoke_alarm_smoke",
@@ -1998,6 +2060,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "sensor.remote_battery_template"
@@ -2079,6 +2142,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "contact",
           "extras": [
             {
               "label": "LQI",
@@ -2111,6 +2175,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "motion",
           "extras": [
             {
               "label": "LQI",
@@ -2142,6 +2207,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "climate",
           "extras": [
             {
               "label": "LQI",
@@ -2180,6 +2246,7 @@
           "isQuiet": true,
           "quietThresholdHours": 24,
           "severity": "warning",
+          "deviceType": "motion",
           "extras": [
             {
               "label": "Node",
@@ -2212,6 +2279,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "lock",
           "extras": [
             {
               "label": "Node",
@@ -2238,6 +2306,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "sensor.plant_monitor_soil_moisture",
@@ -2256,6 +2325,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "climate",
           "extras": [],
           "entityIds": [
             "sensor.kitchen_ht_temperature",
@@ -2280,6 +2350,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "switch",
           "extras": [],
           "entityIds": [
             "switch.office_plug",
@@ -2298,6 +2369,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "contact",
           "extras": [],
           "entityIds": [
             "binary_sensor.window_sensor_opening",
@@ -2322,6 +2394,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "phone",
           "extras": [],
           "entityIds": [
             "sensor.pixel_9_battery_level",
@@ -2346,6 +2419,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "binary_sensor.hallway_smoke_alarm_smoke",
@@ -2370,6 +2444,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "phone",
           "extras": [],
           "entityIds": [
             "device_tracker.dog_collar"
@@ -2391,6 +2466,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "critical",
+          "deviceType": "other",
           "extras": [],
           "entityIds": [
             "sensor.remote_battery_template"
@@ -2411,6 +2487,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "vacuum",
           "extras": [],
           "entityIds": [
             "vacuum.mr_roboto",
@@ -2436,6 +2513,7 @@
           "isQuiet": false,
           "quietThresholdHours": 24,
           "severity": "ok",
+          "deviceType": "light",
           "extras": [
             {
               "label": "LQI",

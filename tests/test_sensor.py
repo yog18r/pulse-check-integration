@@ -54,11 +54,7 @@ async def test_attention_sensor_matches_the_golden_output(
     state = hass.states.get(ENTITY_ID)
     assert state is not None
     assert state.state == str(expected["summary"]["attention"])
-    # deviceType is Python-only until phase 5 adds it to the card and the golden file.
-    ours = [
-        {k: v for k, v in d.items() if k != "deviceType"} for d in state.attributes[ATTR_DEVICES]
-    ]
-    assert ours == _with_real_ids(expected["devices"], device_ids)
+    assert state.attributes[ATTR_DEVICES] == _with_real_ids(expected["devices"], device_ids)
     for key, value in expected["summary"].items():
         assert state.attributes[ATTR_SUMMARY][key] == value
 
