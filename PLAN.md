@@ -64,8 +64,9 @@ change must come with a deliberate change to the golden file.
   binary low, or an enhancer says so; warning = at/below warning (default
   30) or quiet. Snoozed devices read as ok.
 - **Grouping**: by device registry entry; device-less entities get
-  `entity:<entity_id>` and count only as battery readings. Service and
-  disabled devices are skipped. Integration = most common platform among
+  `entity:<entity_id>` and count only as battery readings. A state with no
+  registry entry at all (no `unique_id`) is device-less too, with
+  integration `unknown`. Service and disabled devices are skipped. Integration = most common platform among
   the device's entities. Name = `name_by_user` > `name`, overridable.
 - **Device type**: lock, cover, vacuum, phone, media, remote, climate,
   motion, contact, light, switch or other, from the primary entities'
@@ -115,8 +116,9 @@ past cycles like for like, or on a sudden 20-point drop.
 - **Notifications**: once per transition (enters warning, enters critical,
   goes offline, goes quiet), never per update. Per-device policy `instant`,
   `daily`, `weekly` or `none`, defaulting by severity; reminders while
-  unresolved with a cap; daily and weekly digests; a `pulse_check_transition`
-  event and a blueprint. On startup: a baseline, a grace period, and a
+  unresolved with a cap; daily and weekly digests, a missed one caught up
+  once after the next start; a `pulse_check_transition` event and a
+  blueprint. On startup: a baseline, a grace period, and a
   confirmation window; a device must have been seen online since startup
   before it can be reported offline, so slow-starting integrations do not
   produce a flood of false alarms after a restart.
@@ -137,7 +139,8 @@ past cycles like for like, or on a sudden 20-point drop.
   startup grace and confirmation minutes, per-device sensors.
 - A `DataUpdateCoordinator` listening to `state_changed`. Only changes that
   can alter the result get through (availability, battery and charging
-  values, node status, `battery_level` attributes); relevant changes are
+  values, node status, `battery_level` attributes, a new battery entity
+  appearing); relevant changes are
   debounced to one recompute per 10 s, and a timer recomputes every 5 min
   for time-based transitions. The analysis runs in a worker thread.
 - Battery history re-read from the recorder every 6 h, after Home Assistant
@@ -169,8 +172,45 @@ page (`npm run dev` in `frontend/`) replays a canned snapshot and takes
   `pulse_check.zip`.
 - Small, meaningful commits.
 
+## Since the plan
+
+**Missed digests are caught up.** Digests fire at a fixed time, so one
+that fell while Home Assistant was off or still starting used to be lost.
+
+- The store's `digests` section records when each kind was last *judged*:
+  sent, or found to have nothing to say. Recording the empty case too
+  means a quiet slot is never retried after a restart.
+- The check runs with the notifier's baseline at the end of the startup
+  grace period, the first moment the notification state can be trusted.
+  A kind whose last slot (by the current time and weekday options, on the
+  local wall clock) is newer than its record is sent once with what is
+  wrong now. A digest summarises the present; replaying each missed day
+  was rejected.
+- With no record (a new install, or an upgrade from before this), the
+  record starts at setup, so no slot from before it is ever sent.
+- Accepted side effect: moving the digest time to an hour that has already
+  passed today counts as a missed slot, and it goes out after the reload.
+
+**Entities with no registry entry are watched.** An entity without a
+`unique_id` exists only in the state machine. The snapshot already copied
+every state; `collect_device_groups` walked only the registry, so they
+were dropped there. The fix is in the core, pinned by a deliberate golden
+change (`sensor.garden_soil_moisture` in the fixture).
+
+- They follow the device-less rules: `entity:<entity_id>`, kept only with
+  a battery reading, never offline or quiet.
+- Integration `unknown`: a state carries no reliable sign of its
+  integration (template and MQTT entities set nothing; `attribution` is
+  free text), so guessing was rejected.
+- No registry entry means no entity category, so the config-entity rule
+  cannot apply; `exclude_entities` is the way to leave one out.
+- The coordinator recomputes when a new battery-like state appears (no
+  registry event announces it) and leaves out the lingering state of a
+  disabled registry entity, which would otherwise read as one of these.
+- The card's device picker offers them for per-device settings; the
+  integration resolves `entity:<id>` for Done, snooze and history as for
+  any device-less battery.
+
 ## Still open
 
-- Catching up missed digests after a restart.
-- Watching entities that have no registry entry beyond battery readings.
 - Translations beyond English; HACS default-store submission once released.
