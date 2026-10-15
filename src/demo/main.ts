@@ -102,6 +102,30 @@ themeButton.addEventListener('click', () => {
   document.body.dataset.theme = dark ? 'light' : 'dark';
 });
 
+/**
+ * Home Assistant handles these two events; here we just show what the card
+ * asked for, so tap-to-open can be seen working without HA.
+ */
+function toast(message: string) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = message;
+  document.body.appendChild(el);
+  setTimeout(() => {
+    el.remove();
+  }, 2500);
+}
+
+window.addEventListener('location-changed', () => {
+  toast(`HA would navigate to ${location.pathname}`);
+  history.replaceState(null, '', '/');
+});
+
+document.addEventListener('hass-more-info', (event) => {
+  const detail = (event as CustomEvent<{ entityId: string }>).detail;
+  toast(`HA would open more-info for ${detail.entityId}`);
+});
+
 if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
   document.body.dataset.theme = 'dark';
 }

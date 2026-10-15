@@ -3,7 +3,7 @@
  *
  * Responsibilities:
  *  - run the core analysis (memoised, so it only re-runs when inputs change)
- *  - show the header with title and headline
+ *  - show the header with title, headline and breakdown
  *  - manage which tab is selected
  *  - hand each tab its sorted list
  *
@@ -16,9 +16,9 @@ import { useMemo, useState } from 'react';
 import type { ResolvedConfig, TabId } from '../card/config';
 import { analyseDevices } from '../core/analyse';
 import { batteryList, connectivityList } from '../core/sort';
-import { headline, summarise } from '../core/summarise';
+import { breakdown, headline, summarise } from '../core/summarise';
 import { batterySeverity, connectivitySeverity } from '../core/thresholds';
-import type { HassLike } from '../core/types';
+import type { DeviceHealth, HassLike } from '../core/types';
 import type { Enhancer } from '../enhancers';
 import { DeviceRow } from './DeviceRow';
 import { EmptyState } from './EmptyState';
@@ -28,6 +28,8 @@ export interface AppProps {
   hass: HassLike;
   config: ResolvedConfig;
   enhancers: readonly Enhancer[];
+  /** Called when a row is tapped. The custom element wires this to HA navigation. */
+  onOpenDevice?: ((device: DeviceHealth) => void) | undefined;
 }
 
 const TAB_LABELS: Record<TabId, string> = {
@@ -35,7 +37,7 @@ const TAB_LABELS: Record<TabId, string> = {
   connectivity: '📡 Connectivity',
 };
 
-export function App({ hass, config, enhancers }: AppProps) {
+export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
   const now = useNow();
 
   // `useState` returns the current value and a setter. Calling the setter
@@ -52,24 +54,27 @@ export function App({ hass, config, enhancers }: AppProps) {
   );
   const batteries = useMemo(() => batteryList(devices, config), [devices, config]);
   const connectivity = useMemo(() => connectivityList(devices), [devices]);
-  const summary = useMemo(() => summarise(devices), [devices]);
+  const summary = useMemo(() => summarise(devices, config), [devices, config]);
 
-  const lowBatteries = batteries.filter((d) => batterySeverity(d.battery, config) !== 'ok').length;
   const tabCounts: Record<TabId, number> = {
-    batteries: lowBatteries,
+    batteries: summary.lowBatteries,
     connectivity: connectivity.length,
   };
 
   const headlineSeverity =
     summary.critical > 0 ? 'critical' : summary.warning > 0 ? 'warning' : 'ok';
+  const detail = breakdown(summary);
 
   return (
     <div className="card">
       <header className="header">
         <h2 className="title">{config.title}</h2>
-        <p className="headline" data-severity={headlineSeverity} aria-live="polite">
-          {headline(summary)}
-        </p>
+        <div className="verdict">
+          <p className="headline" data-severity={headlineSeverity} aria-live="polite">
+            {headline(summary)}
+          </p>
+          {detail && <p className="breakdown">{detail}</p>}
+        </div>
       </header>
 
       {config.show_tabs.length > 1 && (
@@ -111,6 +116,7 @@ export function App({ hass, config, enhancers }: AppProps) {
                   severity={batterySeverity(d.battery, config)}
                   mode="battery"
                   now={now}
+                  onOpen={onOpenDevice}
                 />
               ))}
             </ul>
@@ -132,6 +138,7 @@ export function App({ hass, config, enhancers }: AppProps) {
                   severity={connectivitySeverity(d.isOffline, d.isQuiet)}
                   mode="connectivity"
                   now={now}
+                  onOpen={onOpenDevice}
                 />
               ))}
             </ul>

@@ -24,7 +24,7 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 - **🔋 Batteries**: every battery-powered device, lowest first, with a coloured bar
 - **📡 Connectivity**: anything offline or not heard from within a threshold
 
-Everything is grouped by **device**, not entity, so each physical thing appears once.
+Everything is grouped by **device**, not entity, so each physical thing appears once. Tap a row to jump to that device's page in Home Assistant.
 
 ## Installation
 
@@ -142,7 +142,17 @@ src/
 └── ui/                       React components, one hook, one stylesheet
 ```
 
-**Universal core + optional enhancers.** The core uses only data every integration provides. An _enhancer_ implements one small interface and adds detail when, and only when, the data exists (a Z-Wave node's alive/asleep/dead status, a Zigbee2MQTT `linkquality`). Enhancers can never break the card: each call is isolated, and returning nothing is always valid. Adding one is a new file plus one line in the registry.
+**Universal core + optional enhancers.** The core uses only data every integration provides. An _enhancer_ implements one small interface and adds detail when, and only when, the data exists. Enhancers can never break the card: each call is isolated, and returning nothing is always valid. Adding one is a new file plus one line in the registry.
+
+An enhancer returns three things, all optional: `extras` (badges for the row), a better `lastHeard` timestamp, and an `offline` verdict. The core merges them with its own generic rules, so an integration that knows more can override the heuristics.
+
+| Enhancer    | Integration | What it reads                                    | What it adds                                                               |
+| ----------- | ----------- | ------------------------------------------------ | -------------------------------------------------------------------------- |
+| Z-Wave JS   | `zwave_js`  | the diagnostic _Node status_ sensor              | `Node: alive/asleep/dead` badge; a **dead** node is offline                |
+| Zigbee2MQTT | `mqtt`      | `linkquality`, and `last_seen` if enabled in Z2M | `LQI` badge (warning at ≤30); `last_seen` replaces the timestamp heuristic |
+| ZHA         | `zha`       | the optional `lqi` and `rssi` diagnostic sensors | `LQI` badge (warning at ≤30) and `RSSI` badge                              |
+
+Plain MQTT devices that aren't from Zigbee2MQTT simply get no badges.
 
 **Why React inside a custom element?** Home Assistant talks to a plain `HTMLElement`. That element owns a shadow root (CSS isolation both ways) and a React root inside it. The element decides _when_ to render: HA pushes a new `hass` object on every state change in the house, so the setter computes a cheap fingerprint of just the entities the card depends on and skips the render when it hasn't moved. React decides _what_ to render, with `useMemo` caching the analysis between tab clicks.
 
@@ -165,7 +175,7 @@ The same fixture drives the unit tests, so every detection, grouping, threshold 
 ## Roadmap
 
 - [x] **Phase 1 (MVP):** card contract, universal detection, both tabs, config with defaults, theming, unit tests, demo page, CI
-- [ ] **Phase 2:** Z-Wave JS, Zigbee2MQTT and ZHA enhancers; tap a row to open the device page; header polish
+- [x] **Phase 2:** Z-Wave JS, Zigbee2MQTT and ZHA enhancers; tap a row to open the device page (or the more-info dialog for device-less entities); header breakdown and per-row threshold hints
 - [ ] **Phase 3:** "replace soon" ordering using drain rate from HA statistics; battery shopping list grouped by `battery_type`; visual config editor; on-demand `last_reported` lookup for quiet devices
 
 ## Licence

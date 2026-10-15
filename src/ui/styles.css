@@ -42,11 +42,21 @@
   letter-spacing: -0.01em;
 }
 
+.verdict {
+  text-align: right;
+}
+
 .headline {
   margin: 0;
   color: var(--secondary-text-color, #727272);
   font-size: 0.95em;
   white-space: nowrap;
+}
+
+.breakdown {
+  margin: 2px 0 0;
+  color: var(--secondary-text-color, #727272);
+  font-size: 0.8em;
 }
 
 .headline[data-severity='critical'] {
@@ -113,11 +123,36 @@
 }
 
 .row {
+  margin: 0;
+  padding: 0;
+}
+
+/* The whole row is a button: reset the browser's button styling, then lay
+   out stripe | main | status as a grid. */
+.rowbutton {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
   display: grid;
   grid-template-columns: 4px 1fr auto;
   gap: 12px;
   align-items: center;
   padding: 8px 16px 8px 12px;
+  box-sizing: border-box;
+}
+
+.rowbutton:hover {
+  background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
+}
+
+.rowbutton:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: -2px;
 }
 
 .row + .row {
@@ -125,6 +160,7 @@
 }
 
 .row .stripe {
+  display: block;
   width: 4px;
   height: 100%;
   min-height: 32px;
@@ -139,10 +175,12 @@
 }
 
 .row .main {
+  display: block;
   min-width: 0;
 }
 
 .row .name {
+  display: block;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -151,6 +189,7 @@
 
 .row .meta {
   display: flex;
+  margin-top: 2px;
   flex-wrap: wrap;
   gap: 4px 8px;
   align-items: center;
@@ -167,6 +206,15 @@
   font-size: 0.9em;
   line-height: 1.6;
   white-space: nowrap;
+}
+
+.badge[data-severity='warning'] {
+  background: color-mix(in srgb, var(--warning-color, #ffa600) 20%, transparent);
+  color: var(--warning-color, #ffa600);
+}
+.badge[data-severity='critical'] {
+  background: color-mix(in srgb, var(--error-color, #db4437) 20%, transparent);
+  color: var(--error-color, #db4437);
 }
 
 .row .status {

@@ -1,8 +1,11 @@
 /**
  * One device in a list. Both tabs use this; `mode` picks what the right-hand
  * status column emphasises.
+ *
+ * The whole row is a <button>, so it is keyboard reachable and announced
+ * as clickable. Tapping it opens the device in Home Assistant.
  */
-import { formatRelative } from '../core/time';
+import { formatHours, formatRelative } from '../core/time';
 import type { DeviceHealth, Severity } from '../core/types';
 import { BatteryBar } from './BatteryBar';
 import { IntegrationBadge } from './IntegrationBadge';
@@ -13,6 +16,8 @@ interface Props {
   severity: Severity;
   mode: 'battery' | 'connectivity';
   now: Date;
+  /** Called when the row is activated. Optional so the row works without HA. */
+  onOpen?: ((device: DeviceHealth) => void) | undefined;
 }
 
 function connectivityLabel(device: DeviceHealth): string {
@@ -21,43 +26,53 @@ function connectivityLabel(device: DeviceHealth): string {
   return 'Online';
 }
 
-export function DeviceRow({ device, severity, mode, now }: Props) {
+export function DeviceRow({ device, severity, mode, now, onOpen }: Props) {
   const lastHeard = formatRelative(device.lastHeard, now);
 
   return (
     <li className="row" data-severity={severity}>
-      <span className="stripe" aria-hidden="true" />
+      <button
+        type="button"
+        className="rowbutton"
+        onClick={() => onOpen?.(device)}
+        aria-label={`${device.name}, open in Home Assistant`}
+      >
+        <span className="stripe" aria-hidden="true" />
 
-      <div className="main">
-        <div className="name" title={device.name}>
-          {device.name}
-        </div>
-        <div className="meta">
-          {device.area && <span>{device.area}</span>}
-          <IntegrationBadge platform={device.integration} />
-          {device.extras.map((extra) => (
-            <span key={extra.label} className="badge" data-severity={extra.severity ?? 'ok'}>
-              {extra.label}: {extra.value}
-            </span>
-          ))}
-        </div>
-      </div>
+        <span className="main">
+          <span className="name" title={device.name}>
+            {device.name}
+          </span>
+          <span className="meta">
+            {device.area && <span>{device.area}</span>}
+            <IntegrationBadge platform={device.integration} />
+            {device.extras.map((extra) => (
+              <span key={extra.label} className="badge" data-severity={extra.severity ?? 'ok'}>
+                {extra.label}: {extra.value}
+              </span>
+            ))}
+          </span>
+        </span>
 
-      <div className="status">
-        {mode === 'battery' && device.battery ? (
-          <>
-            <BatteryBar battery={device.battery} severity={severity} />
-            <span className="sub">heard {lastHeard}</span>
-          </>
-        ) : (
-          <>
-            <span className="label" data-severity={severity}>
-              {connectivityLabel(device)}
-            </span>
-            <span className="sub">last heard {lastHeard}</span>
-          </>
-        )}
-      </div>
+        <span className="status">
+          {mode === 'battery' && device.battery ? (
+            <>
+              <BatteryBar battery={device.battery} severity={severity} />
+              <span className="sub">heard {lastHeard}</span>
+            </>
+          ) : (
+            <>
+              <span className="label" data-severity={severity}>
+                {connectivityLabel(device)}
+              </span>
+              <span className="sub">
+                last heard {lastHeard}
+                {device.isQuiet && ` · limit ${formatHours(device.quietThresholdHours)}`}
+              </span>
+            </>
+          )}
+        </span>
+      </button>
     </li>
   );
 }

@@ -16,14 +16,15 @@
  */
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { analyseDevices } from '../core/analyse';
 import { fingerprint, registriesChanged } from '../core/fingerprint';
-import type { HassLike } from '../core/types';
+import { batteryList, connectivityList } from '../core/sort';
+import type { DeviceHealth, HassLike } from '../core/types';
 import { ENHANCERS } from '../enhancers';
 import { App } from '../ui/App';
 import styles from '../ui/styles.css?inline';
 import { resolveConfig, type CardConfig, type ResolvedConfig } from './config';
-import { analyseDevices } from '../core/analyse';
-import { batteryList, connectivityList } from '../core/sort';
+import { openDevice } from './navigation';
 
 export class PulseCheckCardElement extends HTMLElement {
   private readonly shadow: ShadowRoot;
@@ -33,6 +34,11 @@ export class PulseCheckCardElement extends HTMLElement {
   private config: ResolvedConfig | null = null;
   private _hass: HassLike | undefined = undefined;
   private lastFingerprint = '';
+
+  // Arrow function so `this` is bound when React calls it back.
+  private readonly handleOpenDevice = (device: DeviceHealth): void => {
+    openDevice(this, device);
+  };
 
   constructor() {
     super();
@@ -86,7 +92,10 @@ export class PulseCheckCardElement extends HTMLElement {
   /** Approximate height in units of ~50px, used by the masonry layout. */
   getCardSize(): number {
     if (!this.config || !this._hass) return 3;
-    const devices = analyseDevices(this._hass, this.config, { now: new Date() });
+    const devices = analyseDevices(this._hass, this.config, {
+      now: new Date(),
+      enhancers: ENHANCERS,
+    });
     const rows = Math.max(
       batteryList(devices, this.config).length,
       connectivityList(devices).length,
@@ -120,7 +129,12 @@ export class PulseCheckCardElement extends HTMLElement {
 
     this.reactRoot ??= createRoot(this.mountPoint);
     this.reactRoot.render(
-      createElement(App, { hass: this._hass, config: this.config, enhancers: ENHANCERS }),
+      createElement(App, {
+        hass: this._hass,
+        config: this.config,
+        enhancers: ENHANCERS,
+        onOpenDevice: this.handleOpenDevice,
+      }),
     );
   }
 }
