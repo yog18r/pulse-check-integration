@@ -8,7 +8,9 @@
     "@yog18r"
   ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": [
+    "websocket_api"
+  ],
   "documentation": "https://github.com/yog18r/pulse-check-integration",
   "integration_type": "service",
   "iot_class": "calculated",

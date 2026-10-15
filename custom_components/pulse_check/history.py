@@ -26,7 +26,17 @@ from homeassistant.util import dt as dt_util
 
 from .const import HISTORY_DAYS
 from .core.battery import parse_numeric
-from .core.drain import DrainEstimate, DrainPoint, daily_means, estimate_drain, rows_to_points
+from .core.drain import (
+    DrainEstimate,
+    DrainPoint,
+    daily_means,
+    estimate_drain,
+    hourly_means,
+    rows_to_points,
+)
+
+# Windows this short get hourly points, so a sparkline has some shape.
+HOURLY_MAX_DAYS = 3
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -40,20 +50,25 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _history_points(
-    hass: HomeAssistant, start: datetime, entity_ids: Iterable[str], attribute: str | None
+    hass: HomeAssistant,
+    start: datetime,
+    entity_ids: Iterable[str],
+    attribute: str | None,
+    hourly: bool = False,
 ) -> dict[str, list[DrainPoint]]:
-    """Daily means from raw state history. Runs in the recorder's thread.
+    """Daily (or hourly) means from raw state history. Runs in the recorder's thread.
 
     With `attribute` set, the level is read from that attribute instead of
     the state; attributes are only stored when they change, so the last
     seen value carries forward.
     """
     points: dict[str, list[DrainPoint]] = {}
+    collapse = hourly_means if hourly else daily_means
     for entity_id in entity_ids:
         rows = state_changes_during_period(
             hass, start, None, entity_id, no_attributes=attribute is None
         ).get(entity_id, [])
-        points[entity_id] = daily_means(_samples(rows, attribute))
+        points[entity_id] = collapse(_samples(rows, attribute))
     return points
 
 
@@ -134,11 +149,55 @@ class HistoryTracker:
                 )
             )
 
+        self.estimates = self._fit(points, levels, now)
+        _LOGGER.debug("Drain estimates for %d of %d batteries", len(self.estimates), len(levels))
+
+    @staticmethod
+    def _fit(
+        points: dict[str, list[DrainPoint]], levels: dict[str, float], now: datetime
+    ) -> dict[str, DrainEstimate]:
         estimates: dict[str, DrainEstimate] = {}
         for entity_id, level in levels.items():
             history = [*points.get(entity_id, []), DrainPoint(time=now, level=level)]
             estimate = estimate_drain(history, level)
             if estimate is not None:
                 estimates[entity_id] = estimate
-        self.estimates = estimates
-        _LOGGER.debug("Drain estimates for %d of %d batteries", len(estimates), len(levels))
+        return estimates
+
+    async def async_points(
+        self, entity_id: str, days: int, attribute: bool = False
+    ) -> list[DrainPoint]:
+        """History points for one battery over a window, for a sparkline.
+
+        Statistics (hourly for short windows, daily otherwise) when the
+        recorder has them, else raw state history collapsed the same way;
+        attribute batteries always use raw history with attributes.
+        """
+        if not self.available:
+            return []
+        now = dt_util.utcnow()
+        start = now - timedelta(days=days)
+        hourly = days <= HOURLY_MAX_DAYS
+        recorder = get_instance(self.hass)
+        if attribute:
+            found = await recorder.async_add_executor_job(
+                _history_points, self.hass, start, {entity_id}, "battery_level", hourly
+            )
+            return found.get(entity_id, [])
+        stats = await recorder.async_add_executor_job(
+            statistics_during_period,
+            self.hass,
+            start,
+            None,
+            {entity_id},
+            "hour" if hourly else "day",
+            None,
+            {"mean"},
+        )
+        points = rows_to_points(stats.get(entity_id, []))
+        if points:
+            return points
+        found = await recorder.async_add_executor_job(
+            _history_points, self.hass, start, {entity_id}, None, hourly
+        )
+        return found.get(entity_id, [])

@@ -1,7 +1,8 @@
 """The sensor platform.
 
-- `sensor.pulse_check_attention`: devices needing attention, with the full
-  device list in its attributes in the card's `DeviceHealth` shape.
+- `sensor.pulse_check_attention`: devices needing attention, with the
+  summary counts as attributes. The full device list goes over the
+  websocket (see websocket.py), not through state attributes.
 - `sensor.pulse_check_low_batteries`, `_critical_batteries`, `_offline`,
   `_quiet`: plain counts for automations that only care about one kind.
 - `sensor.pulse_check_next_to_run_out`: the battery device with the fewest
@@ -29,14 +30,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import (
-    ATTR_ACTIONS,
-    ATTR_COMPUTED_AT,
-    ATTR_CONFIG,
-    ATTR_DEVICES,
-    ATTR_SUMMARY,
-    CONF_PER_DEVICE_SENSORS,
-)
+from .const import ATTR_COMPUTED_AT, ATTR_SUMMARY, CONF_PER_DEVICE_SENSORS
 from .coordinator import PulseCheckCoordinator
 from .core.models import to_iso
 from .entity import PulseCheckEntity
@@ -137,15 +131,12 @@ async def async_setup_entry(
 
 
 class AttentionSensor(PulseCheckEntity, SensorEntity):
-    """How many devices need attention, with the device list as attributes."""
+    """How many devices need attention, with the summary counts as attributes."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:heart-pulse"
-    # The recorder would otherwise store the whole device list in the
-    # database on every change. Only the count is worth keeping as history.
-    _unrecorded_attributes = frozenset(
-        {ATTR_DEVICES, ATTR_SUMMARY, ATTR_ACTIONS, ATTR_CONFIG, ATTR_COMPUTED_AT}
-    )
+    # Only the count is worth keeping as history.
+    _unrecorded_attributes = frozenset({ATTR_SUMMARY, ATTR_COMPUTED_AT})
 
     def __init__(self, coordinator: PulseCheckCoordinator, entry: PulseCheckConfigEntry) -> None:
         """Create the attention sensor."""
@@ -158,13 +149,10 @@ class AttentionSensor(PulseCheckEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """The full picture for cards and automations."""
+        """The summary counts, for automations that want more than the state."""
         data = self.coordinator.data
         return {
-            ATTR_DEVICES: [device.to_dict() for device in data.devices],
             ATTR_SUMMARY: data.summary.to_dict(),
-            ATTR_ACTIONS: data.actions.to_dict(),
-            ATTR_CONFIG: data.config.to_dict(),
             ATTR_COMPUTED_AT: to_iso(data.computed_at),
         }
 

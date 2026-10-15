@@ -10,20 +10,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from custom_components.pulse_check.const import ATTR_DEVICES, CONF_PER_DEVICE_SENSORS, DOMAIN
-from tests.conftest import load_fixture_into_hass
+from custom_components.pulse_check.const import CONF_PER_DEVICE_SENSORS, DOMAIN
+from tests.conftest import device_dict as _device, load_fixture_into_hass
 
-ATTENTION = "sensor.pulse_check_attention"
 BATTERY = {"device_class": "battery", "unit_of_measurement": "%"}
-
-
-def _device(hass: HomeAssistant, name: str) -> dict[str, Any]:
-    state = hass.states.get(ATTENTION)
-    assert state is not None
-    for device in state.attributes[ATTR_DEVICES]:
-        if device["name"] == name:
-            return device  # type: ignore[no-any-return]
-    raise AssertionError(name)
 
 
 async def _set_level(hass: HomeAssistant, freezer: FrozenDateTimeFactory, level: int) -> None:

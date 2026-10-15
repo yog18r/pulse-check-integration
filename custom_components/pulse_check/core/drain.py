@@ -116,6 +116,22 @@ def rows_to_points(rows: Iterable[Mapping[str, Any]]) -> list[DrainPoint]:
     return points
 
 
+def _means_per(samples: Iterable[tuple[datetime, float | None]], hourly: bool) -> list[DrainPoint]:
+    totals: dict[datetime, list[float]] = {}
+    for moment, level in samples:
+        if level is None or not math.isfinite(level):
+            continue
+        utc = as_utc(moment)
+        bucket = utc.replace(minute=0, second=0, microsecond=0)
+        if not hourly:
+            bucket = bucket.replace(hour=0)
+        totals.setdefault(bucket, []).append(level)
+    return [
+        DrainPoint(time=bucket, level=sum(levels) / len(levels))
+        for bucket, levels in sorted(totals.items())
+    ]
+
+
 def daily_means(samples: Iterable[tuple[datetime, float | None]]) -> list[DrainPoint]:
     """Collapse raw samples into one point per UTC day: the mean of that day.
 
@@ -123,13 +139,9 @@ def daily_means(samples: Iterable[tuple[datetime, float | None]]) -> list[DrainP
     statistics can take the same path. Samples without a value
     (unavailable, unknown) are skipped.
     """
-    totals: dict[datetime, list[float]] = {}
-    for moment, level in samples:
-        if level is None or not math.isfinite(level):
-            continue
-        day = as_utc(moment).replace(hour=0, minute=0, second=0, microsecond=0)
-        totals.setdefault(day, []).append(level)
-    return [
-        DrainPoint(time=day, level=sum(levels) / len(levels))
-        for day, levels in sorted(totals.items())
-    ]
+    return _means_per(samples, hourly=False)
+
+
+def hourly_means(samples: Iterable[tuple[datetime, float | None]]) -> list[DrainPoint]:
+    """The same per UTC hour, for short sparkline windows."""
+    return _means_per(samples, hourly=True)

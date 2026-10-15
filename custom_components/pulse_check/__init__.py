@@ -29,6 +29,7 @@ from .const import DOMAIN
 from .coordinator import PulseCheckCoordinator
 from .notify import Notifier
 from .services import async_setup_services
+from .websocket import async_setup_websocket
 
 if TYPE_CHECKING:
     from homeassistant.helpers.typing import ConfigType
@@ -46,6 +47,7 @@ type PulseCheckConfigEntry = ConfigEntry[PulseCheckCoordinator]
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the services once, whether or not an entry exists yet."""
     async_setup_services(hass)
+    async_setup_websocket(hass)
     return True
 
 

@@ -20,15 +20,9 @@ HISTORY_INTERVAL = timedelta(hours=6)
 # Days of history the drain estimate is fitted over.
 HISTORY_DAYS = 14
 
-# Attributes on the attention sensor. Kept out of the recorder (see
-# sensor.py): the device list is large and changes often.
-ATTR_DEVICES = "devices"
+# Attributes on the attention sensor (kept out of the recorder, see sensor.py).
 ATTR_SUMMARY = "summary"
-ATTR_ACTIONS = "actions"
 ATTR_COMPUTED_AT = "computed_at"
-# The thresholds and per-device settings the list was computed with, so the
-# card can colour rows and build action labels the same way.
-ATTR_CONFIG = "config"
 
 # Options (Settings > Devices & services > Pulse Check > Configure).
 # The keys match the card's YAML config so the two stay easy to compare.

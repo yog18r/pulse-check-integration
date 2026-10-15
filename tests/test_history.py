@@ -18,7 +18,7 @@ from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant, State
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from tests.conftest import load_fixture_into_hass
+from tests.conftest import device_dicts, load_fixture_into_hass
 
 DAY = timedelta(days=1)
 
@@ -118,9 +118,7 @@ async def test_drain_estimates_reach_the_entities(
     assert ("device_tracker.dog_collar", False) in recorder["history"]
     assert ("sensor.living_room_motion_battery", True) not in recorder["history"]
 
-    attention = hass.states.get("sensor.pulse_check_attention")
-    assert attention is not None
-    by_name = {d["name"]: d for d in attention.attributes["devices"]}
+    by_name = {d["name"]: d for d in device_dicts(hass)}
     # 12 % at 2 %/day: about 6 days.
     assert by_name["Living Room Motion"]["daysLeft"] == pytest.approx(6, abs=0.5)
     # 87 % at about 1 %/day (the live 87 % reading flattens the fit a little).

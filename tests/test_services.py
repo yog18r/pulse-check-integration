@@ -11,19 +11,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from custom_components.pulse_check.const import ATTR_DEVICES, DOMAIN
-from tests.conftest import load_fixture_into_hass
+from custom_components.pulse_check.const import DOMAIN
+from tests.conftest import device_dict as _device, load_fixture_into_hass
 
 ATTENTION = "sensor.pulse_check_attention"
-
-
-def _device(hass: HomeAssistant, name: str) -> dict[str, Any]:
-    state = hass.states.get(ATTENTION)
-    assert state is not None
-    for device in state.attributes[ATTR_DEVICES]:
-        if device["name"] == name:
-            return device  # type: ignore[no-any-return]
-    raise AssertionError(f"no device named {name}")
 
 
 async def _set_up(
@@ -149,14 +140,11 @@ async def test_set_device_settings_changes_the_analysis(
     assert device["area"] == "Attic"
     assert device["quietThresholdHours"] == 48
     assert device["isQuiet"] is False  # 32 h < 48 h
-    actions = hass.states.get(ATTENTION).attributes["actions"]  # type: ignore[union-attr]
-    labels = [item["label"] for item in actions["replace"]]
+    coordinator = hass.config_entries.async_loaded_entries(DOMAIN)[0].runtime_data
+    labels = [item.label for item in coordinator.data.actions.replace]
     assert "Replace 2 × CR2450 in Bedroom Climate" in labels
-    # The card reads the same settings back from the sensor in integration mode.
-    published = hass.states.get(ATTENTION).attributes["config"]  # type: ignore[union-attr]
-    assert published["battery_warning"] == 30
-    assert published["battery_critical"] == 15
-    assert published["device_settings"] == [
+    # The card gets the same settings over the websocket.
+    assert coordinator.data.config.to_dict()["device_settings"] == [
         {
             "device_id": zha,
             "quiet_threshold_hours": 48,

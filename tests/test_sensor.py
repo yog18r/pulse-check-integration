@@ -10,8 +10,8 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from custom_components.pulse_check.const import ATTR_DEVICES, ATTR_SUMMARY, DEBOUNCE_SECONDS
-from tests.conftest import load_fixture_into_hass
+from custom_components.pulse_check.const import ATTR_SUMMARY, DEBOUNCE_SECONDS
+from tests.conftest import device_dicts, load_fixture_into_hass
 
 ENTITY_ID = "sensor.pulse_check_attention"
 
@@ -54,7 +54,9 @@ async def test_attention_sensor_matches_the_golden_output(
     state = hass.states.get(ENTITY_ID)
     assert state is not None
     assert state.state == str(expected["summary"]["attention"])
-    assert state.attributes[ATTR_DEVICES] == _with_real_ids(expected["devices"], device_ids)
+    assert device_dicts(hass) == _with_real_ids(expected["devices"], device_ids)
+    # The device list itself is not a state attribute any more.
+    assert "devices" not in state.attributes
     for key, value in expected["summary"].items():
         assert state.attributes[ATTR_SUMMARY][key] == value
 

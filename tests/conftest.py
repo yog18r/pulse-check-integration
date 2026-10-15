@@ -54,6 +54,20 @@ def fixed_now(golden: dict[str, Any]) -> datetime:
     return datetime.fromisoformat(golden["now"])
 
 
+def device_dicts(hass: HomeAssistant) -> list[dict[str, Any]]:
+    """The current device list in the card's shape, as the websocket sends it."""
+    entry = hass.config_entries.async_loaded_entries(DOMAIN)[0]
+    return [device.to_dict() for device in entry.runtime_data.data.devices]
+
+
+def device_dict(hass: HomeAssistant, name: str) -> dict[str, Any]:
+    """One device by display name."""
+    for device in device_dicts(hass):
+        if device["name"] == name:
+            return device
+    raise AssertionError(f"no device named {name}")
+
+
 @pytest.fixture
 def config_entry(hass: HomeAssistant) -> MockConfigEntry:
     """A Pulse Check config entry, added to hass but not yet set up."""
