@@ -34,6 +34,7 @@ from .core.drain import (
     has_charge_cycles,
     hourly_means,
     rows_to_points,
+    since_last_rise,
 )
 
 # Windows this short get hourly points, so a sparkline has some shape.
@@ -107,8 +108,10 @@ class HistoryTracker:
 
         `rechargeable` holds the device ids the user marked as charged
         rather than replaced. Those, phones (mobile_app), devices charging
-        right now and any battery whose history shows a charge get no
-        days-left estimate: a line through a charge cycle means nothing.
+        right now and any battery whose history shows repeated charging get
+        no days-left estimate: a line through charge cycles means nothing.
+        A single big rise (a new battery, or a glitch that healed) only
+        restarts the fit from there.
         """
         if not self.available:
             return
@@ -182,7 +185,7 @@ class HistoryTracker:
             history = [*points.get(entity_id, []), DrainPoint(time=now, level=level)]
             if has_charge_cycles(history):
                 continue
-            estimate = estimate_drain(history, level)
+            estimate = estimate_drain(since_last_rise(history), level)
             if estimate is not None:
                 estimates[entity_id] = estimate
         return estimates

@@ -53,14 +53,19 @@ def recorder(hass: HomeAssistant, fixed_now: datetime) -> Iterator[dict[str, Any
     ) -> dict[str, list[dict[str, Any]]]:
         calls["statistics"].append(ids)
         # The motion sensor drops 2 %/day. The phone's means also decline
-        # (its history looks like a clean drain), and the window sensor
-        # was clearly charged mid-window: 30 points up in a day.
-        window = linear_rows(fixed_now, 60, -1.5)
-        window[7]["mean"] = 90
+        # (its history looks like a clean drain). The window sensor got a
+        # fresh battery a week ago: 30 points up in a day, then a slower
+        # drain. The garage multisensor dipped and recovered once (a glitch).
+        window = linear_rows(fixed_now, 25, -1)  # the old battery: 25 % down to 19 %
+        for i, row in enumerate(window[7:]):
+            row["mean"] = 50.5 - 1.5 * i  # the new one: 50.5 % down to 41.5 %, live 40 %
+        glitch = linear_rows(fixed_now, 68, -1)  # 68 % down to 55 %, live 55 %
+        glitch[9]["mean"] = 42
         return {
             "sensor.living_room_motion_battery": linear_rows(fixed_now, 40, -2),
             "sensor.pixel_9_battery_level": linear_rows(fixed_now, 97, -2),
             "sensor.window_sensor_battery": window,
+            "sensor.garage_multisensor_battery_level": glitch,
         }
 
     def history(
@@ -143,8 +148,10 @@ async def test_drain_estimates_reach_the_entities(
     # A phone (mobile_app) is charged daily: never an estimate, however
     # clean its history looks.
     assert "daysLeft" not in by_name["Pixel 9"]
-    # A charge within the window (a 30-point rise) also rules one out.
-    assert "daysLeft" not in by_name["Window Sensor"]
+    # A single big rise is a new battery: the fit starts there. 40 % at 1.5 %/day.
+    assert by_name["Window Sensor"]["daysLeft"] == pytest.approx(27, abs=3)
+    # One dip-and-recover glitch does not cost the lock-like device its estimate.
+    assert 30 < by_name["Garage Multisensor"]["daysLeft"] < 80
     # The user said this one is rechargeable: no estimate either.
     assert "daysLeft" not in by_name["Front Door Sensor"]
     # And the docked, charging vacuum.
