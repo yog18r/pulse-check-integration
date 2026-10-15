@@ -1,8 +1,9 @@
-"""Turning the config entry's options into the core's configuration.
+"""Turning the config entry's options and the stored settings into core config.
 
 Home Assistant stores an integration's user settings in `entry.options`,
-a plain dict that the options flow writes. The core wants a `CoreConfig`.
-This module is the only place that knows about both shapes.
+a plain dict that the options flow writes. Per-device settings live in
+the integration's own store. The core wants a `CoreConfig`. This module
+is the only place that knows about all three shapes.
 """
 
 from __future__ import annotations
@@ -49,8 +50,17 @@ def integration_thresholds_from_options(options: Mapping[str, Any]) -> dict[str,
     return thresholds
 
 
-def core_config_from_options(options: Mapping[str, Any]) -> CoreConfig:
-    """Build the core configuration, with the card's defaults for anything unset."""
+def core_config_from_options(
+    options: Mapping[str, Any],
+    device_settings: Mapping[str, Mapping[str, Any]] | None = None,
+) -> CoreConfig:
+    """Build the core configuration, with the card's defaults for anything unset.
+
+    `device_settings` is the store's per-device section, keyed by device id.
+    """
+    settings = [
+        {"device_id": device_id, **values} for device_id, values in (device_settings or {}).items()
+    ]
     return CoreConfig.from_dict(
         {
             CONF_BATTERY_WARNING: options.get(CONF_BATTERY_WARNING, DEFAULT_BATTERY_WARNING),
@@ -60,6 +70,7 @@ def core_config_from_options(options: Mapping[str, Any]) -> CoreConfig:
             ),
             CONF_QUIET_SCOPE: options.get(CONF_QUIET_SCOPE, DEFAULT_QUIET_SCOPE),
             CONF_INTEGRATION_THRESHOLDS: integration_thresholds_from_options(options),
+            "device_settings": settings,
             CONF_INCLUDE_AREAS: options.get(CONF_INCLUDE_AREAS) or [],
             CONF_EXCLUDE_AREAS: options.get(CONF_EXCLUDE_AREAS) or [],
             CONF_INCLUDE_INTEGRATIONS: options.get(CONF_INCLUDE_INTEGRATIONS) or [],

@@ -53,6 +53,8 @@ from .core.enhancers import ENHANCERS
 from .core.models import AreaEntry, DeviceEntry, EntityEntry, EntityState, Snapshot
 from .history import HistoryTracker
 from .options import core_config_from_options
+from .replacements import ReplacementTracker
+from .storage import PulseCheckStore
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -100,9 +102,18 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             update_interval=UPDATE_INTERVAL,
             request_refresh_debouncer=self._refresh_debouncer,
         )
+        self.store = PulseCheckStore(hass)
         self.core_config = core_config_from_options(entry.options)
         self.history = HistoryTracker(hass)
+        self.replacements = ReplacementTracker(self.store)
         self._entity_registry = er.async_get(hass)
+
+    @callback
+    def rebuild_config(self) -> None:
+        """Recombine the options and the stored per-device settings."""
+        self.core_config = core_config_from_options(
+            self.config_entry.options, self.store.device_settings
+        )
 
     async def _async_setup(self) -> None:
         """Subscribe to the events that can change the result.
@@ -165,8 +176,10 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         now = dt_util.utcnow()
         snapshot = build_snapshot(self.hass)
         config = self.core_config
-        devices = await self.hass.async_add_executor_job(_analyse, snapshot, config, now)
-        next_to_run_out = self._attach_drain_estimates(devices)
+        snoozes = self.store.snoozes(now)
+        devices = await self.hass.async_add_executor_job(_analyse, snapshot, config, now, snoozes)
+        self.replacements.observe(devices, now)
+        next_to_run_out = self._attach_drain_estimates(devices, now)
         _LOGGER.debug(
             "Analysed %d entities into %d devices in %.1f ms",
             len(snapshot["entities"]),
@@ -182,24 +195,28 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             next_to_run_out=next_to_run_out,
         )
 
-    def _attach_drain_estimates(self, devices: list[DeviceHealth]) -> DeviceHealth | None:
-        """Copy days-left onto each device and return the soonest to run out."""
+    def _attach_drain_estimates(
+        self, devices: list[DeviceHealth], now: datetime
+    ) -> DeviceHealth | None:
+        """Copy days-left and history facts onto each device; return the soonest to run out."""
         soonest: DeviceHealth | None = None
         for device in devices:
             battery = device.battery
             if battery is None:
                 continue
             estimate = self.history.estimates.get(battery.entity_id)
-            if estimate is None:
-                continue
-            device.days_left = estimate.days_left
-            if soonest is None or (soonest.days_left or 0) > estimate.days_left:
-                soonest = device
+            if estimate is not None:
+                device.days_left = estimate.days_left
+                if soonest is None or (soonest.days_left or 0) > estimate.days_left:
+                    soonest = device
+            self.replacements.annotate(device, estimate.rate_per_day if estimate else None, now)
         return soonest
 
 
-def _analyse(snapshot: Snapshot, config: CoreConfig, now: datetime) -> list[DeviceHealth]:
-    return analyse_devices(snapshot, config, now, enhancers=ENHANCERS)
+def _analyse(
+    snapshot: Snapshot, config: CoreConfig, now: datetime, snoozes: dict[str, datetime]
+) -> list[DeviceHealth]:
+    return analyse_devices(snapshot, config, now, enhancers=ENHANCERS, snoozes=snoozes)
 
 
 @callback

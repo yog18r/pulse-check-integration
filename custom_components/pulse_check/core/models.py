@@ -267,6 +267,11 @@ class DeviceHealth:
     snoozed_until: datetime | None = None
     # Days until empty at the current drain rate, when history allows an estimate.
     days_left: float | None = None
+    # When the battery was last replaced or charged, from the integration's history.
+    last_replaced: datetime | None = None
+    # A short note when the battery behaves unlike its own past, e.g.
+    # "draining 3× faster than usual".
+    unusual: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """The card's `DeviceHealth` shape, JSON-ready."""
@@ -295,6 +300,10 @@ class DeviceHealth:
             out["snoozedUntil"] = to_iso(self.snoozed_until)
         if self.days_left is not None:
             out["daysLeft"] = round(self.days_left, 1)
+        if self.last_replaced is not None:
+            out["lastReplaced"] = to_iso(self.last_replaced)
+        if self.unusual is not None:
+            out["unusual"] = self.unusual
         return out
 
 

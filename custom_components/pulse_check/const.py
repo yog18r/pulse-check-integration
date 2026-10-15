@@ -50,3 +50,24 @@ DEFAULT_BATTERY_CRITICAL = 15
 DEFAULT_QUIET_THRESHOLD_HOURS = 24
 DEFAULT_QUIET_SCOPE = "battery"
 QUIET_SCOPES = ("battery", "all")
+
+# Notifications (phase 3).
+CONF_NOTIFY_TARGETS = "notify_targets"
+CONF_NOTIFY_CRITICAL = "notify_critical"
+CONF_NOTIFY_WARNING = "notify_warning"
+CONF_REMINDER_DAYS = "reminder_days"
+CONF_REMINDER_MAX = "reminder_max"
+CONF_DIGEST_TIME = "digest_time"
+CONF_DIGEST_WEEKDAY = "digest_weekday"
+CONF_WEEKLY_ALL_CLEAR = "weekly_all_clear"
+
+NOTIFY_POLICIES = ("instant", "daily", "weekly", "none")
+DEFAULT_NOTIFY_CRITICAL = "instant"
+DEFAULT_NOTIFY_WARNING = "weekly"
+DEFAULT_REMINDER_DAYS = 3
+DEFAULT_REMINDER_MAX = 3
+DEFAULT_DIGEST_TIME = "09:00:00"
+WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+DEFAULT_DIGEST_WEEKDAY = "monday"
+
+EVENT_TRANSITION = "pulse_check_transition"

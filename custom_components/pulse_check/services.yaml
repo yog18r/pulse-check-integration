@@ -1,0 +1,100 @@
+snooze:
+  fields:
+    device_id:
+      required: true
+      example: "3f2a9c1e8b7d4f6a"
+      selector:
+        text:
+    days:
+      example: 7
+      selector:
+        number:
+          min: 0.25
+          max: 365
+          step: 0.25
+          unit_of_measurement: d
+          mode: box
+    until:
+      example: "2026-11-01 09:00:00"
+      selector:
+        datetime:
+
+unsnooze:
+  fields:
+    device_id:
+      required: true
+      example: "3f2a9c1e8b7d4f6a"
+      selector:
+        text:
+
+set_device_settings:
+  fields:
+    device_id:
+      required: true
+      example: "3f2a9c1e8b7d4f6a"
+      selector:
+        text:
+    name:
+      example: "Front door"
+      selector:
+        text:
+    area:
+      example: "Hallway"
+      selector:
+        text:
+    quiet_threshold_hours:
+      example: 48
+      selector:
+        number:
+          min: 0.25
+          max: 8760
+          step: 0.25
+          unit_of_measurement: h
+          mode: box
+    battery_type:
+      example: "CR2032"
+      selector:
+        text:
+    battery_count:
+      example: 2
+      selector:
+        number:
+          min: 1
+          max: 16
+          mode: box
+    rechargeable:
+      example: false
+      selector:
+        boolean:
+    notify_policy:
+      example: "weekly"
+      selector:
+        select:
+          translation_key: notify_policy
+          options:
+            - instant
+            - daily
+            - weekly
+            - none
+
+mark_replaced:
+  fields:
+    device_id:
+      required: true
+      example: "3f2a9c1e8b7d4f6a"
+      selector:
+        text:
+    battery_type:
+      example: "CR2032"
+      selector:
+        text:
+
+mark_charged:
+  fields:
+    device_id:
+      required: true
+      example: "3f2a9c1e8b7d4f6a"
+      selector:
+        text:
+
+refresh:
