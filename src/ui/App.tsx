@@ -20,6 +20,7 @@ import type { BatteryEntity } from '../card/statistics';
 import { analyseDevices, lastReportedCandidates } from '../core/analyse';
 import { actionList } from '../core/actions';
 import { batteryList, connectivityList } from '../core/sort';
+import { settingsForDevice } from '../core/settings';
 import { breakdown, headline, summarise } from '../core/summarise';
 import { batterySeverity, connectivitySeverity } from '../core/thresholds';
 import type { DeviceHealth, HassLike } from '../core/types';
@@ -82,10 +83,17 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
     () =>
       devices.flatMap((d) =>
         d.battery?.level !== undefined
-          ? [{ entityId: d.battery.entityId, level: d.battery.level }]
+          ? [
+              {
+                entityId: d.battery.entityId,
+                level: d.battery.level,
+                days:
+                  settingsForDevice(config, d.deviceId)?.sparkline_days ?? config.sparkline_days,
+              },
+            ]
           : [],
       ),
-    [devices],
+    [devices, config],
   );
   const drains = useDrainEstimates(hass, batteryEntities);
 

@@ -98,6 +98,19 @@ describe('resolveConfig', () => {
     ).toThrow(/rechargeable/);
   });
 
+  it('validates sparkline_days globally and per device', () => {
+    expect(resolveConfig({}).sparkline_days).toBe(14);
+    expect(resolveConfig({ sparkline_days: 365 }).sparkline_days).toBe(365);
+    expect(() => resolveConfig({ sparkline_days: 0 })).toThrow(/sparkline_days/);
+    expect(() => resolveConfig({ sparkline_days: 400 })).toThrow(/sparkline_days/);
+    expect(() => resolveConfig({ sparkline_days: 1.5 })).toThrow(/sparkline_days/);
+    const perDevice = resolveConfig({ device_settings: [{ device_id: 'a', sparkline_days: 1 }] });
+    expect(perDevice.device_settings[0]?.sparkline_days).toBe(1);
+    expect(() =>
+      resolveConfig({ device_settings: [{ device_id: 'a', sparkline_days: 'year' }] }),
+    ).toThrow(/sparkline_days/);
+  });
+
   it('accepts a display name per device and trims it', () => {
     const resolved = resolveConfig({
       device_settings: [{ device_id: 'sensor.inverter_soc', name: '  Home Battery ' }],

@@ -14,11 +14,13 @@ import type { Severity } from '../core/types';
 interface Props {
   points: DrainPoint[];
   severity: Severity;
+  /** Window length for the tooltip; computed from the points when absent. */
+  days?: number | undefined;
   width?: number;
   height?: number;
 }
 
-export function Sparkline({ points: rawPoints, severity, width = 48, height = 16 }: Props) {
+export function Sparkline({ points: rawPoints, severity, days, width = 48, height = 16 }: Props) {
   // Never let one bad sample (NaN from an odd integration) break the path.
   const points = rawPoints.filter((p) => Number.isFinite(p.time) && Number.isFinite(p.level));
   if (points.length < 2) return null;
@@ -41,7 +43,8 @@ export function Sparkline({ points: rawPoints, severity, width = 48, height = 16
 
   const first = levels[0] ?? 0;
   const last = levels[levels.length - 1] ?? 0;
-  const days = Math.round((t1 - t0) / 86_400_000);
+  const span = days ?? Math.round((t1 - t0) / 86_400_000);
+  const spanLabel = span < 1 ? 'Last day' : `${String(span)}-day`;
 
   return (
     <svg
@@ -52,7 +55,7 @@ export function Sparkline({ points: rawPoints, severity, width = 48, height = 16
       viewBox={`0 0 ${String(width)} ${String(height)}`}
       aria-hidden="true"
     >
-      <title>{`${String(days)}-day trend: ${String(Math.round(first))}% → ${String(Math.round(last))}%`}</title>
+      <title>{`${spanLabel} trend: ${String(Math.round(first))}% → ${String(Math.round(last))}%`}</title>
       <path d={d} fill="none" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );

@@ -19,7 +19,10 @@ import { parseNumeric } from '../core/battery';
 import { estimateDrain, type DrainEstimate, type DrainPoint } from '../core/drain';
 import type { HassLike } from '../core/types';
 
+/** Days of history the drain estimate is fitted over, whatever the sparkline shows. */
 export const HISTORY_DAYS = 14;
+/** Windows this short get hourly points so the line has some shape. */
+export const HOURLY_MAX_DAYS = 3;
 
 /** One row of the recorder's answer. `start` is epoch ms in current HA, ISO in older. */
 interface StatisticsRow {
@@ -33,12 +36,17 @@ type StatisticsResponse = Record<string, StatisticsRow[] | undefined>;
 export interface BatteryEntity {
   entityId: string;
   level: number;
+  /** Sparkline window in days. Defaults to HISTORY_DAYS. */
+  days?: number;
 }
 
-/** What we know about one battery's past: the daily points, and a fit if one was possible. */
+/** What we know about one battery's past: the points to draw, and a fit if one was possible. */
 export interface BatteryHistory {
-  /** Daily means over the window plus the live reading, oldest first. */
+  /** Points over the requested window plus the live reading, oldest first. */
   points: DrainPoint[];
+  /** The window those points cover, in days. */
+  days: number;
+  /** Fitted over the last HISTORY_DAYS only, so a year-long window doesn't dilute it. */
   estimate?: DrainEstimate;
 }
 
@@ -142,6 +150,29 @@ async function loadRawHistory(
  * Resolves to an empty map (never rejects) when the recorder is unavailable,
  * so callers can treat "no data" and "no recorder" the same way.
  */
+async function fetchStatistics(
+  hass: HassLike,
+  entityIds: string[],
+  start: Date,
+  now: Date,
+  period: 'hour' | 'day',
+): Promise<StatisticsResponse | undefined> {
+  if (!hass.callWS || entityIds.length === 0) return {};
+  try {
+    return await hass.callWS<StatisticsResponse>({
+      type: 'recorder/statistics_during_period',
+      start_time: start.toISOString(),
+      end_time: now.toISOString(),
+      statistic_ids: entityIds,
+      period,
+      types: ['mean'],
+    });
+  } catch (err) {
+    console.warn('[pulse-check-card] could not load battery statistics', err);
+    return undefined;
+  }
+}
+
 export async function loadDrains(
   hass: HassLike,
   batteries: BatteryEntity[],
@@ -150,21 +181,30 @@ export async function loadDrains(
   const result = new Map<string, BatteryHistory>();
   if (!hass.callWS || batteries.length === 0) return result;
 
-  const start = new Date(now.getTime() - HISTORY_DAYS * 24 * 60 * 60 * 1000);
-  let response: StatisticsResponse;
-  try {
-    response = await hass.callWS<StatisticsResponse>({
-      type: 'recorder/statistics_during_period',
-      start_time: start.toISOString(),
-      end_time: now.toISOString(),
-      statistic_ids: batteries.map((b) => b.entityId),
-      period: 'day',
-      types: ['mean'],
-    });
-  } catch (err) {
-    console.warn('[pulse-check-card] could not load battery statistics', err);
-    return result;
-  }
+  // One daily request covering the longest window anyone asked for (never
+  // less than the fit needs), then one hourly request for the short windows.
+  const longest = Math.max(HISTORY_DAYS, ...batteries.map((b) => b.days ?? HISTORY_DAYS));
+  const start = new Date(now.getTime() - longest * DAY_MS);
+  const response = await fetchStatistics(
+    hass,
+    batteries.map((b) => b.entityId),
+    start,
+    now,
+    'day',
+  );
+  if (!response) return result;
+
+  const shortIds = batteries
+    .filter((b) => (b.days ?? HISTORY_DAYS) <= HOURLY_MAX_DAYS)
+    .map((b) => b.entityId);
+  const hourly =
+    (await fetchStatistics(
+      hass,
+      shortIds,
+      new Date(now.getTime() - HOURLY_MAX_DAYS * DAY_MS),
+      now,
+      'hour',
+    )) ?? {};
 
   // Anything the statistics API had nothing for, and that is a plain sensor
   // (attributes on e.g. a vacuum entity are not in no_attributes history).
@@ -174,18 +214,31 @@ export async function loadDrains(
   const raw = await loadRawHistory(hass, missing, start, now);
 
   for (const battery of batteries) {
+    const days = battery.days ?? HISTORY_DAYS;
     const rows = response[battery.entityId];
-    const base = rows?.length ? rowsToPoints(rows) : raw.get(battery.entityId);
-    if (!base) continue;
-    // Append the live reading as the final point. Daily statistics lag by
-    // an hour or more, so without this a battery that just fell off a cliff
-    // would look flat until the recorder caught up.
-    const points = [...base, { time: now.getTime(), level: battery.level }].sort(
+    const daily = rows?.length ? rowsToPoints(rows) : raw.get(battery.entityId);
+    if (!daily) continue;
+    const livePoint = { time: now.getTime(), level: battery.level };
+
+    // The fit always looks at the last HISTORY_DAYS of daily points plus the
+    // live reading. Daily statistics lag by an hour or more, so without the
+    // live point a battery that just fell off a cliff would look flat.
+    const fitFrom = now.getTime() - HISTORY_DAYS * DAY_MS;
+    const fitPoints = [...daily.filter((p) => p.time >= fitFrom), livePoint].sort(
       (a, b) => a.time - b.time,
     );
-    if (points.length < 2) continue; // only the live point: nothing to draw or fit
-    const history: BatteryHistory = { points };
-    const estimate = estimateDrain(points, battery.level);
+
+    // The drawing uses the requested window: hourly points when it is short.
+    const windowFrom = now.getTime() - days * DAY_MS;
+    const hourlyRows = hourly[battery.entityId];
+    const source = days <= HOURLY_MAX_DAYS && hourlyRows?.length ? rowsToPoints(hourlyRows) : daily;
+    const points = [...source.filter((p) => p.time >= windowFrom), livePoint].sort(
+      (a, b) => a.time - b.time,
+    );
+    if (points.length < 2 && fitPoints.length < 2) continue; // only the live point
+
+    const history: BatteryHistory = { points, days };
+    const estimate = estimateDrain(fitPoints, battery.level);
     if (estimate) history.estimate = estimate;
     result.set(battery.entityId, history);
   }

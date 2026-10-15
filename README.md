@@ -73,6 +73,7 @@ device_settings: # per-device settings
     rechargeable: false # true = "charge it" instead of "replace it"
     quiet_threshold_hours: 72 # per-device quiet limit
     name: Home Battery # shown instead of the device's name; the device itself is not renamed
+    sparkline_days: 365 # this device's trend line covers a year
   - device_id: sensor.inverter_soc # a battery sensor with no device: use its entity id
     name: Inverter
 exclude_integrations: [mobile_app] # hide phones
@@ -81,7 +82,8 @@ exclude_entities: [] # entity ids to ignore, e.g. a settings sensor labelled as 
 quiet_scope: battery # "battery" (default) or "all": which devices can be flagged quiet
 battery_sort: level # "level" (default) or "replace_soon": order of the Batteries tab
 max_rows: 12 # rows per tab before "Show N more"; a number or "all"
-show_sparklines: true # 14-day trend line next to each battery bar
+show_sparklines: true # trend line next to each battery bar
+sparkline_days: 14 # how much history the line covers, 1-365
 include_areas: [] # only devices in these areas (names or ids); empty = all
 exclude_areas: []
 include_integrations: [] # only these integrations; empty = all
@@ -106,6 +108,7 @@ Prefer clicking to typing? The card has a **visual editor**: add the card from t
 | `battery_sort`           | string  | `level`                     | `level` or `replace_soon`. See \"Replace soon\" below.             |
 | `max_rows`               | number  | `12`                        | Or `all`. Applies to the Batteries and Connectivity tabs.          |
 | `show_sparklines`        | boolean | `true`                      | Needs recorder history; hidden otherwise.                          |
+| `sparkline_days`         | number  | `14`                        | 1 to 365. Per-device override in `device_settings`.                |
 | `include_areas`          | list    | `[]`                        | Area names or ids. Devices with no area are dropped when set.      |
 | `exclude_areas`          | list    | `[]`                        |                                                                    |
 | `include_integrations`   | list    | `[]`                        | Allow-list counterpart of `exclude_integrations`.                  |
@@ -142,7 +145,7 @@ By default only **battery-powered devices** can be quiet (`quiet_scope: battery`
 
 **Replace soon** (`battery_sort: replace_soon`): the card asks Home Assistant's recorder for 14 days of daily averages of every battery sensor, once when the card loads and then every 6 hours, and fits a straight line through them. The slope is the drain rate; the current level divided by it is the time left, shown on each row as "~12d left". Sensors the recorder has no statistics for fall back to their raw history, averaged per day. The live reading is added as the last point, so a battery that just dropped sharply moves straight away rather than waiting for the recorder's hourly statistics. The fit needs at least 3 days of history and ignores flat or rising series (a phone that gets charged, a lock sitting at 62% for a fortnight), so those devices simply keep their level-based position and show no estimate. Treat the number as an order of magnitude: locks and other motorised devices report in coarse steps and under load, and the estimate will wander for a few days after a sudden drop. Without a recorder nothing changes.
 
-**Sparklines:** the same 14 days of daily means that feed the drain estimate are drawn as a small trend line beside the battery bar, scaled to the data so a slow decline is visible (which also means a phone's daily charge cycle shows as a wobble). Sensors without long-term statistics (custom integrations that don't set `state_class: measurement`) are fetched from raw history instead and averaged per day, so they get a line too. A battery reported only as an attribute (some vacuums and trackers) or only as a binary low/ok sensor has no numeric history and gets no line.
+**Sparklines:** daily means from the recorder are drawn as a small trend line beside the battery bar, scaled to the data so a slow decline is visible (which also means a phone's daily charge cycle shows as a wobble). `sparkline_days` sets the window (default 14, up to a year), globally or per device; windows of three days or less are drawn from hourly means so a one-day line has shape. The "days left" estimate always uses the last 14 days, whatever the line shows. Sensors without long-term statistics (custom integrations that don't set `state_class: measurement`) are fetched from raw history instead and averaged per day, so they get a line too. A battery reported only as an attribute (some vacuums and trackers) or only as a binary low/ok sensor has no numeric history and gets no line.
 
 **Row cap and filters:** `max_rows` (default 12, or `all`) limits each of the Batteries and Connectivity tabs, with a "Show N more" control so nothing is hidden silently. `include_areas` / `exclude_areas` and `include_integrations` / `exclude_integrations` scope the card, which is how you put a per-room card on a sections dashboard: `include_areas: [Office]`. Area filters accept the name shown in Home Assistant or the area id, case-insensitively.
 

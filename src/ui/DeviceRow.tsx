@@ -104,7 +104,9 @@ export function DeviceRow({
           {mode === 'battery' && device.battery ? (
             <>
               <span className="gauge">
-                {sparkline && history && <Sparkline points={history.points} severity={severity} />}
+                {sparkline && history && (
+                  <Sparkline points={history.points} days={history.days} severity={severity} />
+                )}
                 <BatteryBar battery={device.battery} severity={severity} />
               </span>
               <span className="sub">

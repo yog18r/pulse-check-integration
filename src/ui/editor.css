@@ -166,7 +166,7 @@
 }
 
 .settingsline.details {
-  grid-template-columns: minmax(0, 2fr) auto auto auto;
+  grid-template-columns: minmax(0, 2fr) auto auto auto auto;
   align-items: center;
 }
 

@@ -29,9 +29,9 @@ export function useDrainEstimates(
     latest.current = { hass, batteries };
   });
 
-  // Stable key: only the list of entity ids matters for *when* to refetch.
+  // Stable key: the entity ids and their windows decide *when* to refetch.
   const key = batteries
-    .map((b) => b.entityId)
+    .map((b) => `${b.entityId}@${String(b.days ?? '')}`)
     .sort()
     .join('|');
   const canFetch = typeof hass.callWS === 'function' && key !== '';

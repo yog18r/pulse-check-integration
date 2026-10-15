@@ -143,6 +143,7 @@ interface SettingsPatch {
   battery_count?: number | undefined;
   rechargeable?: boolean | undefined;
   name?: string | undefined;
+  sparkline_days?: number | undefined;
 }
 
 function applyPatch(row: DeviceSettings, patch: SettingsPatch): DeviceSettings {
@@ -158,6 +159,8 @@ function applyPatch(row: DeviceSettings, patch: SettingsPatch): DeviceSettings {
   if (count !== undefined && count >= 1) next.battery_count = Math.floor(count);
   const rechargeable = 'rechargeable' in patch ? patch.rechargeable : row.rechargeable;
   if (rechargeable) next.rechargeable = true;
+  const days = 'sparkline_days' in patch ? patch.sparkline_days : row.sparkline_days;
+  if (days !== undefined && days >= 1) next.sparkline_days = Math.min(365, Math.floor(days));
   return next;
 }
 
@@ -236,7 +239,8 @@ export function DeviceSettingsRows({ value, hass, onChange }: DeviceRowsProps) {
       <legend>Per-device settings</legend>
       <p className="hint">
         Battery type and count feed the Actions tab; tick rechargeable for devices you charge rather
-        than replace. Quiet hours overrides the threshold for that one device.
+        than replace. Trend sets this device's sparkline window; quiet hours overrides its
+        threshold.
       </p>
       {value.map((row, index) => (
         <div key={index} className="settingsrow">
@@ -312,6 +316,21 @@ export function DeviceSettingsRows({ value, hass, onChange }: DeviceRowsProps) {
                 }}
               />
               Rechargeable
+            </label>
+            <label className="inline">
+              <span>Trend</span>
+              <input
+                type="number"
+                aria-label="Sparkline days for this device"
+                min={1}
+                max={365}
+                placeholder="days"
+                value={row.sparkline_days ?? ''}
+                onChange={(e) => {
+                  update(index, { sparkline_days: parseOptionalNumber(e.target.value) });
+                }}
+              />
+              <span>d</span>
             </label>
             <label className="inline">
               <span>Quiet</span>

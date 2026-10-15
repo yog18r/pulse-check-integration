@@ -258,6 +258,25 @@ export function EditorForm({ config, onChange, hass }: Props) {
               />
               Trend sparklines
             </label>
+            <label className="inline">
+              <span>over</span>
+              <input
+                type="number"
+                aria-label="Sparkline days"
+                min={1}
+                max={365}
+                placeholder="14"
+                value={config.sparkline_days ?? ''}
+                onChange={(e) => {
+                  const n = parseNumber(e.target.value);
+                  set(
+                    'sparkline_days',
+                    n !== undefined && n >= 1 ? Math.min(365, Math.floor(n)) : undefined,
+                  );
+                }}
+              />
+              <span>days</span>
+            </label>
           </div>
         </div>
       </div>

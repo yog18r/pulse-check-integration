@@ -47,6 +47,8 @@ export interface DeviceSettings {
   rechargeable?: boolean;
   /** Shown instead of the device's registry name. Does not rename the device. */
   name?: string;
+  /** Sparkline window for this device, in days (1-365). Overrides the global one. */
+  sparkline_days?: number;
 }
 
 /** Raw user input. All optional. */
@@ -70,8 +72,10 @@ export interface CardConfig {
   battery_sort?: BatterySort;
   /** Rows shown per tab before a "show more" control. A number, or "all". */
   max_rows?: number | 'all';
-  /** Draw the 14-day trend next to each battery bar when history exists. */
+  /** Draw a trend line next to each battery bar when history exists. */
   show_sparklines?: boolean;
+  /** How many days of history the sparkline covers (1-365). Default 14. */
+  sparkline_days?: number;
   /** Allow-lists. Area names or ids; integration platforms. */
   include_areas?: string[];
   exclude_areas?: string[];
@@ -95,6 +99,7 @@ export interface ResolvedConfig {
   battery_sort: BatterySort;
   max_rows: number | 'all';
   show_sparklines: boolean;
+  sparkline_days: number;
   include_areas: string[];
   exclude_areas: string[];
   include_integrations: string[];
@@ -116,6 +121,7 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
   battery_sort: 'level',
   max_rows: 12,
   show_sparklines: true,
+  sparkline_days: 14,
   include_areas: [],
   exclude_areas: [],
   include_integrations: [],
@@ -154,6 +160,23 @@ function stringArrayOrDefault(value: unknown, key: string, fallback: string[]): 
   if (value === undefined) return fallback;
   if (!Array.isArray(value) || !value.every((v) => typeof v === 'string')) {
     throw new ConfigError(`"${key}" must be a list of strings.`);
+  }
+  return value;
+}
+
+export const MAX_SPARKLINE_DAYS = 365;
+
+/** A sparkline window: a whole number of days from 1 to a year. */
+function sparklineDays(value: unknown, key: string): number {
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > MAX_SPARKLINE_DAYS
+  ) {
+    throw new ConfigError(
+      `"${key}" must be a whole number of days from 1 to ${String(MAX_SPARKLINE_DAYS)}.`,
+    );
   }
   return value;
 }
@@ -257,6 +280,9 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
         }
         if (item.name.trim() !== '') entry.name = item.name.trim();
       }
+      if (item.sparkline_days !== undefined) {
+        entry.sparkline_days = sparklineDays(item.sparkline_days, `${where}.sparkline_days`);
+      }
       if (item.battery_count !== undefined) {
         const n = item.battery_count;
         if (typeof n !== 'number' || !Number.isInteger(n) || n < 1) {
@@ -339,6 +365,11 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     show_sparklines = raw.show_sparklines;
   }
 
+  const sparkline_days =
+    raw.sparkline_days === undefined
+      ? DEFAULT_CONFIG.sparkline_days
+      : sparklineDays(raw.sparkline_days, 'sparkline_days');
+
   const include_areas = stringArrayOrDefault(
     raw.include_areas,
     'include_areas',
@@ -396,6 +427,7 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     battery_sort,
     max_rows,
     show_sparklines,
+    sparkline_days,
     include_areas,
     exclude_areas,
     include_integrations,

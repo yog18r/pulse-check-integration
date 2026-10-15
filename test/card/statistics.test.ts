@@ -175,6 +175,68 @@ describe('loadDrains', () => {
     warn.mockRestore();
   });
 
+  it('fetches the longest window once, draws each device its own window, fits on 14 days', async () => {
+    const calls: Record<string, unknown>[] = [];
+    const callWS = vi.fn().mockImplementation((message: Record<string, unknown>) => {
+      calls.push(message);
+      if (message.period === 'day') {
+        // 60 days of 1%/day decline for both sensors.
+        return Promise.resolve({
+          'sensor.a': decline(FIXED_NOW, 40, 1, 60),
+          'sensor.b': decline(FIXED_NOW, 90, 1, 60),
+        });
+      }
+      return Promise.resolve({});
+    });
+    const drains = await loadDrains(
+      { ...hass, callWS },
+      [
+        { entityId: 'sensor.a', level: 40, days: 60 },
+        { entityId: 'sensor.b', level: 90 }, // default window
+      ],
+      FIXED_NOW,
+    );
+    const dayCall = calls.find((c) => c.period === 'day')!;
+    const start = new Date(dayCall.start_time as string).getTime();
+    expect((FIXED_NOW.getTime() - start) / DAY).toBeCloseTo(60, 5);
+    expect(calls.some((c) => c.period === 'hour')).toBe(false); // no short windows
+
+    expect(drains.get('sensor.a')?.days).toBe(60);
+    expect(drains.get('sensor.a')?.points).toHaveLength(61); // 60 daily + live
+    expect(drains.get('sensor.b')?.days).toBe(HISTORY_DAYS);
+    expect(drains.get('sensor.b')?.points).toHaveLength(HISTORY_DAYS + 1);
+    // Both fits use only the last 14 days: same slope, days-left from the level.
+    expect(drains.get('sensor.a')?.estimate?.samples).toBe(HISTORY_DAYS + 1);
+    expect(drains.get('sensor.a')?.estimate?.ratePerDay).toBeCloseTo(1, 5);
+  });
+
+  it('adds an hourly request for windows of three days or less', async () => {
+    const HOUR = 60 * 60 * 1000;
+    const callWS = vi.fn().mockImplementation((message: Record<string, unknown>) => {
+      if (message.period === 'hour') {
+        const rows = Array.from({ length: 24 }, (_, i) => {
+          const start = FIXED_NOW.getTime() - (24 - i) * HOUR;
+          return { start, end: start + HOUR, mean: 50 - i * 0.1 };
+        });
+        return Promise.resolve({ 'sensor.short': rows });
+      }
+      return Promise.resolve({ 'sensor.short': decline(FIXED_NOW, 48, 2) });
+    });
+    const drains = await loadDrains(
+      { ...hass, callWS },
+      [{ entityId: 'sensor.short', level: 47.6, days: 1 }],
+      FIXED_NOW,
+    );
+    const hourCall = callWS.mock.calls.find(
+      (c) => (c[0] as Record<string, unknown>).period === 'hour',
+    )?.[0] as Record<string, unknown>;
+    expect(hourCall.statistic_ids).toEqual(['sensor.short']);
+    const h = drains.get('sensor.short');
+    expect(h?.days).toBe(1);
+    expect(h?.points).toHaveLength(25); // 24 hourly + live
+    expect(h?.estimate?.ratePerDay).toBeCloseTo(2, 1); // still fitted on the daily data
+  });
+
   it('returns an empty map without a websocket or without batteries', async () => {
     expect((await loadDrains(hass, [{ entityId: 'sensor.x', level: 1 }])).size).toBe(0);
     const callWS = vi.fn();
