@@ -101,9 +101,11 @@ async def test_options_are_stored_flat_and_applied(
                 CONF_INTEGRATION_THRESHOLDS: [{"integration": "zwave_js", "hours": 48}],
             },
             "filters": {
-                # The orphan template battery at 9 % and the critical motion sensor.
+                # The orphan template battery at 9 %, the garden sensor with no
+                # registry entry at 22 % and the critical motion sensor.
                 CONF_EXCLUDE_ENTITIES: [
                     "sensor.remote_battery_template",
+                    "sensor.garden_soil_moisture",
                     "sensor.living_room_motion_battery",
                 ],
                 # The ZHA devices: a warning (28 % and quiet) and a binary low.
@@ -120,6 +122,7 @@ async def test_options_are_stored_flat_and_applied(
         CONF_INTEGRATION_THRESHOLDS: [{"integration": "zwave_js", "hours": 48}],
         CONF_EXCLUDE_ENTITIES: [
             "sensor.remote_battery_template",
+            "sensor.garden_soil_moisture",
             "sensor.living_room_motion_battery",
         ],
         CONF_EXCLUDE_INTEGRATIONS: ["zha"],
@@ -128,9 +131,10 @@ async def test_options_are_stored_flat_and_applied(
     # OptionsFlowWithReload reloaded the entry, so the new config is live.
     await hass.async_block_till_done()
     after = int(hass.states.get(ATTENTION).state)  # type: ignore[union-attr]
-    # Gone: TV remote (orphan), motion sensor battery, ZHA climate, ZHA smoke
-    # alarm, Z-Wave multisensor (no longer quiet). Left: the dead lock.
-    assert after == before - 5
+    # Gone: TV remote (orphan), garden sensor, motion sensor battery, ZHA
+    # climate, ZHA smoke alarm, Z-Wave multisensor (no longer quiet). Left:
+    # the dead lock.
+    assert after == before - 6
     assert after == 1
 
     # Reopening the form offers the stored values back, in sections.

@@ -4,6 +4,10 @@ Entities point at their device (`entity.device_id`), so we walk every
 entity once and bucket it by device. Entities with no device at all get a
 synthetic group of their own, so a lone template battery sensor is still
 visible.
+
+Some entities never reach the entity registry: without a `unique_id`
+(YAML template sensors, some MQTT entities) they exist only as a state.
+They have no device either, so they become synthetic groups too.
 """
 
 from __future__ import annotations
@@ -39,7 +43,10 @@ def is_ignorable_device(device: DeviceEntry) -> bool:
 
 
 def collect_device_groups(snapshot: Snapshot) -> list[DeviceGroup]:
-    """One group per device, in the order devices are first seen in the registry."""
+    """One group per device, in the order devices are first seen in the registry.
+
+    Then one group per state that has no registry entry at all.
+    """
     groups: dict[str, DeviceGroup] = {}
     for entity in snapshot["entities"].values():
         device_id = entity.get("device_id")
@@ -65,6 +72,16 @@ def collect_device_groups(snapshot: Snapshot) -> list[DeviceGroup]:
         state = snapshot["states"].get(entity["entity_id"])
         if state is not None:
             group.states.append(state)
+
+    # States with no registry entry. A bare entry stands in for the missing
+    # one: no platform, no category, no area.
+    for entity_id, state in snapshot["states"].items():
+        if entity_id in snapshot["entities"]:
+            continue
+        key = ORPHAN_PREFIX + entity_id
+        groups[key] = DeviceGroup(
+            device_id=key, device=None, entities=[{"entity_id": entity_id}], states=[state]
+        )
     return list(groups.values())
 
 

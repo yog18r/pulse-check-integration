@@ -398,6 +398,27 @@
           "manufacturer": "IKEA",
           "model": "LED1836G9",
           "lastHeard": "2026-10-13T08:00:00.000Z"
+        },
+        {
+          "deviceId": "entity:sensor.garden_soil_moisture",
+          "name": "Garden Soil Sensor",
+          "integration": "unknown",
+          "isOffline": false,
+          "isQuiet": false,
+          "quietThresholdHours": 24,
+          "severity": "warning",
+          "deviceType": "other",
+          "extras": [],
+          "entityIds": [
+            "sensor.garden_soil_moisture"
+          ],
+          "battery": {
+            "isLow": false,
+            "source": "attribute",
+            "entityId": "sensor.garden_soil_moisture",
+            "level": 22
+          },
+          "lastHeard": "2026-10-11T08:00:00.000Z"
         }
       ],
       "actions": {
@@ -437,23 +458,32 @@
             "batteryType": "Unknown type",
             "count": 1,
             "label": "Replace the battery in Bedroom Temp & Humidity"
+          },
+          {
+            "kind": "replace",
+            "deviceId": "entity:sensor.garden_soil_moisture",
+            "name": "Garden Soil Sensor",
+            "severity": "warning",
+            "batteryType": "Unknown type",
+            "count": 1,
+            "label": "Replace the battery in Garden Soil Sensor"
           }
         ],
         "charge": [],
         "shopping": [
           {
             "batteryType": "Unknown type",
-            "count": 4,
-            "devices": 4
+            "count": 5,
+            "devices": 5
           }
         ]
       },
       "summary": {
-        "attention": 6,
+        "attention": 7,
         "critical": 4,
-        "warning": 2,
-        "batteryDevices": 11,
-        "lowBatteries": 4,
+        "warning": 3,
+        "batteryDevices": 12,
+        "lowBatteries": 5,
         "offline": 1,
         "quiet": 2,
         "snoozed": 0
@@ -858,6 +888,27 @@
           "manufacturer": "IKEA",
           "model": "LED1836G9",
           "lastHeard": "2026-10-13T08:00:00.000Z"
+        },
+        {
+          "deviceId": "entity:sensor.garden_soil_moisture",
+          "name": "Garden Soil Sensor",
+          "integration": "unknown",
+          "isOffline": false,
+          "isQuiet": false,
+          "quietThresholdHours": 24,
+          "severity": "warning",
+          "deviceType": "other",
+          "extras": [],
+          "entityIds": [
+            "sensor.garden_soil_moisture"
+          ],
+          "battery": {
+            "isLow": false,
+            "source": "attribute",
+            "entityId": "sensor.garden_soil_moisture",
+            "level": 22
+          },
+          "lastHeard": "2026-10-11T08:00:00.000Z"
         }
       ],
       "actions": {
@@ -897,23 +948,32 @@
             "batteryType": "Unknown type",
             "count": 1,
             "label": "Replace the battery in Bedroom Temp & Humidity"
+          },
+          {
+            "kind": "replace",
+            "deviceId": "entity:sensor.garden_soil_moisture",
+            "name": "Garden Soil Sensor",
+            "severity": "warning",
+            "batteryType": "Unknown type",
+            "count": 1,
+            "label": "Replace the battery in Garden Soil Sensor"
           }
         ],
         "charge": [],
         "shopping": [
           {
             "batteryType": "Unknown type",
-            "count": 4,
-            "devices": 4
+            "count": 5,
+            "devices": 5
           }
         ]
       },
       "summary": {
-        "attention": 8,
+        "attention": 9,
         "critical": 4,
-        "warning": 4,
-        "batteryDevices": 11,
-        "lowBatteries": 4,
+        "warning": 5,
+        "batteryDevices": 12,
+        "lowBatteries": 5,
         "offline": 1,
         "quiet": 4,
         "snoozed": 0
@@ -1351,6 +1411,27 @@
           "manufacturer": "IKEA",
           "model": "LED1836G9",
           "lastHeard": "2026-10-13T08:00:00.000Z"
+        },
+        {
+          "deviceId": "entity:sensor.garden_soil_moisture",
+          "name": "Garden Soil Sensor",
+          "integration": "unknown",
+          "isOffline": false,
+          "isQuiet": false,
+          "quietThresholdHours": 1,
+          "severity": "critical",
+          "deviceType": "other",
+          "extras": [],
+          "entityIds": [
+            "sensor.garden_soil_moisture"
+          ],
+          "battery": {
+            "isLow": false,
+            "source": "attribute",
+            "entityId": "sensor.garden_soil_moisture",
+            "level": 22
+          },
+          "lastHeard": "2026-10-11T08:00:00.000Z"
         }
       ],
       "actions": {
@@ -1372,6 +1453,15 @@
             "batteryType": "Unknown type",
             "count": 1,
             "label": "Replace the battery in Dog Collar Tracker"
+          },
+          {
+            "kind": "replace",
+            "deviceId": "entity:sensor.garden_soil_moisture",
+            "name": "Garden Soil Sensor",
+            "severity": "critical",
+            "batteryType": "Unknown type",
+            "count": 1,
+            "label": "Replace the battery in Garden Soil Sensor"
           },
           {
             "kind": "replace",
@@ -1438,17 +1528,17 @@
           },
           {
             "batteryType": "Unknown type",
-            "count": 4,
-            "devices": 4
+            "count": 5,
+            "devices": 5
           }
         ]
       },
       "summary": {
-        "attention": 9,
-        "critical": 7,
+        "attention": 10,
+        "critical": 8,
         "warning": 2,
-        "batteryDevices": 11,
-        "lowBatteries": 7,
+        "batteryDevices": 12,
+        "lowBatteries": 8,
         "offline": 1,
         "quiet": 4,
         "snoozed": 0
@@ -1900,6 +1990,27 @@
           "manufacturer": "IKEA",
           "model": "LED1836G9",
           "lastHeard": "2026-10-13T08:00:00.000Z"
+        },
+        {
+          "deviceId": "entity:sensor.garden_soil_moisture",
+          "name": "Garden Soil Sensor",
+          "integration": "unknown",
+          "isOffline": false,
+          "isQuiet": false,
+          "quietThresholdHours": 24,
+          "severity": "warning",
+          "deviceType": "other",
+          "extras": [],
+          "entityIds": [
+            "sensor.garden_soil_moisture"
+          ],
+          "battery": {
+            "isLow": false,
+            "source": "attribute",
+            "entityId": "sensor.garden_soil_moisture",
+            "level": 22
+          },
+          "lastHeard": "2026-10-11T08:00:00.000Z"
         }
       ],
       "actions": {
@@ -1921,23 +2032,32 @@
             "batteryType": "Unknown type",
             "count": 1,
             "label": "Replace the battery in Bedroom Temp & Humidity"
+          },
+          {
+            "kind": "replace",
+            "deviceId": "entity:sensor.garden_soil_moisture",
+            "name": "Garden Soil Sensor",
+            "severity": "warning",
+            "batteryType": "Unknown type",
+            "count": 1,
+            "label": "Replace the battery in Garden Soil Sensor"
           }
         ],
         "charge": [],
         "shopping": [
           {
             "batteryType": "Unknown type",
-            "count": 2,
-            "devices": 2
+            "count": 3,
+            "devices": 3
           }
         ]
       },
       "summary": {
-        "attention": 3,
+        "attention": 4,
         "critical": 1,
-        "warning": 2,
-        "batteryDevices": 7,
-        "lowBatteries": 2,
+        "warning": 3,
+        "batteryDevices": 8,
+        "lowBatteries": 3,
         "offline": 0,
         "quiet": 2,
         "snoozed": 0
@@ -2529,6 +2649,27 @@
           "manufacturer": "IKEA",
           "model": "LED1836G9",
           "lastHeard": "2026-10-13T08:00:00.000Z"
+        },
+        {
+          "deviceId": "entity:sensor.garden_soil_moisture",
+          "name": "Garden Soil Sensor",
+          "integration": "unknown",
+          "isOffline": false,
+          "isQuiet": false,
+          "quietThresholdHours": 24,
+          "severity": "warning",
+          "deviceType": "other",
+          "extras": [],
+          "entityIds": [
+            "sensor.garden_soil_moisture"
+          ],
+          "battery": {
+            "isLow": false,
+            "source": "attribute",
+            "entityId": "sensor.garden_soil_moisture",
+            "level": 22
+          },
+          "lastHeard": "2026-10-11T08:00:00.000Z"
         }
       ],
       "actions": {
@@ -2559,23 +2700,32 @@
             "batteryType": "Unknown type",
             "count": 1,
             "label": "Replace the battery in Bedroom Temp & Humidity"
+          },
+          {
+            "kind": "replace",
+            "deviceId": "entity:sensor.garden_soil_moisture",
+            "name": "Garden Soil Sensor",
+            "severity": "warning",
+            "batteryType": "Unknown type",
+            "count": 1,
+            "label": "Replace the battery in Garden Soil Sensor"
           }
         ],
         "charge": [],
         "shopping": [
           {
             "batteryType": "Unknown type",
-            "count": 3,
-            "devices": 3
+            "count": 4,
+            "devices": 4
           }
         ]
       },
       "summary": {
-        "attention": 4,
+        "attention": 5,
         "critical": 2,
-        "warning": 2,
-        "batteryDevices": 10,
-        "lowBatteries": 3,
+        "warning": 3,
+        "batteryDevices": 11,
+        "lowBatteries": 4,
         "offline": 0,
         "quiet": 2,
         "snoozed": 2

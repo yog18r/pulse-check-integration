@@ -278,7 +278,7 @@ async def test_saving_options_does_not_announce_anything(
     await hass.async_block_till_done(wait_background_tasks=True)
     attention = hass.states.get("sensor.pulse_check_attention")
     assert attention is not None
-    assert attention.state == "8"
+    assert attention.state == "9"
 
     await _ready(hass, freezer)
     await _tick(hass, freezer, timedelta(minutes=10))
