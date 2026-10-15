@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from custom_components.pulse_check.const import CONF_PER_DEVICE_SENSORS, DOMAIN
+from custom_components.pulse_check.const import CONF_PER_DEVICE_SENSORS, DEBOUNCE_SECONDS, DOMAIN
 from tests.conftest import device_dict as _device, load_fixture_into_hass
 
 BATTERY = {"device_class": "battery", "unit_of_measurement": "%"}
@@ -18,7 +18,7 @@ BATTERY = {"device_class": "battery", "unit_of_measurement": "%"}
 
 async def _set_level(hass: HomeAssistant, freezer: FrozenDateTimeFactory, level: int) -> None:
     hass.states.async_set("sensor.kitchen_ht_battery", str(level), BATTERY)
-    freezer.tick(timedelta(seconds=3))
+    freezer.tick(timedelta(seconds=DEBOUNCE_SECONDS + 1))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 

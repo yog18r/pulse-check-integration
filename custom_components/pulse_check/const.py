@@ -6,9 +6,11 @@ from datetime import timedelta
 
 DOMAIN = "pulse_check"
 
-# How long to wait after a state change before recomputing, so a burst of
-# changes (a Zigbee device reporting five sensors at once) costs one run.
-DEBOUNCE_SECONDS = 2.0
+# How long to wait after a relevant state change before recomputing. A
+# burst of changes (a Zigbee device reporting five sensors at once) costs
+# one run, and there is never more than one run per cooldown however busy
+# the house is.
+DEBOUNCE_SECONDS = 10.0
 
 # Recompute on a timer too, so time-based transitions (a device going
 # quiet, a snooze expiring) happen without waiting for a state change.
@@ -20,9 +22,10 @@ HISTORY_INTERVAL = timedelta(hours=6)
 # Days of history the drain estimate is fitted over.
 HISTORY_DAYS = 14
 
-# Attributes on the attention sensor (kept out of the recorder, see sensor.py).
+# Attribute on the attention sensor. Nothing time-stamped goes on an
+# entity: an attribute that changes on every run would give the recorder a
+# new row each time even when the counts are identical.
 ATTR_SUMMARY = "summary"
-ATTR_COMPUTED_AT = "computed_at"
 
 # Options (Settings > Devices & services > Pulse Check > Configure).
 # The keys match the card's YAML config so the two stay easy to compare.

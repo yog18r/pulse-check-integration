@@ -149,6 +149,8 @@ async def _mark_charged(call: ServiceCall) -> None:
 
 
 async def _refresh(call: ServiceCall) -> None:
+    # Re-reads battery history from the recorder (logging the insight
+    # count), then recomputes: the slow path, on demand.
     coordinator = _coordinator(call.hass)
     await coordinator.async_refresh_history()
 

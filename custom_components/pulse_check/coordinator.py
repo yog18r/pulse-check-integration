@@ -27,8 +27,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.const import EVENT_STATE_CHANGED
-from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.const import EVENT_STATE_CHANGED, STATE_UNAVAILABLE
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, State, callback
 from homeassistant.helpers import (
     area_registry as ar,
     device_registry as dr,
@@ -64,9 +64,24 @@ from .replacements import ReplacementTracker
 from .storage import PulseCheckStore
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from homeassistant.config_entries import ConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+# Entity attributes the analysis reads: a battery that only exists as an
+# attribute (trackers, vacuums) and the charging flags.
+_WATCHED_ATTRIBUTES = (
+    "battery_level",
+    "battery_state",
+    "is_charging",
+    "charging",
+    "battery_charging",
+)
+# Entities whose state *value* the analysis reads. For every other entity
+# only its availability matters (a power sensor's watts never do).
+_VALUE_DEVICE_CLASSES = frozenset({"battery", "battery_charging"})
 
 # Registry changes (a renamed device, a new area) also change the result.
 _REGISTRY_EVENTS = (
@@ -97,7 +112,9 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Set up the timer and the debounced refresh."""
         # The debouncer collapses a burst of state changes into one refresh.
-        # `immediate=False` means it waits the cooldown first, then runs once.
+        # `immediate=False` means it waits the cooldown first, then runs once,
+        # so however often relevant entities change there is at most one
+        # recompute per cooldown.
         self._refresh_debouncer: Debouncer[Any] = Debouncer(
             hass, _LOGGER, cooldown=DEBOUNCE_SECONDS, immediate=False
         )
@@ -113,7 +130,9 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         self.core_config = core_config_from_options(entry.options)
         self.history = HistoryTracker(hass)
         self.replacements = ReplacementTracker(self.store)
-        self._entity_registry = er.async_get(hass)
+        # Entity ids that belong to an analysed device, from the last run.
+        # State changes elsewhere cannot change the result and are ignored.
+        self._watched: set[str] = set()
 
     @callback
     def rebuild_config(self) -> None:
@@ -144,8 +163,21 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
 
     @callback
     def _state_event_is_relevant(self, event_data: EventStateChangedData) -> bool:
-        """Only registered entities can affect the result, so skip the rest early."""
-        return event_data["entity_id"] in self._entity_registry.entities
+        """Only a change that can alter the result triggers a recompute.
+
+        Runs for every state change in the house, so it must be cheap: a
+        set lookup, then a few comparisons. Power sensors updating every
+        second never get past it. Time-based transitions (a device going
+        quiet, a snooze expiring) come from the periodic timer instead.
+        """
+        entity_id = event_data["entity_id"]
+        if entity_id not in self._watched:
+            return False
+        reason = change_reason(entity_id, event_data["old_state"], event_data["new_state"])
+        if reason is None:
+            return False
+        _LOGGER.debug("Recompute: %s %s", entity_id, reason)
+        return True
 
     @callback
     def _handle_event(self, _event: Event[Any]) -> None:
@@ -185,6 +217,7 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         config = self.core_config
         snoozes = self.store.snoozes(now)
         devices = await self.hass.async_add_executor_job(_analyse, snapshot, config, now, snoozes)
+        self._watched = {entity_id for device in devices for entity_id in device.entity_ids}
         self.replacements.observe(devices, now)
         next_to_run_out = self._attach_drain_estimates(devices, now)
         _LOGGER.debug(
@@ -230,6 +263,39 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
                         soonest = device
             self.replacements.annotate(device, now)
         return soonest
+
+
+def change_reason(entity_id: str, old: State | None, new: State | None) -> str | None:
+    """Why this state change matters to the analysis, or None if it does not.
+
+    Appearing, disappearing and availability always matter (offline
+    detection). A new state value matters for batteries, charging signals
+    and Z-Wave node status; a watched attribute changing matters for
+    attribute batteries. Anything else (a new reading from a power or
+    temperature sensor, an attribute-only update) is ignored.
+    """
+    if old is None:
+        return "appeared"
+    if new is None:
+        return "removed"
+    if (old.state == STATE_UNAVAILABLE) != (new.state == STATE_UNAVAILABLE):
+        return "availability changed"
+    if old.state != new.state and value_matters(entity_id, new.attributes):
+        return f"{old.state} -> {new.state}"
+    for attribute in _WATCHED_ATTRIBUTES:
+        if old.attributes.get(attribute) != new.attributes.get(attribute):
+            return f"{attribute} changed"
+    return None
+
+
+def value_matters(entity_id: str, attributes: Mapping[str, Any]) -> bool:
+    """Does the analysis read this entity's state value, not just its availability?"""
+    if attributes.get("device_class") in _VALUE_DEVICE_CLASSES:
+        return True
+    domain = entity_id.split(".", 1)[0]
+    return domain in ("sensor", "binary_sensor") and (
+        "battery" in entity_id or entity_id.endswith("_node_status")
+    )
 
 
 def _analyse(

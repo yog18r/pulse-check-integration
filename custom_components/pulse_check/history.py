@@ -208,19 +208,21 @@ class HistoryTracker:
         self.insights = insights
         self.hass.data[DATA_INSIGHTS] = insights
         estimated = sum(1 for i in insights.values() if i.estimate is not None)
-        if estimated == 0:
-            kinds = sorted(i.kind for i in insights.values())
-            counts = {kind: kinds.count(kind) for kind in dict.fromkeys(kinds)}
-            _LOGGER.info(
-                "Battery history read for %d batteries but none got an estimate (kinds: %s);"
-                " estimates need two weeks of recorded history or a completed cycle",
-                len(insights),
-                counts,
-            )
-        else:
-            _LOGGER.debug(
-                "Battery insights for %d batteries, %d with an estimate", len(insights), estimated
-            )
+        kinds = sorted(i.kind for i in insights.values())
+        counts = {kind: kinds.count(kind) for kind in dict.fromkeys(kinds)}
+        # Nothing estimated is worth a line in the normal log, since the
+        # usual reason (under a fortnight of recorded history) is invisible
+        # otherwise. The `pulse_check.refresh` service produces it on demand.
+        _LOGGER.log(
+            logging.INFO if estimated == 0 else logging.DEBUG,
+            "Battery insights for %d batteries, %d with an estimate (kinds: %s)%s",
+            len(insights),
+            estimated,
+            counts,
+            "; estimates need a fortnight of recorded history or a completed cycle"
+            if estimated == 0
+            else "",
+        )
 
     async def async_points(
         self, entity_id: str, days: int, attribute: bool = False

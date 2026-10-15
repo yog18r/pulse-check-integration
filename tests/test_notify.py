@@ -20,6 +20,7 @@ from custom_components.pulse_check.const import (
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_WARNING,
     CONF_REMINDER_DAYS,
+    DEBOUNCE_SECONDS,
     DEFAULT_CONFIRM_MINUTES,
     DEFAULT_STARTUP_GRACE_MINUTES,
     DOMAIN,
@@ -117,7 +118,9 @@ async def test_a_restart_storm_of_unavailable_devices_sends_nothing(
     }
     for entity_id, state in healthy.items():
         hass.states.async_set(entity_id, "unavailable", state["attributes"])
-    await _tick(hass, freezer, timedelta(seconds=3))  # a recompute during startup
+    await _tick(
+        hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1)
+    )  # a recompute during startup
     assert calls == []
 
     # Devices come back one by one during and after the grace period.
@@ -158,7 +161,9 @@ async def test_a_device_never_seen_online_is_not_offline(
 
     # Now a real outage: unavailable for the confirmation window.
     hass.states.async_set("sensor.kitchen_ht_temperature", "unavailable", TEMPERATURE)
-    await _tick(hass, freezer, timedelta(seconds=3))  # the recompute that first sees it
+    await _tick(
+        hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1)
+    )  # the recompute that first sees it
     assert calls == []
     await _tick(hass, freezer, timedelta(minutes=DEFAULT_CONFIRM_MINUTES + 1))
     assert _messages(calls) == ["Kitchen H&T: offline"]
@@ -175,7 +180,7 @@ async def test_a_new_battery_problem_is_announced_at_once(
     events = async_capture_events(hass, EVENT_TRANSITION)
 
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=3))
+    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     assert _messages(calls) == ["Kitchen H&T: battery critical (5 %)"]
 
     # Another recompute changes nothing: no repeats.
@@ -184,7 +189,7 @@ async def test_a_new_battery_problem_is_announced_at_once(
 
     # Back to 90 %: resolved, event only, no message.
     hass.states.async_set("sensor.kitchen_ht_battery", "90", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=3))
+    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     assert len(calls) == 1
     assert [(e.data["kind"], e.data["issue"]) for e in events if "Kitchen" in e.data["name"]] == [
         ("entered", "battery_critical"),
@@ -234,7 +239,7 @@ async def test_a_restart_never_resends(
     entry, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
     await _ready(hass, freezer)
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=3))
+    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     assert len(calls) == 1
     await _tick(hass, freezer, timedelta(seconds=5))  # the store's save delay
 
@@ -344,6 +349,6 @@ async def test_per_device_policy_none_silences_a_device(
     events = async_capture_events(hass, EVENT_TRANSITION)
 
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=3))
+    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     assert calls == []
     assert events[0].data["policy"] == "none"  # the event still fires for automations

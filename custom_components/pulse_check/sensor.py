@@ -30,9 +30,8 @@ from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTR_COMPUTED_AT, ATTR_SUMMARY, CONF_PER_DEVICE_SENSORS
+from .const import ATTR_SUMMARY, CONF_PER_DEVICE_SENSORS
 from .coordinator import PulseCheckCoordinator
-from .core.models import to_iso
 from .entity import PulseCheckEntity
 
 if TYPE_CHECKING:
@@ -136,7 +135,7 @@ class AttentionSensor(PulseCheckEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:heart-pulse"
     # Only the count is worth keeping as history.
-    _unrecorded_attributes = frozenset({ATTR_SUMMARY, ATTR_COMPUTED_AT})
+    _unrecorded_attributes = frozenset({ATTR_SUMMARY})
 
     def __init__(self, coordinator: PulseCheckCoordinator, entry: PulseCheckConfigEntry) -> None:
         """Create the attention sensor."""
@@ -151,10 +150,7 @@ class AttentionSensor(PulseCheckEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """The summary counts, for automations that want more than the state."""
         data = self.coordinator.data
-        return {
-            ATTR_SUMMARY: data.summary.to_dict(),
-            ATTR_COMPUTED_AT: to_iso(data.computed_at),
-        }
+        return {ATTR_SUMMARY: data.summary.to_dict()}
 
 
 class CountSensor(PulseCheckEntity, SensorEntity):
