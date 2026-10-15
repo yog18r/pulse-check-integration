@@ -2,6 +2,7 @@
   "domain": "pulse_check",
   "name": "Pulse Check",
   "after_dependencies": [
+    "lovelace",
     "recorder"
   ],
   "codeowners": [
@@ -9,6 +10,7 @@
   ],
   "config_flow": true,
   "dependencies": [
+    "http",
     "websocket_api"
   ],
   "documentation": "https://github.com/yog18r/pulse-check-integration",

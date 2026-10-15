@@ -24,6 +24,7 @@ from homeassistant.helpers import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.pulse_check import card
 from custom_components.pulse_check.const import DOMAIN
 
 pytest_plugins = "pytest_homeassistant_custom_component"
@@ -34,6 +35,18 @@ FIXTURES = Path(__file__).parent / "fixtures"
 @pytest.fixture(autouse=True)
 def _auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
     """Load `custom_components/` in every test."""
+
+
+@pytest.fixture(autouse=True)
+def card_bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Where the integration looks for the card bundle, absent by default.
+
+    The real bundle exists only after a frontend build, so tests never
+    depend on it. Tests that want the card served write this file first.
+    """
+    path = tmp_path / "pulse-check-card.js"
+    monkeypatch.setattr(card, "CARD_PATH", path)
+    return path
 
 
 @pytest.fixture(scope="session")

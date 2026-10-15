@@ -14,6 +14,8 @@ Home Assistant concepts, briefly:
   `async_setup_entry` that creates the entities.
 - *Services* (see `services.py`) are the actions automations and users
   can call, such as `pulse_check.snooze`.
+- The dashboard card ships inside the integration (see `card.py`), which
+  serves it and adds it to the dashboards' resources.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
+from .card import async_remove_card_resource, async_setup_card
 from .const import DOMAIN, SIGNAL_SNAPSHOT
 from .coordinator import PulseCheckCoordinator
 from .notify import Notifier
@@ -75,6 +78,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -
     )
     async_dispatcher_send(hass, SIGNAL_SNAPSHOT)
 
+    # Serve the card and keep its dashboard resource current. This runs on
+    # every setup, so an update to a new version refreshes the resource.
+    await async_setup_card(hass)
+
     # Battery history is slower (database reads), so it loads in the
     # background after the entities exist and refreshes them when done.
     # At boot it waits for Home Assistant to finish starting: before that
@@ -110,3 +117,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) 
     if unloaded:
         hass.data.pop(DOMAIN, None)
     return unloaded
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -> None:
+    """Clean up when the integration is deleted (not on reload or restart)."""
+    await async_remove_card_resource(hass)
