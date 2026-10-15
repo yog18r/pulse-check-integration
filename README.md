@@ -1,0 +1,163 @@
+# Pulse Check Card
+
+A universal device health card for [Home Assistant](https://www.home-assistant.io/). One card, every protocol: it shows which devices are **low on battery**, which are **offline**, and which have **gone quiet**, across Zigbee, Z-Wave, Matter, Bluetooth, ESPHome, Shelly, Wi-Fi and the companion app.
+
+Fully local. One file to install. No HACS required (but supported).
+
+<p align="center">
+  <img src="docs/screenshot-batteries.jpg" alt="Batteries tab in a dark theme: devices sorted lowest battery first with coloured bars" width="420" />
+  <img src="docs/screenshot-connectivity.jpg" alt="Connectivity tab in a light theme: one offline lock and three quiet devices" width="420" />
+</p>
+
+<p align="center"><em>Rendered from the demo page with mock data. Dark and light HA themes.</em></p>
+
+[![CI](https://github.com/yog18r/pulse-check-card/actions/workflows/ci.yml/badge.svg)](https://github.com/yog18r/pulse-check-card/actions/workflows/ci.yml)
+
+---
+
+## The problem
+
+Devices quietly drop off. A door sensor's coin cell dies on a Tuesday, and you find out three weeks later when an automation never fires. A Z-Wave node goes dead after a power blip. A Wi-Fi plug loses its connection and sits there reporting its last known state forever.
+
+Home Assistant has all the data to spot this, but it is spread across hundreds of entities. Pulse Check Card pulls it into one place:
+
+- **🔋 Batteries**: every battery-powered device, lowest first, with a coloured bar
+- **📡 Connectivity**: anything offline or not heard from within a threshold
+
+Everything is grouped by **device**, not entity, so each physical thing appears once.
+
+## Installation
+
+### Option 1: manual (recommended, no dependencies)
+
+1. Download `pulse-check-card.js` from the [latest release](https://github.com/yog18r/pulse-check-card/releases/latest) (or build it yourself, see below).
+2. Copy it to your Home Assistant `config/www/` folder.
+3. In Home Assistant go to **Settings → Dashboards → ⋮ → Resources → Add resource**:
+   - URL: `/local/pulse-check-card.js`
+   - Type: **JavaScript module**
+4. Refresh the browser. "Pulse Check Card" now appears in the card picker.
+
+### Option 2: HACS
+
+Add this repository as a custom repository in HACS (category: Dashboard), then install it. HACS adds the resource for you.
+
+### Minimal card config
+
+```yaml
+type: custom:pulse-check-card
+```
+
+That is all you need. Everything else has a sensible default.
+
+## Configuration
+
+```yaml
+type: custom:pulse-check-card
+title: Pulse Check
+battery_warning: 30 # % at or below this is a warning (orange)
+battery_critical: 15 # % at or below this is critical (red)
+quiet_threshold_hours: 24 # no update for this long = "quiet"
+integration_thresholds: # per-integration overrides for quiet_threshold_hours
+  zwave_js: 48 # sleeping Z-Wave sensors report rarely
+  mqtt: 12
+device_overrides: # per-device overrides
+  - device_id: abc123
+    quiet_threshold_hours: 72
+    battery_type: CR2032 # free text, used by the upcoming shopping list
+exclude_integrations: [mobile_app] # hide phones
+exclude_devices: [] # device ids (or an entity id for device-less entities)
+show_tabs: [batteries, connectivity]
+default_tab: batteries
+```
+
+| Option                   | Type    | Default                     | Notes                                                              |
+| ------------------------ | ------- | --------------------------- | ------------------------------------------------------------------ |
+| `title`                  | string  | `Pulse Check`               |                                                                    |
+| `battery_warning`        | number  | `30`                        | 0–100. Inclusive: 30% counts as a warning.                         |
+| `battery_critical`       | number  | `15`                        | 0–100. Must not exceed `battery_warning`.                          |
+| `quiet_threshold_hours`  | number  | `24`                        | Hours since the device's newest `last_updated`.                    |
+| `integration_thresholds` | mapping | `{}`                        | `platform: hours`. Platform is the integration domain (see badge). |
+| `device_overrides`       | list    | `[]`                        | Each item needs `device_id`.                                       |
+| `exclude_integrations`   | list    | `[]`                        |                                                                    |
+| `exclude_devices`        | list    | `[]`                        |                                                                    |
+| `show_tabs`              | list    | `[batteries, connectivity]` | One or both.                                                       |
+| `default_tab`            | string  | `batteries`                 | Must be in `show_tabs`.                                            |
+
+Invalid config shows a plain-English error on the card, for example `"battery_critical" (40) must not be higher than "battery_warning" (30).`
+
+**Finding a device id:** open the device in **Settings → Devices & services → Devices**. The id is the last part of the URL: `/config/devices/device/<device_id>`.
+
+## How detection works
+
+The card reads only what the Home Assistant frontend already has in memory (`hass.states`, `hass.entities`, `hass.devices`, `hass.areas`). No API calls, no polling, no cloud.
+
+**Battery** (first match wins per entity; the best reading per device is kept):
+
+1. `sensor.*` with `device_class: battery` and a numeric state → level in %
+2. `binary_sensor.*` with `device_class: battery` → `on` means **low**
+3. Any entity with a numeric `battery_level` attribute → level in % (older and custom integrations)
+
+If a device has several readings, the lowest numeric level wins (the weakest cell matters), and any binary "low" flags the device regardless.
+
+**Offline:** every _primary_ entity of the device is `unavailable`. Primary means no `entity_category`; diagnostic and config entities are ignored because integrations handle those inconsistently.
+
+**Quiet:** the newest `last_updated` across the device's entities is older than the threshold. Threshold resolution: device override → integration override → global default.
+
+**Severity:** critical for offline, battery at/below critical, or binary low. Warning for battery at/below warning, or quiet. The header counts anything that is not OK.
+
+**Skipped on purpose:** service devices (Sun, Forecast…), disabled devices, excluded integrations/devices, and entities with no device that carry no battery information.
+
+### Known limitations
+
+- **`last_reported` is not available in the frontend.** Home Assistant tracks a `last_reported` timestamp (updated even when a value is re-sent unchanged), but the websocket subscription that feeds the dashboard only carries `last_changed` and `last_updated`. So a sensor that keeps reporting the exact same value looks "quiet" even though the device is alive. Raise `quiet_threshold_hours` for such integrations, or use `device_overrides`. A future version may fetch the true `last_reported` on demand for devices already flagged quiet.
+- **Sleeping devices look quiet.** Battery Z-Wave and Zigbee sensors may only wake every day or two. Use `integration_thresholds` (e.g. `zwave_js: 48`).
+- **Battery-less devices only appear on the Connectivity tab**, and only when something is wrong. A healthy mains-powered device is invisible, by design.
+
+## Architecture
+
+```
+src/
+├── index.ts                  registers <pulse-check-card>, adds it to the card picker
+├── card/
+│   ├── PulseCheckCardElement.ts   the HA card contract: setConfig, hass setter, sizes
+│   └── config.ts                  CardConfig → ResolvedConfig with validation
+├── core/                     pure TypeScript, no React, no DOM, 100% unit-testable
+│   ├── battery.ts            detection rules 1–3
+│   ├── availability.ts       offline / last heard / quiet
+│   ├── group.ts              entities → one group per device
+│   ├── thresholds.ts         threshold resolution and severity
+│   ├── analyse.ts            the orchestrator: hass + config → DeviceHealth[]
+│   ├── sort.ts, summarise.ts, time.ts, fingerprint.ts
+├── enhancers/                optional per-integration extras (Enhancer interface)
+└── ui/                       React components, one hook, one stylesheet
+```
+
+**Universal core + optional enhancers.** The core uses only data every integration provides. An _enhancer_ implements one small interface and adds detail when, and only when, the data exists (a Z-Wave node's alive/asleep/dead status, a Zigbee2MQTT `linkquality`). Enhancers can never break the card: each call is isolated, and returning nothing is always valid. Adding one is a new file plus one line in the registry.
+
+**Why React inside a custom element?** Home Assistant talks to a plain `HTMLElement`. That element owns a shadow root (CSS isolation both ways) and a React root inside it. The element decides _when_ to render: HA pushes a new `hass` object on every state change in the house, so the setter computes a cheap fingerprint of just the entities the card depends on and skips the render when it hasn't moved. React decides _what_ to render, with `useMemo` caching the analysis between tab clicks.
+
+**Single file, no runtime dependencies.** Vite's library mode bundles React and the stylesheet into one ES module. Nothing is fetched at runtime.
+
+## Development
+
+```bash
+npm install
+npm run dev          # demo page at http://localhost:5173 with mock data, no HA needed
+npm test             # Vitest unit tests
+npm run check        # typecheck + lint + format + test + build, same as CI
+npm run build        # dist/pulse-check-card.js
+```
+
+The demo page renders the real card element with a realistic mock `hass` (Zigbee2MQTT, ZHA, Z-Wave JS, ESPHome, Shelly, Matter, phone, binary battery sensor, attribute fallback, offline and stale devices). It has a dark mode toggle and a few config scenarios, including a deliberately broken one to show error handling.
+
+The same fixture drives the unit tests, so every detection, grouping, threshold and sorting rule is pinned by a test that reads like a spec.
+
+## Roadmap
+
+- [x] **Phase 1 (MVP):** card contract, universal detection, both tabs, config with defaults, theming, unit tests, demo page, CI
+- [ ] **Phase 2:** Z-Wave JS, Zigbee2MQTT and ZHA enhancers; tap a row to open the device page; header polish
+- [ ] **Phase 3:** "replace soon" ordering using drain rate from HA statistics; battery shopping list grouped by `battery_type`; visual config editor; on-demand `last_reported` lookup for quiet devices
+
+## Licence
+
+MIT
