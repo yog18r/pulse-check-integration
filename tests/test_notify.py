@@ -42,10 +42,15 @@ def _messages(calls: list[ServiceCall]) -> list[str]:
 
 
 async def _tick(hass: HomeAssistant, freezer: FrozenDateTimeFactory, delta: timedelta) -> None:
-    """Advance time and let timers and the debounced refresh run."""
+    """Advance time and let timers, the debounced refresh and the notifier run.
+
+    The notifier reacts to each refresh in a background task, which
+    `async_block_till_done` skips unless asked. Without waiting for it, a
+    slow machine (CI under load) checks for messages before they are sent.
+    """
     freezer.tick(delta)
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
 
 async def _set_up(
@@ -63,7 +68,7 @@ async def _set_up(
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     return entry, device_ids, calls
 
 
@@ -244,7 +249,7 @@ async def test_a_restart_never_resends(
     await _tick(hass, freezer, timedelta(seconds=5))  # the store's save delay
 
     await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     await _ready(hass, freezer)
     await _tick(hass, freezer, timedelta(minutes=10))
     assert len(calls) == 1
@@ -266,7 +271,7 @@ async def test_saving_options_does_not_announce_anything(
         result["flow_id"],
         {"thresholds": {"battery_warning": 60, "battery_critical": 50}, "notifications": OPTIONS},
     )
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     attention = hass.states.get("sensor.pulse_check_attention")
     assert attention is not None
     assert attention.state == "8"
@@ -317,7 +322,7 @@ async def test_digests_list_devices_on_that_policy(
     # 09:00 local the next day (the test instance runs in UTC).
     freezer.move_to(fixed_now + timedelta(hours=23))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     daily = [m for m in _messages(calls) if m.startswith("Pulse Check daily digest")]
     assert len(daily) == 1
     assert "- Bedroom Temp & Humidity: battery low (28 %)" in daily[0]
