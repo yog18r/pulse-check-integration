@@ -95,6 +95,17 @@ describe('App', () => {
     expect(within(row).getByText(/draining 3× faster/)).toBeInTheDocument();
   });
 
+  it('shows no days-left for devices without an estimate, charging or not', async () => {
+    renderApp();
+    await screen.findByText(/devices need attention/);
+    const rows = screen.getAllByRole('listitem');
+    const phone = rows.find((r) => within(r).queryByText('Pixel 9'))!;
+    const vacuum = rows.find((r) => within(r).queryByText('Mr Roboto'))!;
+    expect(within(phone).queryByText(/left/)).not.toBeInTheDocument();
+    expect(within(vacuum).queryByText(/left/)).not.toBeInTheDocument();
+    expect(within(vacuum).getByText(/charging/)).toBeInTheDocument();
+  });
+
   it('snoozes and unsnoozes through the integration services', async () => {
     const { callService } = renderApp({ show_tabs: ['connectivity'] });
     await screen.findByText(/devices need attention/);
