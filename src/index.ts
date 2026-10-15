@@ -9,7 +9,7 @@ import { PulseCheckCardEditor } from './card/PulseCheckCardEditor';
 import { EDITOR_TAG, PulseCheckCardElement } from './card/PulseCheckCardElement';
 
 export const CARD_TAG = 'pulse-check-card';
-export const CARD_VERSION = '0.3.0';
+export const CARD_VERSION = '0.4.0';
 
 // Guard against double registration (HA can load a resource twice during
 // dashboard edits; `customElements.define` throws on a duplicate name).
