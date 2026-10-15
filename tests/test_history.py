@@ -18,6 +18,7 @@ from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant, State
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.pulse_check.const import DOMAIN
 from tests.conftest import device_dicts, load_fixture_into_hass
 
 DAY = timedelta(days=1)
@@ -51,8 +52,16 @@ def recorder(hass: HomeAssistant, fixed_now: datetime) -> Iterator[dict[str, Any
         _hass: HomeAssistant, start: datetime, end: Any, ids: set[str], *_: Any
     ) -> dict[str, list[dict[str, Any]]]:
         calls["statistics"].append(ids)
-        # Only the motion sensor has statistics, dropping 2 %/day.
-        return {"sensor.living_room_motion_battery": linear_rows(fixed_now, 40, -2)}
+        # The motion sensor drops 2 %/day. The phone's means also decline
+        # (its history looks like a clean drain), and the window sensor
+        # was clearly charged mid-window: 30 points up in a day.
+        window = linear_rows(fixed_now, 60, -1.5)
+        window[7]["mean"] = 90
+        return {
+            "sensor.living_room_motion_battery": linear_rows(fixed_now, 40, -2),
+            "sensor.pixel_9_battery_level": linear_rows(fixed_now, 97, -2),
+            "sensor.window_sensor_battery": window,
+        }
 
     def history(
         _hass: HomeAssistant, start: datetime, end: Any, entity_id: str, **kwargs: Any
@@ -98,9 +107,15 @@ async def test_drain_estimates_reach_the_entities(
     recorder: dict[str, Any],
 ) -> None:
     freezer.move_to(fixed_now)
-    await load_fixture_into_hass(hass, fixture_snapshot)
+    device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+    await hass.services.async_call(
+        DOMAIN,
+        "set_device_settings",
+        {"device_id": device_ids["dev_z2m_door"], "rechargeable": True},
+        blocking=True,
+    )
     # The first history load runs as a background task, which
     # async_block_till_done does not wait for; run it explicitly instead.
     recorder["statistics"].clear()
@@ -121,12 +136,19 @@ async def test_drain_estimates_reach_the_entities(
     by_name = {d["name"]: d for d in device_dicts(hass)}
     # 12 % at 2 %/day: about 6 days.
     assert by_name["Living Room Motion"]["daysLeft"] == pytest.approx(6, abs=0.5)
-    # 87 % at about 1 %/day (the live 87 % reading flattens the fit a little).
-    assert by_name["Front Door Sensor"]["daysLeft"] == pytest.approx(90, abs=5)
     # 58 (carried forward to day -6), 50 at day -2, 44 now: about 1.4 %/day.
     assert by_name["Dog Collar Tracker"]["daysLeft"] == pytest.approx(31, abs=3)
     # No history at all: no estimate.
     assert "daysLeft" not in by_name["Kitchen H&T"]
+    # A phone (mobile_app) is charged daily: never an estimate, however
+    # clean its history looks.
+    assert "daysLeft" not in by_name["Pixel 9"]
+    # A charge within the window (a 30-point rise) also rules one out.
+    assert "daysLeft" not in by_name["Window Sensor"]
+    # The user said this one is rechargeable: no estimate either.
+    assert "daysLeft" not in by_name["Front Door Sensor"]
+    # And the docked, charging vacuum.
+    assert "daysLeft" not in by_name["Mr Roboto"]
 
     soonest = hass.states.get("sensor.pulse_check_next_to_run_out")
     assert soonest is not None

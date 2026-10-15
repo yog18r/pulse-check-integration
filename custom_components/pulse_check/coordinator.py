@@ -159,7 +159,12 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         logged and the previous estimates (if any) are kept.
         """
         try:
-            await self.history.async_refresh(self.data.devices)
+            rechargeable = {
+                device_id
+                for device_id, settings in self.store.device_settings.items()
+                if settings.get("rechargeable")
+            }
+            await self.history.async_refresh(self.data.devices, rechargeable)
         except Exception:
             _LOGGER.warning("Reading battery history from the recorder failed", exc_info=True)
             return

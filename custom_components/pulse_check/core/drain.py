@@ -16,6 +16,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 from typing import TYPE_CHECKING, Any
 
 from .models import as_utc
@@ -50,6 +51,22 @@ MIN_SAMPLES = 3
 MIN_SPAN = timedelta(days=2)
 # Slopes shallower than this are indistinguishable from noise.
 MIN_RATE_PER_DAY = 0.1
+# A rise of at least this many points between consecutive samples is a
+# charge or a new battery, not noise.
+CHARGE_RISE_POINTS = 20
+
+
+def has_charge_cycles(points: Iterable[DrainPoint]) -> bool:
+    """True when the samples show the battery being charged within the window.
+
+    A phone that is charged every night drains and refills daily; a line
+    fitted through that is meaningless ("9 months left" at 70 %). Any rise
+    of `CHARGE_RISE_POINTS` or more between consecutive samples counts.
+    """
+    ordered = sorted((p for p in points if math.isfinite(p.level)), key=lambda p: as_utc(p.time))
+    return any(
+        later.level - earlier.level >= CHARGE_RISE_POINTS for earlier, later in pairwise(ordered)
+    )
 
 
 def _slope_per_day(points: list[DrainPoint]) -> float:

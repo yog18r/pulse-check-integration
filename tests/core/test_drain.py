@@ -12,6 +12,7 @@ from custom_components.pulse_check.core.drain import (
     daily_means,
     estimate_drain,
     format_days_left,
+    has_charge_cycles,
     rows_to_points,
 )
 
@@ -72,6 +73,23 @@ def test_never_returns_negative_days_left() -> None:
     estimate = estimate_drain(series(5, 10, -2), 0)
     assert estimate is not None
     assert estimate.days_left == 0
+
+
+def test_has_charge_cycles_spots_a_refill_between_samples() -> None:
+    assert has_charge_cycles(series(10, 90, -2)) is False
+    # A phone: 80, 60, 40, charged overnight back to 95, 75...
+    phone = [
+        DrainPoint(time=T0, level=80),
+        DrainPoint(time=T0 + DAY, level=60),
+        DrainPoint(time=T0 + 2 * DAY, level=40),
+        DrainPoint(time=T0 + 3 * DAY, level=95),
+        DrainPoint(time=T0 + 4 * DAY, level=75),
+    ]
+    assert has_charge_cycles(phone) is True
+    # Order of the input does not matter.
+    assert has_charge_cycles(list(reversed(phone))) is True
+    # A small wobble is not a charge.
+    assert has_charge_cycles([*series(5, 50, -1), DrainPoint(time=T0 + 5 * DAY, level=52)]) is False
 
 
 def test_format_days_left_rounds_to_a_friendly_unit() -> None:

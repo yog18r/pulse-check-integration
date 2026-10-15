@@ -31,6 +31,7 @@ from .core.drain import (
     DrainPoint,
     daily_means,
     estimate_drain,
+    has_charge_cycles,
     hourly_means,
     rows_to_points,
 )
@@ -39,7 +40,7 @@ from .core.drain import (
 HOURLY_MAX_DAYS = 3
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Collection, Iterable
     from datetime import datetime
 
     from homeassistant.core import HomeAssistant, State
@@ -99,19 +100,34 @@ class HistoryTracker:
         """The recorder is optional; without it there is simply no history."""
         return "recorder" in self.hass.config.components
 
-    async def async_refresh(self, devices: Iterable[DeviceHealth]) -> None:
-        """Re-read history for every battery device with a numeric level."""
+    async def async_refresh(
+        self, devices: Iterable[DeviceHealth], rechargeable: Collection[str] = ()
+    ) -> None:
+        """Re-read history for every battery device with a numeric level.
+
+        `rechargeable` holds the device ids the user marked as charged
+        rather than replaced. Those, phones (mobile_app), devices charging
+        right now and any battery whose history shows a charge get no
+        days-left estimate: a line through a charge cycle means nothing.
+        """
         if not self.available:
             return
         levels: dict[str, float] = {}
         sensor_ids: set[str] = set()
         attribute_ids: set[str] = set()
+        no_estimate: set[str] = set()
         for device in devices:
             battery = device.battery
             if battery is None or battery.level is None:
                 continue
             levels[battery.entity_id] = battery.level
             (sensor_ids if battery.source == "sensor" else attribute_ids).add(battery.entity_id)
+            if (
+                device.integration == "mobile_app"
+                or battery.is_charging
+                or device.device_id in rechargeable
+            ):
+                no_estimate.add(battery.entity_id)
         if not levels:
             self.estimates = {}
             return
@@ -149,16 +165,23 @@ class HistoryTracker:
                 )
             )
 
-        self.estimates = self._fit(points, levels, now)
+        self.estimates = self._fit(points, levels, now, no_estimate)
         _LOGGER.debug("Drain estimates for %d of %d batteries", len(self.estimates), len(levels))
 
     @staticmethod
     def _fit(
-        points: dict[str, list[DrainPoint]], levels: dict[str, float], now: datetime
+        points: dict[str, list[DrainPoint]],
+        levels: dict[str, float],
+        now: datetime,
+        no_estimate: Collection[str] = (),
     ) -> dict[str, DrainEstimate]:
         estimates: dict[str, DrainEstimate] = {}
         for entity_id, level in levels.items():
+            if entity_id in no_estimate:
+                continue
             history = [*points.get(entity_id, []), DrainPoint(time=now, level=level)]
+            if has_charge_cycles(history):
+                continue
             estimate = estimate_drain(history, level)
             if estimate is not None:
                 estimates[entity_id] = estimate
