@@ -85,23 +85,34 @@ export function listDevices(hass: HassLike): DeviceOption[] {
  * Battery sensors that have no device (template, cloud and some custom
  * integrations). The card shows them as pseudo-devices keyed
  * `entity:<entity_id>`, so the picker offers them under that id.
+ *
+ * Entities without a `unique_id` (YAML template sensors, some MQTT ones)
+ * never reach the registry at all and exist only in `hass.states`; they
+ * count as device-less too.
  */
 export function listOrphanBatteryEntities(hass: HassLike): DeviceOption[] {
   const options: DeviceOption[] = [];
-  for (const entity of Object.values(hass.entities)) {
-    if (entity.device_id !== undefined || entity.entity_category === 'config') continue;
-    const state = hass.states[entity.entity_id];
-    if (!state) continue;
+  const offer = (entityId: string, platform?: string) => {
+    const state = hass.states[entityId];
+    if (!state) return;
     const isBattery =
       state.attributes.device_class === 'battery' || 'battery_level' in state.attributes;
-    if (!isBattery) continue;
+    if (!isBattery) return;
     const friendly = state.attributes.friendly_name;
     const option: DeviceOption = {
-      id: ORPHAN_PREFIX + entity.entity_id,
-      name: typeof friendly === 'string' && friendly !== '' ? friendly : entity.entity_id,
+      id: ORPHAN_PREFIX + entityId,
+      name: typeof friendly === 'string' && friendly !== '' ? friendly : entityId,
     };
-    if (entity.platform) option.integration = entity.platform;
+    if (platform) option.integration = platform;
     options.push(option);
+  };
+
+  for (const entity of Object.values(hass.entities)) {
+    if (entity.device_id !== undefined || entity.entity_category === 'config') continue;
+    offer(entity.entity_id, entity.platform);
+  }
+  for (const entityId of Object.keys(hass.states)) {
+    if (!(entityId in hass.entities)) offer(entityId);
   }
   return options.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }
