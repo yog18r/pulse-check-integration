@@ -111,6 +111,71 @@ export function historyToDailyPoints(rows: HistoryRow[]): DrainPoint[] {
 }
 
 /**
+ * Rows for an attribute-carrying history request. `a` holds the attributes;
+ * the websocket omits it on rows where nothing changed, so we carry the
+ * last seen value forward.
+ */
+interface AttributeHistoryRow extends HistoryRow {
+  a?: Record<string, unknown>;
+  attributes?: Record<string, unknown>;
+}
+
+/**
+ * Daily means of a numeric attribute (battery_level on a vacuum or tracker)
+ * from raw history rows. Attributes are only sent when they change, so the
+ * previous row's value carries forward.
+ */
+export function attributeHistoryToDailyPoints(
+  rows: AttributeHistoryRow[],
+  attribute = 'battery_level',
+): DrainPoint[] {
+  let lastSeen: unknown;
+  const flattened: HistoryRow[] = rows.map((row) => {
+    const attrs = row.a ?? row.attributes;
+    if (attrs && attribute in attrs) lastSeen = attrs[attribute];
+    const level = parseNumeric(lastSeen);
+    const out: HistoryRow = { s: level === undefined ? 'unknown' : String(level) };
+    if (row.lu !== undefined) out.lu = row.lu;
+    if (row.last_updated !== undefined) out.last_updated = row.last_updated;
+    return out;
+  });
+  return historyToDailyPoints(flattened);
+}
+
+/**
+ * Batteries reported only as an attribute (vacuum.*, device_tracker.*) have
+ * no sensor to ask statistics for. Their raw history *with* attributes is
+ * heavier, so this is only ever called for that handful of entities.
+ */
+async function loadAttributeHistory(
+  hass: HassLike,
+  entityIds: string[],
+  start: Date,
+  now: Date,
+): Promise<Map<string, DrainPoint[]>> {
+  const result = new Map<string, DrainPoint[]>();
+  if (!hass.callWS || entityIds.length === 0) return result;
+  try {
+    const response = await hass.callWS<Record<string, AttributeHistoryRow[] | undefined>>({
+      type: 'history/history_during_period',
+      start_time: start.toISOString(),
+      end_time: now.toISOString(),
+      entity_ids: entityIds,
+      minimal_response: false,
+      no_attributes: false,
+      significant_changes_only: true,
+    });
+    for (const id of entityIds) {
+      const rows = response[id];
+      if (rows && rows.length > 0) result.set(id, attributeHistoryToDailyPoints(rows));
+    }
+  } catch (err) {
+    console.warn('[pulse-check-card] could not load attribute battery history', err);
+  }
+  return result;
+}
+
+/**
  * Sensors without long-term statistics (no `state_class: measurement`,
  * common in custom integrations) still have raw history. Fetch it for just
  * those entities, with the lightest options the API offers.
@@ -212,6 +277,14 @@ export async function loadDrains(
     .filter((b) => !response[b.entityId]?.length && b.entityId.startsWith('sensor.'))
     .map((b) => b.entityId);
   const raw = await loadRawHistory(hass, missing, start, now);
+
+  // Attribute-based readings (the level lives on vacuum.x or device_tracker.y)
+  // have no statistics and no plain state to read; fetch attributes for them.
+  const attributeIds = batteries
+    .filter((b) => !response[b.entityId]?.length && !b.entityId.startsWith('sensor.'))
+    .map((b) => b.entityId);
+  const attributeRaw = await loadAttributeHistory(hass, attributeIds, start, now);
+  for (const [id, points] of attributeRaw) raw.set(id, points);
 
   for (const battery of batteries) {
     const days = battery.days ?? HISTORY_DAYS;

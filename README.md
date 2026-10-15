@@ -74,6 +74,7 @@ device_settings: # per-device settings
     quiet_threshold_hours: 72 # per-device quiet limit
     name: Home Battery # shown instead of the device's name; the device itself is not renamed
     sparkline_days: 365 # this device's trend line covers a year
+    area: Garage # shown on the card and used by the area filters; handy for device-less sensors
   - device_id: sensor.inverter_soc # a battery sensor with no device: use its entity id
     name: Inverter
 exclude_integrations: [mobile_app] # hide phones
@@ -84,6 +85,7 @@ battery_sort: level # "level" (default) or "replace_soon": order of the Batterie
 max_rows: 12 # rows per tab before "Show N more"; a number or "all"
 show_sparklines: true # trend line next to each battery bar
 sparkline_days: 14 # how much history the line covers, 1-365
+problems_only: false # start the Batteries tab on the "Problems only" view
 include_areas: [] # only devices in these areas (names or ids); empty = all
 exclude_areas: []
 include_integrations: [] # only these integrations; empty = all
@@ -109,6 +111,7 @@ Prefer clicking to typing? The card has a **visual editor**: add the card from t
 | `max_rows`               | number  | `12`                        | Or `all`. Applies to the Batteries and Connectivity tabs.          |
 | `show_sparklines`        | boolean | `true`                      | Needs recorder history; hidden otherwise.                          |
 | `sparkline_days`         | number  | `14`                        | 1 to 365. Per-device override in `device_settings`.                |
+| `problems_only`          | boolean | `false`                     | Initial state of the Batteries tab's \"Problems only\" switch.     |
 | `include_areas`          | list    | `[]`                        | Area names or ids. Devices with no area are dropped when set.      |
 | `exclude_areas`          | list    | `[]`                        |                                                                    |
 | `include_integrations`   | list    | `[]`                        | Allow-list counterpart of `exclude_integrations`.                  |
@@ -145,7 +148,9 @@ By default only **battery-powered devices** can be quiet (`quiet_scope: battery`
 
 **Replace soon** (`battery_sort: replace_soon`): the card asks Home Assistant's recorder for 14 days of daily averages of every battery sensor, once when the card loads and then every 6 hours, and fits a straight line through them. The slope is the drain rate; the current level divided by it is the time left, shown on each row as "~12d left". Sensors the recorder has no statistics for fall back to their raw history, averaged per day. The live reading is added as the last point, so a battery that just dropped sharply moves straight away rather than waiting for the recorder's hourly statistics. The fit needs at least 3 days of history and ignores flat or rising series (a phone that gets charged, a lock sitting at 62% for a fortnight), so those devices simply keep their level-based position and show no estimate. Treat the number as an order of magnitude: locks and other motorised devices report in coarse steps and under load, and the estimate will wander for a few days after a sudden drop. Without a recorder nothing changes.
 
-**Sparklines:** daily means from the recorder are drawn as a small trend line beside the battery bar, scaled to the data so a slow decline is visible (which also means a phone's daily charge cycle shows as a wobble). `sparkline_days` sets the window (default 14, up to a year), globally or per device; windows of three days or less are drawn from hourly means so a one-day line has shape. The "days left" estimate always uses the last 14 days, whatever the line shows. Sensors without long-term statistics (custom integrations that don't set `state_class: measurement`) are fetched from raw history instead and averaged per day, so they get a line too. A battery reported only as an attribute (some vacuums and trackers) or only as a binary low/ok sensor has no numeric history and gets no line.
+**Sparklines:** daily means from the recorder are drawn as a small trend line beside the battery bar, scaled to the data so a slow decline is visible (which also means a phone's daily charge cycle shows as a wobble). `sparkline_days` sets the window (default 14, up to a year), globally or per device; windows of three days or less are drawn from hourly means so a one-day line has shape. The "days left" estimate always uses the last 14 days, whatever the line shows. Sensors without long-term statistics (custom integrations that don't set `state_class: measurement`) are fetched from raw history instead and averaged per day, so they get a line too. A battery reported only as an attribute (some vacuums and trackers) is fetched from raw history with attributes, for just those entities. Only a binary low/ok sensor has no numeric history and gets no line.
+
+**Problems only:** a chip above the Batteries list hides every healthy row. It starts from `problems_only` and then remembers your last choice in that browser.
 
 **Row cap and filters:** `max_rows` (default 12, or `all`) limits each of the Batteries and Connectivity tabs, with a "Show N more" control so nothing is hidden silently. `include_areas` / `exclude_areas` and `include_integrations` / `exclude_integrations` scope the card, which is how you put a per-room card on a sections dashboard: `include_areas: [Office]`. Area filters accept the name shown in Home Assistant or the area id, case-insensitively.
 
@@ -221,7 +226,7 @@ npm run build        # dist/pulse-check-card.js
 
 The demo page renders the real card element with a realistic mock `hass` (Zigbee2MQTT, ZHA, Z-Wave JS, ESPHome, Shelly, Matter, phone, binary battery sensor, attribute fallback, offline and stale devices). It has a dark mode toggle and a few config scenarios, including a deliberately broken one to show error handling.
 
-The same fixture drives the unit tests, so every detection, grouping, threshold and sorting rule is pinned by a test that reads like a spec.
+The same fixture drives the unit tests, so every detection, grouping, threshold and sorting rule is pinned by a test that reads like a spec. Component tests (Testing Library on jsdom, in `test/ui/`) render the real card and editor against that fixture and check what a user sees and clicks: tabs, problems-only, row cap, snooze, the device picker and the custom element's shadow root.
 
 ## Roadmap
 
@@ -231,7 +236,8 @@ The same fixture drives the unit tests, so every detection, grouping, threshold 
 - [x] **v0.2:** charging awareness; on-demand `last_reported` lookup; snooze; visual editor rows for thresholds and overrides
 - [x] **v0.3:** trend sparklines; configurable row cap; area and integration filters; editor checkbox pickers for both
 - [x] **v0.3:** per-device settings with battery type (standard sizes + other), count and rechargeable; Actions tab replacing the shopping list; searchable device picker in the editor
-- [ ] **Ideas:** a problems-only toggle on the Batteries tab; translations; HACS default-repository submission
+- [x] **v0.4:** problems-only switch; per-device area; history for attribute-based batteries; component tests
+- [ ] **Ideas:** translations; a notifications blueprint; replacement history; HACS default-repository submission
 
 ## Licence
 

@@ -32,7 +32,7 @@ export default tseslint.config(
   // Tests may use the non-null assertion (!) on fixture lookups: a missing fixture
   // should crash the test loudly, which is exactly what we want there.
   {
-    files: ['test/**/*.ts'],
+    files: ['test/**/*.{ts,tsx}'],
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
 

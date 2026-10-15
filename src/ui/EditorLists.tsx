@@ -144,6 +144,7 @@ interface SettingsPatch {
   rechargeable?: boolean | undefined;
   name?: string | undefined;
   sparkline_days?: number | undefined;
+  area?: string | undefined;
 }
 
 function applyPatch(row: DeviceSettings, patch: SettingsPatch): DeviceSettings {
@@ -161,6 +162,8 @@ function applyPatch(row: DeviceSettings, patch: SettingsPatch): DeviceSettings {
   if (rechargeable) next.rechargeable = true;
   const days = 'sparkline_days' in patch ? patch.sparkline_days : row.sparkline_days;
   if (days !== undefined && days >= 1) next.sparkline_days = Math.min(365, Math.floor(days));
+  const area = 'area' in patch ? patch.area : row.area;
+  if (area !== undefined && area.trim() !== '') next.area = area;
   return next;
 }
 
@@ -226,6 +229,13 @@ export function DeviceSettingsRows({ value, hass, onChange }: DeviceRowsProps) {
   const used = new Set(value.map((o) => o.device_id));
   const unused = devices.filter((d) => !used.has(d.id));
 
+  const areaNames = hass
+    ? Object.values(hass.areas)
+        .map((a) => a.name)
+        .sort((a, b) => a.localeCompare(b))
+    : [];
+  const deviceArea = (deviceId: string) => devices.find((d) => d.id === deviceId)?.area;
+
   function emit(next: DeviceSettings[]) {
     onChange(next.length > 0 ? next : undefined);
   }
@@ -276,16 +286,38 @@ export function DeviceSettingsRows({ value, hass, onChange }: DeviceRowsProps) {
               ✕
             </button>
           </div>
-          <div className="settingsline">
+          <div className="settingsline namearea">
             <input
               type="text"
               aria-label="Display name"
-              placeholder="Display name (optional): shown on the card instead of the device name"
+              placeholder="Display name (optional)"
               value={row.name ?? ''}
               onChange={(e) => {
                 update(index, { name: e.target.value });
               }}
             />
+            <select
+              aria-label="Area"
+              title="Area shown on the card. Pre-filled from the device registry; pick another to override."
+              value={row.area ?? deviceArea(row.device_id) ?? ''}
+              onChange={(e) => {
+                const chosen = e.target.value;
+                // Choosing the registry's own area means "no override".
+                update(index, {
+                  area: chosen === '' || chosen === deviceArea(row.device_id) ? undefined : chosen,
+                });
+              }}
+            >
+              <option value="">No area</option>
+              {areaNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+              {row.area !== undefined && !areaNames.includes(row.area) && (
+                <option value={row.area}>{row.area} ?</option>
+              )}
+            </select>
           </div>
           <div className="settingsline details">
             <BatteryTypeField

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  attributeHistoryToDailyPoints,
   HISTORY_DAYS,
   historyToDailyPoints,
   loadDrains,
@@ -30,6 +31,22 @@ describe('historyToDailyPoints', () => {
     ]);
     expect(points).toEqual([
       { time: Date.UTC(2026, 9, 10), level: 61 },
+      { time: Date.UTC(2026, 9, 11), level: 50 },
+    ]);
+  });
+});
+
+describe('attributeHistoryToDailyPoints', () => {
+  it('reads a numeric attribute, carrying it forward across rows without one', () => {
+    const day = Date.UTC(2026, 9, 10) / 1000;
+    const points = attributeHistoryToDailyPoints([
+      { s: 'home', attributes: { battery_level: 60 }, last_updated: '2026-10-10T01:00:00Z' },
+      { s: 'away', lu: day + 7200 }, // no attributes: still 60
+      { s: 'home', a: { battery_level: 50 }, lu: day + 86400 + 100 },
+      { s: 'home', a: { battery_level: 'low' }, lu: day + 86400 + 200 }, // junk: skipped
+    ]);
+    expect(points).toEqual([
+      { time: Date.UTC(2026, 9, 10), level: 60 },
       { time: Date.UTC(2026, 9, 11), level: 50 },
     ]);
   });
@@ -145,7 +162,8 @@ describe('loadDrains', () => {
       FIXED_NOW,
     );
 
-    expect(callWS).toHaveBeenCalledTimes(2);
+    // statistics, raw history for the sensor, attribute history for the vacuum
+    expect(callWS).toHaveBeenCalledTimes(3);
     const historyCall = callWS.mock.calls[1]?.[0] as Record<string, unknown>;
     expect(historyCall.type).toBe('history/history_during_period');
     expect(historyCall.entity_ids).toEqual(['sensor.inverter_soc']);
@@ -158,6 +176,42 @@ describe('loadDrains', () => {
     expect(inverter?.points[0]?.level).toBeCloseTo(79, 5);
     expect(inverter?.estimate?.ratePerDay).toBeCloseTo(2, 0);
     expect(drains.has('vacuum.robot')).toBe(false);
+  });
+
+  it('fetches attribute history for batteries that live on a vacuum or tracker', async () => {
+    const secondsAgo = (days: number) => (FIXED_NOW.getTime() - days * DAY) / 1000;
+    const callWS = vi.fn().mockImplementation((message: Record<string, unknown>) => {
+      if (message.type === 'recorder/statistics_during_period') return Promise.resolve({});
+      if (message.no_attributes === true) return Promise.resolve({}); // plain sensors: none here
+      // Attributes only sent when they change; rows in between carry forward.
+      return Promise.resolve({
+        'vacuum.robot': [
+          { s: 'docked', a: { battery_level: 100 }, lu: secondsAgo(5) },
+          { s: 'cleaning', lu: secondsAgo(4.5) },
+          { s: 'docked', a: { battery_level: 80 }, lu: secondsAgo(4) },
+          { s: 'docked', a: { battery_level: 60 }, lu: secondsAgo(3) },
+          { s: 'docked', a: { battery_level: 40 }, lu: secondsAgo(2) },
+          { s: 'unavailable', a: {}, lu: secondsAgo(1.5) },
+          { s: 'docked', a: { battery_level: 20 }, lu: secondsAgo(1) },
+        ],
+      });
+    });
+    const drains = await loadDrains(
+      { ...hass, callWS },
+      [{ entityId: 'vacuum.robot', level: 10 }],
+      FIXED_NOW,
+    );
+    const attrCall = callWS.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .find((m) => m.no_attributes === false)!;
+    expect(attrCall.entity_ids).toEqual(['vacuum.robot']);
+    const h = drains.get('vacuum.robot');
+    // 5 days ago averages 100 (the carried-forward row counts), then 80, 60, 40, 20; + live.
+    expect(h?.points.map((p) => Math.round(p.level))).toEqual([100, 80, 60, 40, 20, 10]);
+    // Day buckets sit at midnight while the live point is mid-morning, so the
+    // fitted slope is a little under the nominal 20%/day.
+    expect(h?.estimate?.ratePerDay).toBeGreaterThan(15);
+    expect(h?.estimate?.ratePerDay).toBeLessThan(21);
   });
 
   it('survives a failing raw-history call', async () => {

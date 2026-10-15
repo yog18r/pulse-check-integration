@@ -44,7 +44,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     passWithNoTests: true,
-    include: ['test/**/*.test.ts', 'src/**/*.test.ts'],
+    include: ['test/**/*.test.{ts,tsx}', 'src/**/*.test.{ts,tsx}'],
+    // Component tests opt into jsdom per file with `// @vitest-environment jsdom`.
+    setupFiles: ['test/setup.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/core/**', 'src/enhancers/**', 'src/card/config.ts'],

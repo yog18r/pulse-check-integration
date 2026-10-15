@@ -32,6 +32,7 @@ import { ActionsTab } from './ActionsTab';
 import { useDrainEstimates } from './useDrainEstimates';
 import { useLastReported } from './useLastReported';
 import { useNow } from './useNow';
+import { useProblemsOnly } from './useProblemsOnly';
 import { useSnoozes } from './useSnoozes';
 
 export interface AppProps {
@@ -56,6 +57,7 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
   // re-renders this component with the new value.
   const [selected, setSelected] = useState<TabId>(config.default_tab);
   const [showSnoozed, setShowSnoozed] = useState(false);
+  const [problemsOnly, setProblemsOnly] = useProblemsOnly(config.problems_only);
   // If the config changes so the selected tab is hidden, fall back gracefully.
   const activeTab: TabId = config.show_tabs.includes(selected)
     ? selected
@@ -98,6 +100,11 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
   const drains = useDrainEstimates(hass, batteryEntities);
 
   const batteries = useMemo(() => batteryList(devices, config, drains), [devices, config, drains]);
+  const problemBatteries = useMemo(
+    () => batteries.filter((d) => batterySeverity(d.battery, config) !== 'ok'),
+    [batteries, config],
+  );
+  const shownBatteries = problemsOnly ? problemBatteries : batteries;
   const connectivity = useMemo(() => connectivityList(devices), [devices]);
   const actions = useMemo(() => actionList(devices, config), [devices, config]);
   const summary = useMemo(() => summarise(devices, config), [devices, config]);
@@ -168,6 +175,22 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
       )}
 
       <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
+        {activeTab === 'batteries' && batteries.length > 0 && (
+          <div className="toolbar">
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={problemsOnly}
+              onClick={() => {
+                setProblemsOnly(!problemsOnly);
+              }}
+            >
+              Problems only
+              <span className="count">{problemBatteries.length}</span>
+            </button>
+          </div>
+        )}
+
         {activeTab === 'batteries' &&
           (batteries.length === 0 ? (
             <EmptyState
@@ -175,11 +198,17 @@ export function App({ hass, config, enhancers, onOpenDevice }: AppProps) {
               lead="No battery-powered devices found"
               detail="Everything here runs on mains power. Lucky you."
             />
+          ) : shownBatteries.length === 0 ? (
+            <EmptyState
+              emoji="🎉"
+              lead="No battery problems"
+              detail="Every battery is above the warning threshold."
+            />
           ) : (
             <RowList
-              items={batteries}
+              items={shownBatteries}
               maxRows={config.max_rows}
-              resetKey="batteries"
+              resetKey={problemsOnly ? 'batteries:problems' : 'batteries'}
               renderRow={(d) => (
                 <DeviceRow
                   key={d.deviceId}

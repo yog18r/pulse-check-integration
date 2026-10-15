@@ -258,6 +258,16 @@ export function EditorForm({ config, onChange, hass }: Props) {
               />
               Trend sparklines
             </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={config.problems_only ?? false}
+                onChange={(e) => {
+                  set('problems_only', e.target.checked ? true : undefined);
+                }}
+              />
+              Start on problems only
+            </label>
             <label className="inline">
               <span>over</span>
               <input

@@ -111,6 +111,15 @@ describe('resolveConfig', () => {
     ).toThrow(/sparkline_days/);
   });
 
+  it('validates problems_only and a per-device area', () => {
+    expect(resolveConfig({}).problems_only).toBe(false);
+    expect(resolveConfig({ problems_only: true }).problems_only).toBe(true);
+    expect(() => resolveConfig({ problems_only: 'yes' })).toThrow(/problems_only/);
+    const withArea = resolveConfig({ device_settings: [{ device_id: 'a', area: ' Garage ' }] });
+    expect(withArea.device_settings[0]?.area).toBe('Garage');
+    expect(() => resolveConfig({ device_settings: [{ device_id: 'a', area: 3 }] })).toThrow(/area/);
+  });
+
   it('accepts a display name per device and trims it', () => {
     const resolved = resolveConfig({
       device_settings: [{ device_id: 'sensor.inverter_soc', name: '  Home Battery ' }],

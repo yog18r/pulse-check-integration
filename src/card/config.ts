@@ -49,6 +49,11 @@ export interface DeviceSettings {
   name?: string;
   /** Sparkline window for this device, in days (1-365). Overrides the global one. */
   sparkline_days?: number;
+  /**
+   * Area shown for this device (and used by the area filters), instead of
+   * the registry's. Handy for device-less sensors, which have no area at all.
+   */
+  area?: string;
 }
 
 /** Raw user input. All optional. */
@@ -76,6 +81,8 @@ export interface CardConfig {
   show_sparklines?: boolean;
   /** How many days of history the sparkline covers (1-365). Default 14. */
   sparkline_days?: number;
+  /** Start the Batteries tab showing only devices that need attention. */
+  problems_only?: boolean;
   /** Allow-lists. Area names or ids; integration platforms. */
   include_areas?: string[];
   exclude_areas?: string[];
@@ -100,6 +107,7 @@ export interface ResolvedConfig {
   max_rows: number | 'all';
   show_sparklines: boolean;
   sparkline_days: number;
+  problems_only: boolean;
   include_areas: string[];
   exclude_areas: string[];
   include_integrations: string[];
@@ -122,6 +130,7 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
   max_rows: 12,
   show_sparklines: true,
   sparkline_days: 14,
+  problems_only: false,
   include_areas: [],
   exclude_areas: [],
   include_integrations: [],
@@ -283,6 +292,10 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
       if (item.sparkline_days !== undefined) {
         entry.sparkline_days = sparklineDays(item.sparkline_days, `${where}.sparkline_days`);
       }
+      if (item.area !== undefined) {
+        if (typeof item.area !== 'string') throw new ConfigError(`${where}.area must be text.`);
+        if (item.area.trim() !== '') entry.area = item.area.trim();
+      }
       if (item.battery_count !== undefined) {
         const n = item.battery_count;
         if (typeof n !== 'number' || !Number.isInteger(n) || n < 1) {
@@ -370,6 +383,14 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
       ? DEFAULT_CONFIG.sparkline_days
       : sparklineDays(raw.sparkline_days, 'sparkline_days');
 
+  let problems_only = DEFAULT_CONFIG.problems_only;
+  if (raw.problems_only !== undefined) {
+    if (typeof raw.problems_only !== 'boolean') {
+      throw new ConfigError('"problems_only" must be true or false.');
+    }
+    problems_only = raw.problems_only;
+  }
+
   const include_areas = stringArrayOrDefault(
     raw.include_areas,
     'include_areas',
@@ -428,6 +449,7 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
     max_rows,
     show_sparklines,
     sparkline_days,
+    problems_only,
     include_areas,
     exclude_areas,
     include_integrations,

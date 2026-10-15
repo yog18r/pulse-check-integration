@@ -56,10 +56,13 @@ function isExcluded(
     return true;
   if (listHas(config.exclude_integrations, integration)) return true;
 
-  // Area allow/deny lists, matching the area's id or its display name.
+  // Area allow/deny lists, matching the area's id or its display name. A
+  // per-device `area` setting stands in for the registry's area.
   if (config.include_areas.length > 0 || config.exclude_areas.length > 0) {
-    const areaId = group.device?.area_id ?? group.entities.find((e) => e.area_id)?.area_id;
-    const name = areaId ? hass.areas[areaId]?.name : undefined;
+    const override = settingsForDevice(config, group.deviceId)?.area;
+    const areaId =
+      override ?? group.device?.area_id ?? group.entities.find((e) => e.area_id)?.area_id;
+    const name = override ?? (areaId ? hass.areas[areaId]?.name : undefined);
     if (config.include_areas.length > 0 && !listHas(config.include_areas, areaId, name))
       return true;
     if (listHas(config.exclude_areas, areaId, name)) return true;
@@ -174,7 +177,7 @@ export function analyseDevices(
     // `exactOptionalPropertyTypes` means we must leave optional keys out
     // rather than set them to undefined. Verbose, but it keeps `health`
     // honest: a missing key really is missing.
-    const area = areaName(group, hass);
+    const area = settingsForDevice(config, group.deviceId)?.area ?? areaName(group, hass);
     if (area !== undefined) health.area = area;
     if (group.device?.manufacturer) health.manufacturer = group.device.manufacturer;
     if (group.device?.model) health.model = group.device.model;

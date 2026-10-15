@@ -191,6 +191,26 @@ describe('analyseDevices', () => {
     expect(byId.get(DEV.z2mDoor)?.name).toBe('Front Door Sensor'); // untouched
   });
 
+  it('a per-device area overrides the registry area and counts for the filters', () => {
+    const settings = [
+      { device_id: DEV.phone, area: 'Office' }, // phone has no registry area
+      { device_id: 'sensor.remote_battery_template', area: 'Living Room' },
+      { device_id: DEV.zhaTemp, area: 'Garage' }, // registry says Bedroom
+    ];
+    const plain = run({ device_settings: settings });
+    expect(plain.byId.get(DEV.phone)?.area).toBe('Office');
+    expect(plain.byId.get(ORPHAN_PREFIX + 'sensor.remote_battery_template')?.area).toBe(
+      'Living Room',
+    );
+    expect(plain.byId.get(DEV.zhaTemp)?.area).toBe('Garage');
+
+    const filtered = run({ device_settings: settings, include_areas: ['office', 'garage'] });
+    expect(filtered.byId.has(DEV.phone)).toBe(true);
+    expect(filtered.byId.has(DEV.zhaTemp)).toBe(true); // moved to Garage
+    expect(filtered.byId.has(DEV.zwaveMulti)).toBe(true); // really in the Garage
+    expect(filtered.byId.has(DEV.matterContact)).toBe(false); // still in the Bedroom
+  });
+
   it('matches device-less sensors by entity id for quiet thresholds too', () => {
     const { byId } = run({
       quiet_scope: 'all',
