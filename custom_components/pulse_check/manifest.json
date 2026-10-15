@@ -1,7 +1,12 @@
 {
   "domain": "pulse_check",
   "name": "Pulse Check",
-  "codeowners": ["@yog18r"],
+  "after_dependencies": [
+    "recorder"
+  ],
+  "codeowners": [
+    "@yog18r"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/yog18r/pulse-check-integration",

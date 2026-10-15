@@ -265,6 +265,8 @@ class DeviceHealth:
     # Set while the user has snoozed this device. Facts are still reported,
     # but severity is "ok".
     snoozed_until: datetime | None = None
+    # Days until empty at the current drain rate, when history allows an estimate.
+    days_left: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """The card's `DeviceHealth` shape, JSON-ready."""
@@ -291,6 +293,8 @@ class DeviceHealth:
             out["lastHeard"] = to_iso(self.last_heard)
         if self.snoozed_until is not None:
             out["snoozedUntil"] = to_iso(self.snoozed_until)
+        if self.days_left is not None:
+            out["daysLeft"] = round(self.days_left, 1)
         return out
 
 

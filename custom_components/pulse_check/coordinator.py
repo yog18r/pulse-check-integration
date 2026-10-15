@@ -12,7 +12,11 @@ It recomputes:
 - every 5 minutes regardless, so a device that simply stops reporting is
   noticed, and a snooze that expires takes effect.
 
-It never talks to devices. Everything it reads is already in memory.
+Battery history (for drain estimates) is heavier, so it is read from the
+recorder separately, every 6 hours, and merged into the next result.
+
+It never talks to devices. Everything it reads is already in memory or in
+the recorder's database.
 """
 
 from __future__ import annotations
@@ -23,9 +27,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.const import (
-    EVENT_STATE_CHANGED,
-)
+from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers import (
     area_registry as ar,
@@ -33,10 +35,11 @@ from homeassistant.helpers import (
     entity_registry as er,
 )
 from homeassistant.helpers.debounce import Debouncer
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
-from .const import DEBOUNCE_SECONDS, DOMAIN, UPDATE_INTERVAL
+from .const import DEBOUNCE_SECONDS, DOMAIN, HISTORY_INTERVAL, UPDATE_INTERVAL
 from .core import (
     ActionList,
     CoreConfig,
@@ -48,6 +51,8 @@ from .core import (
 )
 from .core.enhancers import ENHANCERS
 from .core.models import AreaEntry, DeviceEntry, EntityEntry, EntityState, Snapshot
+from .history import HistoryTracker
+from .options import core_config_from_options
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -71,6 +76,8 @@ class PulseCheckData:
     actions: ActionList
     config: CoreConfig
     computed_at: datetime
+    # The battery device with the fewest days left, when any has an estimate.
+    next_to_run_out: DeviceHealth | None = None
 
 
 class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
@@ -93,8 +100,8 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             update_interval=UPDATE_INTERVAL,
             request_refresh_debouncer=self._refresh_debouncer,
         )
-        # Thresholds and filters arrive with the options flow in phase 2.
-        self.core_config = CoreConfig()
+        self.core_config = core_config_from_options(entry.options)
+        self.history = HistoryTracker(hass)
         self._entity_registry = er.async_get(hass)
 
     async def _async_setup(self) -> None:
@@ -113,6 +120,9 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             self.config_entry.async_on_unload(
                 self.hass.bus.async_listen(event_type, self._handle_event)
             )
+        self.config_entry.async_on_unload(
+            async_track_time_interval(self.hass, self._handle_history_timer, HISTORY_INTERVAL)
+        )
 
     @callback
     def _state_event_is_relevant(self, event_data: EventStateChangedData) -> bool:
@@ -123,6 +133,26 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
     def _handle_event(self, _event: Event[Any]) -> None:
         """Schedule a debounced refresh. Cheap: no task per event."""
         self._refresh_debouncer.async_schedule_call()
+
+    @callback
+    def _handle_history_timer(self, _now: datetime) -> None:
+        """Every few hours, re-read battery history in the background."""
+        self.config_entry.async_create_background_task(
+            self.hass, self.async_refresh_history(), "pulse_check history"
+        )
+
+    async def async_refresh_history(self) -> None:
+        """Re-read battery history from the recorder, then recompute.
+
+        Recorder trouble must never take the sensors down, so failures are
+        logged and the previous estimates (if any) are kept.
+        """
+        try:
+            await self.history.async_refresh(self.data.devices)
+        except Exception:
+            _LOGGER.warning("Reading battery history from the recorder failed", exc_info=True)
+            return
+        await self.async_refresh()
 
     async def _async_update_data(self) -> PulseCheckData:
         """Build a snapshot in the event loop, then analyse it in a worker thread.
@@ -136,6 +166,7 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         snapshot = build_snapshot(self.hass)
         config = self.core_config
         devices = await self.hass.async_add_executor_job(_analyse, snapshot, config, now)
+        next_to_run_out = self._attach_drain_estimates(devices)
         _LOGGER.debug(
             "Analysed %d entities into %d devices in %.1f ms",
             len(snapshot["entities"]),
@@ -148,7 +179,23 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             actions=action_list(devices, config),
             config=config,
             computed_at=now,
+            next_to_run_out=next_to_run_out,
         )
+
+    def _attach_drain_estimates(self, devices: list[DeviceHealth]) -> DeviceHealth | None:
+        """Copy days-left onto each device and return the soonest to run out."""
+        soonest: DeviceHealth | None = None
+        for device in devices:
+            battery = device.battery
+            if battery is None:
+                continue
+            estimate = self.history.estimates.get(battery.entity_id)
+            if estimate is None:
+                continue
+            device.days_left = estimate.days_left
+            if soonest is None or (soonest.days_left or 0) > estimate.days_left:
+                soonest = device
+        return soonest
 
 
 def _analyse(snapshot: Snapshot, config: CoreConfig, now: datetime) -> list[DeviceHealth]:

@@ -15,13 +15,13 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from .models import as_utc
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,3 +99,37 @@ def format_days_left(days: float) -> str:
     if days < 365:
         return f"~{math.floor(days / 30 + 0.5)}mo"
     return "1y+"
+
+
+def rows_to_points(rows: Iterable[Mapping[str, Any]]) -> list[DrainPoint]:
+    """Recorder statistics rows (`start` as epoch seconds, `mean`) -> points.
+
+    Rows without a mean (a day with no data) are skipped.
+    """
+    points: list[DrainPoint] = []
+    for row in rows:
+        mean = row.get("mean")
+        start = row.get("start")
+        if mean is None or not isinstance(start, int | float):
+            continue
+        points.append(DrainPoint(time=datetime.fromtimestamp(start, tz=UTC), level=float(mean)))
+    return points
+
+
+def daily_means(samples: Iterable[tuple[datetime, float | None]]) -> list[DrainPoint]:
+    """Collapse raw samples into one point per UTC day: the mean of that day.
+
+    This is the shape the statistics API gives us, so sensors without
+    statistics can take the same path. Samples without a value
+    (unavailable, unknown) are skipped.
+    """
+    totals: dict[datetime, list[float]] = {}
+    for moment, level in samples:
+        if level is None or not math.isfinite(level):
+            continue
+        day = as_utc(moment).replace(hour=0, minute=0, second=0, microsecond=0)
+        totals.setdefault(day, []).append(level)
+    return [
+        DrainPoint(time=day, level=sum(levels) / len(levels))
+        for day, levels in sorted(totals.items())
+    ]

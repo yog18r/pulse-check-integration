@@ -6,7 +6,7 @@ It is the backend companion to the [Pulse Check Card](https://github.com/yog18r/
 
 [![CI](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml)
 
-> **Status: early.** Phase 1 of the [plan](PLAN.md) is done: the detection rules and one sensor. Notifications, per-device settings, services and replacement tracking are on their way. See [Roadmap](#roadmap).
+> **Status: early.** Phases 1 and 2 of the [plan](PLAN.md) are done: the detection rules, the entities, the options dialog and drain estimates. Notifications, per-device settings, services and replacement tracking are on their way. See [Roadmap](#roadmap).
 
 ---
 
@@ -32,7 +32,7 @@ Add `https://github.com/yog18r/pulse-check-integration` as a custom repository i
 
 ### Option 2: manual
 
-Copy the `custom_components/pulse_check` folder into your Home Assistant `config/custom_components/` folder and restart.
+Copy the `custom_components/pulse_check` folder into your Home Assistant `config/custom_components/` folder and restart. If you copy from a checkout you have run tests in, delete any `__pycache__` folders first; some file-manager add-ons refuse to upload `.pyc` files. The release zip never contains them.
 
 ### Then
 
@@ -40,11 +40,44 @@ Go to **Settings → Devices & services → Add integration** and search for **P
 
 Requires Home Assistant 2026.9 or newer.
 
+## Options
+
+Open **Settings → Devices & services → Pulse Check → Configure**. Everything has a sensible default; the first thing most people change is the filters.
+
+**Thresholds**
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| Battery warning level | 30 % | At or below this a battery is a warning |
+| Battery critical level | 15 % | At or below this a battery is critical |
+| Quiet after | 24 h | Hours without any report before a device is quiet |
+| Which devices can be quiet | Battery devices only | "All devices" judges mains devices too; expect noise from lights and media players |
+| Quiet threshold per integration | none | Longer thresholds for integrations whose devices report rarely, e.g. `zwave_js` 48 h, blinds 48 h |
+
+**Filters**
+
+| Option | Meaning |
+| --- | --- |
+| Only these areas / Ignore these areas | Area allow and deny lists. With an allow list, devices without an area are left out |
+| Only these integrations / Ignore these integrations | By platform, e.g. `mobile_app` to leave phones out, `music_assistant` for players that are off when the TV is |
+| Ignore these devices | Specific devices |
+| Ignore these entities | Specific entities: typically a settings sensor an integration labels `device_class: battery` (an inverter's "minimum state of charge") without marking it as a config entity |
+
+The option keys match the card's YAML (`battery_warning`, `exclude_entities`, `integration_thresholds`, …), so a card config translates one to one.
+
 ## Entities
 
 | Entity | State | Attributes |
 | --- | --- | --- |
-| `sensor.pulse_check_attention` | Number of devices that need attention (warning or critical) | `devices`: every device with its battery, offline, quiet and severity facts; `summary`: counts; `actions`: the replace and charge lists and shopping totals; `computed_at` |
+| `sensor.pulse_check_attention` | Number of devices that need attention (warning or critical) | `devices`: every device with its battery, offline, quiet, severity and days-left facts; `summary`: counts; `actions`: the replace and charge lists and shopping totals; `computed_at` |
+| `sensor.pulse_check_low_batteries` | Battery devices at or below the warning level, or reporting "low" | |
+| `sensor.pulse_check_critical_batteries` | Battery devices at or below the critical level, or reporting "low" | |
+| `sensor.pulse_check_offline` | Devices with every primary entity unavailable | |
+| `sensor.pulse_check_quiet` | Devices not heard from within their threshold | |
+| `sensor.pulse_check_next_to_run_out` | Name of the battery device with the fewest days left (`unknown` until there is enough history) | `days_left`, `device_id`, `entity_id`, `level` |
+| `binary_sensor.pulse_check_problem` | On when anything needs attention | |
+
+Snoozed devices (phase 3) count in nothing.
 
 The `devices` attribute uses the same shape as the card's `DeviceHealth`, one entry per device:
 
@@ -61,13 +94,37 @@ The `devices` attribute uses the same shape as the card's `DeviceHealth`, one en
   isQuiet: false
   quietThresholdHours: 24
   severity: critical
+  daysLeft: 6.1
   extras: [{ label: LQI, value: "45", severity: ok }]
   entityIds: [binary_sensor.living_room_motion_occupancy, sensor.living_room_motion_battery, …]
 ```
 
 The large attributes are excluded from the recorder; only the count is kept as history.
 
-Planned (phase 2): plain count sensors for low and critical batteries, offline and quiet devices, a "next to run out" sensor, and a `binary_sensor.pulse_check_problem`.
+### Automation examples
+
+```yaml
+# Push a message when something new needs attention
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.pulse_check_problem
+    to: "on"
+actions:
+  - action: notify.mobile_app_pixel_9
+    data:
+      message: "{{ states('sensor.pulse_check_attention') }} devices need attention"
+```
+
+```yaml
+# A shopping list from the action totals
+actions:
+  - action: notify.mobile_app_pixel_9
+    data:
+      message: >
+        {% for line in state_attr('sensor.pulse_check_attention', 'actions').shopping %}
+        {{ line.count }} × {{ line.batteryType }}
+        {% endfor %}
+```
 
 ## How detection works
 
@@ -87,6 +144,8 @@ These rules are shared with the card and checked against the same test fixture (
 
 **Enhancers.** Optional, integration-specific extras that never break the core: Z-Wave JS node status, Zigbee2MQTT link quality and `last_seen`, ZHA LQI and RSSI.
 
+**Days left.** Every six hours the integration reads the last 14 days of daily battery means from the recorder's long-term statistics (raw state history for sensors without statistics, and attribute history for batteries that only exist as a `battery_level` attribute), adds the live reading, and fits a straight line. It needs at least three samples over two days and a slope of at least 0.1 % per day; a flat or rising battery (on charge, or noisy) gets no estimate. Days left is the level divided by the rate. It is a rough order of magnitude by design.
+
 ## Architecture
 
 ```
@@ -102,8 +161,12 @@ custom_components/pulse_check/
 │   ├── drain.py      drain-rate estimation (used from phase 2)
 │   └── enhancers/    Z-Wave JS, Zigbee2MQTT, ZHA
 ├── coordinator.py    when to recompute; builds the snapshot from HA
-├── sensor.py         the entities
-├── config_flow.py    the "Add integration" dialog
+├── history.py        battery history from the recorder, for days-left
+├── options.py        entry.options -> the core's configuration
+├── entity.py         the base entity (one "Pulse Check" service device)
+├── sensor.py         the sensors
+├── binary_sensor.py  the problem binary sensor
+├── config_flow.py    the "Add integration" and "Configure" dialogs
 └── __init__.py       setup and unload
 ```
 
@@ -111,7 +174,7 @@ custom_components/pulse_check/
 
 **The coordinator** is Home Assistant's `DataUpdateCoordinator`. It listens to `state_changed` for registered entities and recomputes about two seconds after the last change (a debounce, so a burst costs one run), and also every five minutes so time-based transitions happen on their own. It copies the state machine and registries into plain dicts in the event loop, then runs the analysis in a worker thread. The analysis is pure, so it is tested without Home Assistant; the coordinator and sensor are tested with the JSON fixture loaded into a real test instance.
 
-**Nothing is polled from devices.** `last_reported` is Home Assistant's own record of when an entity last pushed a value. Phase 2's drain estimates read the recorder's statistics, which already exist.
+**Nothing is polled from devices.** `last_reported` is Home Assistant's own record of when an entity last pushed a value. Drain estimates read the recorder's database, which already holds the history; those queries run in the recorder's own worker thread.
 
 ## Development
 
@@ -125,14 +188,14 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (28 tests) runs in about a second. CI runs ruff, mypy, pytest, [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest/) and the HACS validation action on every push, plus the golden-file drift check.
+The test suite (45 tests) runs in a few seconds. CI runs ruff, mypy, pytest, [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest/) and the HACS validation action on every push, plus the golden-file drift check.
 
 To try a development build on a live instance, copy `custom_components/pulse_check` into `/config/custom_components/` and restart Home Assistant.
 
 ## Roadmap
 
 1. ~~Scaffold and core: tooling, config flow, the ported core with shared golden tests, the attention sensor~~
-2. Entities and options: count sensors, the problem binary sensor, an options flow for thresholds, quiet scope and filters, drain estimates from recorder statistics
+2. ~~Entities and options: count sensors, the problem binary sensor, an options flow for thresholds, quiet scope and filters, drain estimates from recorder statistics~~
 3. Notifications and storage: per-device settings and services, snooze, notifications on transitions with per-device policies (instant, daily, weekly, none), reminders, digests, a `pulse_check_transition` event and a blueprint
 4. Replacement tracking: mark replaced or charged, auto-detect, cycle statistics, remaining days, "unusual behaviour" flags, per-device diagnostic sensors
 5. Card integration mode: the card reads this integration instead of analysing in the browser
