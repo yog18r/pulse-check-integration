@@ -45,6 +45,8 @@ export interface DeviceSettings {
   battery_count?: number;
   /** Charge it rather than replace it. */
   rechargeable?: boolean;
+  /** Shown instead of the device's registry name. Does not rename the device. */
+  name?: string;
 }
 
 /** Raw user input. All optional. */
@@ -248,6 +250,12 @@ export function resolveConfig(raw: unknown): ResolvedConfig {
           throw new ConfigError(`${where}.battery_type must be text, e.g. "CR2032".`);
         }
         if (item.battery_type.trim() !== '') entry.battery_type = item.battery_type.trim();
+      }
+      if (item.name !== undefined) {
+        if (typeof item.name !== 'string') {
+          throw new ConfigError(`${where}.name must be text.`);
+        }
+        if (item.name.trim() !== '') entry.name = item.name.trim();
       }
       if (item.battery_count !== undefined) {
         const n = item.battery_count;

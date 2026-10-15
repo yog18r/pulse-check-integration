@@ -72,6 +72,9 @@ device_settings: # per-device settings
     battery_count: 2 # cells to replace; default 1
     rechargeable: false # true = "charge it" instead of "replace it"
     quiet_threshold_hours: 72 # per-device quiet limit
+    name: Home Battery # shown instead of the device's name; the device itself is not renamed
+  - device_id: sensor.inverter_soc # a battery sensor with no device: use its entity id
+    name: Inverter
 exclude_integrations: [mobile_app] # hide phones
 exclude_devices: [] # device ids (or an entity id for device-less entities)
 exclude_entities: [] # entity ids to ignore, e.g. a settings sensor labelled as a battery

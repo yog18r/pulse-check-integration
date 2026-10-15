@@ -16,6 +16,7 @@ import {
   dominantIntegration,
   type DeviceGroup,
 } from './group';
+import { settingsForDevice } from './settings';
 import {
   batterySeverity,
   connectivitySeverity,
@@ -159,7 +160,9 @@ export function analyseDevices(
 
     const health: DeviceHealth = {
       deviceId: group.deviceId,
-      name: displayName(group),
+      // The user's display name wins over the registry's. It changes only
+      // what the card shows; the device itself keeps its name.
+      name: settingsForDevice(config, group.deviceId)?.name ?? displayName(group),
       integration,
       isOffline,
       isQuiet: quiet,

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { deviceLabel, listDevices, listIntegrations } from '../../src/core/registryOptions';
+import {
+  deviceLabel,
+  listDevices,
+  listIntegrations,
+  listOrphanBatteryEntities,
+} from '../../src/core/registryOptions';
 import { DEV, hass } from '../fixtures/hass';
 
 describe('listIntegrations', () => {
@@ -54,6 +59,20 @@ describe('listDevices', () => {
     const phone = devices.find((d) => d.id === DEV.phone);
     expect(phone?.area).toBeUndefined();
     expect(phone?.integration).toBe('mobile_app');
+  });
+});
+
+describe('listOrphanBatteryEntities', () => {
+  it('lists device-less battery sensors under their entity: id, skipping config ones', () => {
+    const options = listOrphanBatteryEntities(hass);
+    expect(options).toEqual([
+      {
+        id: 'entity:sensor.remote_battery_template',
+        name: 'TV Remote Battery',
+        integration: 'template',
+      },
+    ]);
+    // sensor.inverter_min_soc is a config entity and sensor.random_template has no battery.
   });
 });
 

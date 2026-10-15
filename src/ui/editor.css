@@ -272,3 +272,14 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.settingsline input[type='text'] {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--divider-color, #e0e0e0);
+  background: var(--card-background-color, #fff);
+  color: inherit;
+  font: inherit;
+}

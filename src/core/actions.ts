@@ -13,6 +13,7 @@
  * `device_settings`; Home Assistant has no reliable way to know them.
  */
 import type { DeviceSettings, ResolvedConfig } from '../card/config';
+import { settingsForDevice } from './settings';
 import { batterySeverity } from './thresholds';
 import type { DeviceHealth, Severity } from './types';
 
@@ -50,7 +51,7 @@ export function settingsFor(
   device: DeviceHealth,
   config: ResolvedConfig,
 ): DeviceSettings | undefined {
-  return config.device_settings.find((o) => o.device_id === device.deviceId);
+  return settingsForDevice(config, device.deviceId);
 }
 
 export function needsAttention(device: DeviceHealth, config: ResolvedConfig): boolean {

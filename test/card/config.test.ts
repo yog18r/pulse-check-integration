@@ -98,6 +98,17 @@ describe('resolveConfig', () => {
     ).toThrow(/rechargeable/);
   });
 
+  it('accepts a display name per device and trims it', () => {
+    const resolved = resolveConfig({
+      device_settings: [{ device_id: 'sensor.inverter_soc', name: '  Home Battery ' }],
+    });
+    expect(resolved.device_settings[0]?.name).toBe('Home Battery');
+    expect(
+      resolveConfig({ device_settings: [{ device_id: 'a', name: '' }] }).device_settings[0],
+    ).toEqual({ device_id: 'a' });
+    expect(() => resolveConfig({ device_settings: [{ device_id: 'a', name: 5 }] })).toThrow(/name/);
+  });
+
   it('ignores unknown keys such as the retired device_overrides and shopping tab', () => {
     const resolved = resolveConfig({ device_overrides: [{ device_id: 'x' }] });
     expect(resolved.device_settings).toEqual([]);

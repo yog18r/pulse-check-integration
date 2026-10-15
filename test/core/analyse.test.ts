@@ -179,6 +179,31 @@ describe('analyseDevices', () => {
     expect(exc.byId.has(DEV.phone)).toBe(true); // no area: unaffected by exclude
   });
 
+  it('applies display-name overrides, including to device-less sensors by entity id', () => {
+    const { byId } = run({
+      device_settings: [
+        { device_id: DEV.zhaTemp, name: 'Bedroom Climate' },
+        { device_id: 'sensor.remote_battery_template', name: 'TV Remote' },
+      ],
+    });
+    expect(byId.get(DEV.zhaTemp)?.name).toBe('Bedroom Climate');
+    expect(byId.get(ORPHAN_PREFIX + 'sensor.remote_battery_template')?.name).toBe('TV Remote');
+    expect(byId.get(DEV.z2mDoor)?.name).toBe('Front Door Sensor'); // untouched
+  });
+
+  it('matches device-less sensors by entity id for quiet thresholds too', () => {
+    const { byId } = run({
+      quiet_scope: 'all',
+      quiet_threshold_hours: 1,
+      device_settings: [
+        { device_id: 'entity:sensor.remote_battery_template', quiet_threshold_hours: 100 },
+      ],
+    });
+    expect(byId.get(ORPHAN_PREFIX + 'sensor.remote_battery_template')?.quietThresholdHours).toBe(
+      100,
+    );
+  });
+
   it('honours per-integration quiet thresholds', () => {
     const { byId } = run({ integration_thresholds: { zwave_js: 48 } });
     expect(byId.get(DEV.zwaveMulti)?.isQuiet).toBe(false); // 40h < 48h

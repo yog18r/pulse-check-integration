@@ -11,6 +11,7 @@
  *   ok        everything else
  */
 import type { ResolvedConfig } from '../card/config';
+import { settingsForDevice } from './settings';
 import type { BatteryReading, EnhancerExtra, Severity } from './types';
 
 /** Order used for comparing and sorting severities. Higher = worse. */
@@ -29,7 +30,7 @@ export function resolveQuietThreshold(
   integration: string,
   deviceId: string,
 ): number {
-  const override = config.device_settings.find((o) => o.device_id === deviceId);
+  const override = settingsForDevice(config, deviceId);
   if (override?.quiet_threshold_hours !== undefined) return override.quiet_threshold_hours;
 
   const perIntegration = config.integration_thresholds[integration];

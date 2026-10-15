@@ -16,7 +16,7 @@
 import { useState } from 'react';
 import type { DeviceSettings } from '../card/config';
 import { BATTERY_TYPE_GROUPS, isKnownBatteryType, OTHER_BATTERY_TYPE } from '../core/batteryTypes';
-import { listDevices, listIntegrations } from '../core/registryOptions';
+import { listDevices, listIntegrations, listOrphanBatteryEntities } from '../core/registryOptions';
 import type { HassLike } from '../core/types';
 import { DevicePicker } from './DevicePicker';
 
@@ -142,10 +142,13 @@ interface SettingsPatch {
   battery_type?: string | undefined;
   battery_count?: number | undefined;
   rechargeable?: boolean | undefined;
+  name?: string | undefined;
 }
 
 function applyPatch(row: DeviceSettings, patch: SettingsPatch): DeviceSettings {
   const next: DeviceSettings = { device_id: patch.device_id ?? row.device_id };
+  const name = 'name' in patch ? patch.name : row.name;
+  if (name !== undefined && name.trim() !== '') next.name = name;
   const hours =
     'quiet_threshold_hours' in patch ? patch.quiet_threshold_hours : row.quiet_threshold_hours;
   if (hours !== undefined) next.quiet_threshold_hours = hours;
@@ -214,7 +217,9 @@ function BatteryTypeField({
 }
 
 export function DeviceSettingsRows({ value, hass, onChange }: DeviceRowsProps) {
-  const devices = hass ? listDevices(hass) : [];
+  // Real devices plus battery sensors that have no device, so a cloud or
+  // template sensor can be renamed or typed like anything else.
+  const devices = hass ? [...listDevices(hass), ...listOrphanBatteryEntities(hass)] : [];
   const used = new Set(value.map((o) => o.device_id));
   const unused = devices.filter((d) => !used.has(d.id));
 
@@ -266,6 +271,17 @@ export function DeviceSettingsRows({ value, hass, onChange }: DeviceRowsProps) {
             >
               ✕
             </button>
+          </div>
+          <div className="settingsline">
+            <input
+              type="text"
+              aria-label="Display name"
+              placeholder="Display name (optional): shown on the card instead of the device name"
+              value={row.name ?? ''}
+              onChange={(e) => {
+                update(index, { name: e.target.value });
+              }}
+            />
           </div>
           <div className="settingsline details">
             <BatteryTypeField

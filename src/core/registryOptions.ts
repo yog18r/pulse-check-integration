@@ -5,7 +5,7 @@
  * users to paste device ids and integration names it can offer dropdowns
  * of what actually exists in their instance. Pure functions, unit tested.
  */
-import { isIgnorableDevice } from './group';
+import { isIgnorableDevice, ORPHAN_PREFIX } from './group';
 import type { HassLike } from './types';
 
 export interface IntegrationOption {
@@ -70,6 +70,31 @@ export function listDevices(hass: HassLike): DeviceOption[] {
     (a, b) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) || a.id.localeCompare(b.id),
   );
+}
+
+/**
+ * Battery sensors that have no device (template, cloud and some custom
+ * integrations). The card shows them as pseudo-devices keyed
+ * `entity:<entity_id>`, so the picker offers them under that id.
+ */
+export function listOrphanBatteryEntities(hass: HassLike): DeviceOption[] {
+  const options: DeviceOption[] = [];
+  for (const entity of Object.values(hass.entities)) {
+    if (entity.device_id !== undefined || entity.entity_category === 'config') continue;
+    const state = hass.states[entity.entity_id];
+    if (!state) continue;
+    const isBattery =
+      state.attributes.device_class === 'battery' || 'battery_level' in state.attributes;
+    if (!isBattery) continue;
+    const friendly = state.attributes.friendly_name;
+    const option: DeviceOption = {
+      id: ORPHAN_PREFIX + entity.entity_id,
+      name: typeof friendly === 'string' && friendly !== '' ? friendly : entity.entity_id,
+    };
+    if (entity.platform) option.integration = entity.platform;
+    options.push(option);
+  }
+  return options.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }
 
 /** "Front Door Lock (Hallway · zwave_js)" style label for a dropdown. */
