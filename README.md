@@ -32,6 +32,7 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 - **Days left** from the recorder's history, **replacement tracking** with cycle statistics, and a flag when a battery drains much faster than it used to
 - **Snooze** a device for a while; snoozes are shared across every browser and user
 - Everything grouped by **device**, not entity, so each physical thing appears once
+- In **ten languages**: English, German, French, Spanish, Dutch, Italian, Brazilian Portuguese, Polish, Simplified Chinese and Czech
 
 It reads only what Home Assistant already knows: the state machine and the registries. **It never contacts a device**, so it cannot wake or drain anything.
 
@@ -79,6 +80,18 @@ lovelace:
     - url: /pulse_check/pulse-check-card.js?v=0.1.0
       type: module
 ```
+
+## Languages
+
+Pulse Check speaks English, German (`de`), French (`fr`), Spanish (`es`), Dutch (`nl`), Italian (`it`), Brazilian Portuguese (`pt-BR`), Polish (`pl`), Simplified Chinese (`zh-Hans`) and Czech (`cs`), in three places:
+
+- **Dialogs, entity names and services** follow each user's language, like any integration (`custom_components/pulse_check/translations/`).
+- **Notifications and digests** are written in the server language (Settings → System → General), checked as each message is sent, so a change needs no restart (`custom_components/pulse_check/messages/`).
+- **The card and its editor** follow each user's profile language, including dates and "5m ago" style times (`frontend/src/i18n/`).
+
+A regional variant uses its base language (`de-CH` reads German, `pt` reads Brazilian Portuguese) and anything else reads English. A few things stay as they are everywhere: device and area names, battery sizes such as CR2032, and YAML keys in the card's error messages.
+
+> **The translations were made by machine.** They have been checked for completeness and placeholders, not by native speakers. Corrections are very welcome: each language is one file in each of the three folders above, so a pull request that fixes a phrase touches only that line.
 
 ## Options
 
@@ -267,7 +280,7 @@ When it ends nothing is replayed. Pulse Check compares what is wrong now with wh
 
 ### The event
 
-Every transition also fires a `pulse_check_transition` event with `device_id`, `name`, `area`, `integration`, `issue` (`offline`, `quiet`, `battery_warning`, `battery_critical`), `kind` (`entered` or `resolved`), `severity`, `message`, `policy`, `level` and `maintenance` (true while maintenance mode is on). The blueprint in [`blueprints/automation/pulse_check/transition_notify.yaml`](https://github.com/yog18r/pulse-check-integration/blob/main/blueprints/automation/pulse_check/transition_notify.yaml) turns those into notifications of your own design; import it from Settings → Automations → Blueprints with the file's GitHub URL. By default it stays quiet during maintenance mode too.
+Every transition also fires a `pulse_check_transition` event with `device_id`, `name`, `area`, `integration`, `issue` (`offline`, `quiet`, `battery_warning`, `battery_critical`), `kind` (`entered` or `resolved`), `severity`, `message` (in the server language), `policy`, `level` and `maintenance` (true while maintenance mode is on). The blueprint in [`blueprints/automation/pulse_check/transition_notify.yaml`](https://github.com/yog18r/pulse-check-integration/blob/main/blueprints/automation/pulse_check/transition_notify.yaml) turns those into notifications of your own design; import it from Settings → Automations → Blueprints with the file's GitHub URL. By default it stays quiet during maintenance mode too.
 
 ## Services
 
@@ -378,14 +391,17 @@ custom_components/pulse_check/
 ├── frontend/         the built card, pulse-check-card.js (not in git; built from /frontend)
 ├── coordinator.py    when to recompute; builds the snapshot from HA
 ├── history.py        battery history from the recorder, for days-left
-├── notify.py         transitions, policies, reminders, digests, the event
+├── notify.py         transitions, policies, reminders, digests, maintenance mode, the event
+├── notify_actions.py buttons on companion-app notifications, and what they do
+├── messages.py       notification text in the server's language (messages/<language>.json)
+├── translations/     dialogs, entity names and services, one file per language
 ├── replacements.py   replacement and charge history, cycles, unusual drain
 ├── storage.py        the .storage file: settings, snoozes, notify state, history
 ├── services.py       the pulse_check.* services
 ├── options.py        entry.options -> the core's configuration
 ├── entity.py         the base entity (one "Pulse Check" service device)
 ├── sensor.py         the sensors
-├── binary_sensor.py  the problem binary sensor
+├── binary_sensor.py  the problem and maintenance mode binary sensors
 ├── config_flow.py    the "Add integration" and "Configure" dialogs
 └── __init__.py       setup and unload
 ```
@@ -429,7 +445,8 @@ To try a development build on a live instance, run `npm run build` in `frontend/
 
 Everything planned is built; [PLAN.md](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) records how the design got here. Still to come:
 
-- Translations beyond English
+- Native-speaker review of the machine-made translations
+- Submission to the HACS default store
 
 ## License
 

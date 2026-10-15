@@ -259,6 +259,42 @@ pressed button's `action` identifier.
   reminders are on and the message is not the last reminder.
 - Checked against the companion app's documentation only, not on a phone.
 
+**Translations.** English plus `de`, `fr`, `es`, `nl`, `it`, `pt-BR`,
+`pl`, `zh-Hans` and `cs`, machine-made and labelled as such in the README.
+
+- *Dialogs, entities, services*: `translations/<code>.json`, Home
+  Assistant's own mechanism, structurally identical to `strings.json`
+  (a test compares keys and placeholders).
+- *Notification text*: Home Assistant's loader only serves the categories
+  hassfest's schema allows, so composed messages (issues, reminders,
+  digests, the maintenance summary, button labels) live in
+  `messages/<code>.json`, read once at setup in the executor. Each message
+  is worded in `hass.config.language` when it is sent. Fallback: exact
+  code, base language, a regional variant of the base, English; a missing
+  key reads English. Counts use CLDR plural categories from a small
+  integer rule table in `messages.py` (no Babel dependency); that fixed
+  "after 1 days".
+- *The card*: `frontend/src/i18n/<code>.ts`, typed against `en.ts`, so a
+  missing key fails the type check; a test checks plural forms per
+  `Intl.PluralRules` and placeholders. Language from `hass.locale.language`,
+  then `hass.language`, then English; the element re-renders when it
+  changes. Relative times come from `Intl.RelativeTimeFormat` (narrow
+  style, short for French, whose narrow form is "-5 min"); duration
+  abbreviations are catalog entries because `Intl`'s narrow units are
+  ambiguous (English "5m" is minutes and months).
+- The integration still sends some English the card shows: the action
+  `label`, an estimate's `basis` and a battery's `unusual` note. The card
+  words the action itself from the item's fields, and translates `basis`
+  and `unusual` by matching the complete set of server phrases
+  (`serverText.ts`), passing anything unknown through. Structured keys on
+  the wire would be cleaner but would change the frozen golden output;
+  not worth it for five phrases.
+- Card config errors carry a key and parameters (`ConfigError`), so the
+  editor and the card show them translated; the English `message` stays
+  for logs. The card picker entry is registered before any `hass` exists,
+  so it uses `<html lang>`, which Home Assistant's frontend sets.
+
 ## Still open
 
-- Translations beyond English; HACS default-store submission once released.
+- A native-speaker review of the translations; HACS default-store
+  submission once released.
