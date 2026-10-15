@@ -153,3 +153,6 @@ dist/
 coverage/
 .vite/
 *.local
+
+# Editor/agent local config
+.claude/

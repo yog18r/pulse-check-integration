@@ -29,6 +29,9 @@ export default defineConfig({
       output: {
         // Never split into chunks. HA loads the card as a single resource URL.
         codeSplitting: false,
+        // Library builds keep whitespace by default (nice for consumers who
+        // bundle again). Nobody re-bundles a HA card, so squeeze it fully.
+        minify: true,
       },
     },
     // CSS is imported with `?inline` and injected into the shadow root,
