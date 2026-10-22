@@ -58,6 +58,7 @@
               "notify_warning": "Ostrzeżenia",
               "reminder_days": "Przypomnij po",
               "reminder_max": "Maksymalnie przypomnień",
+              "integration_limit": "Wiadomości offline i bez sygnału na integrację",
               "digest_time": "Godzina podsumowania",
               "digest_weekday": "Dzień podsumowania tygodniowego",
               "weekly_all_clear": "Cotygodniowe \"wszystko w porządku\", gdy nie ma nic do zgłoszenia",
@@ -71,6 +72,7 @@
               "notify_warning": "Domyślne dostarczanie dla milczących urządzeń i słabych baterii.",
               "reminder_days": "Liczba dni, przez które natychmiastowe powiadomienie może pozostać nierozwiązane, zanim zostanie wysłane ponownie.",
               "reminder_max": "0 wyłącza przypomnienia.",
+              "integration_limit": "Najwyżej tyle wiadomości offline lub bez sygnału na integrację w ciągu godziny, aby awaria, np. aktualizacja sieci, nie wysyłała jednej wiadomości na urządzenie. Reszta przychodzi godzinę później w jednej wiadomości z urządzeniami nadal nierozwiązanymi. Wiadomości o baterii nigdy nie są wstrzymywane. 0 oznacza brak limitu.",
               "startup_grace_minutes": "Minuty po uruchomieniu Home Assistant, zanim cokolwiek zostanie ocenione; integracje ładują się po kolei i w tym czasie większość urządzeń wygląda na niedostępne. To, co jest nie tak na koniec tego okresu, jest zapisywane, a nie ogłaszane.",
               "confirm_minutes": "Minuty, przez które stan offline lub milczenia musi trwać, zanim zostanie uwzględniony. Pominięty odczyt, który naprawi się w tym czasie, nie wysyła niczego. Poziomy baterii liczą się od razu.",
               "maintenance_hours": "Jak długo pulse_check.maintenance_mode wycisza powiadomienia, gdy zostanie wywołana bez godzin."

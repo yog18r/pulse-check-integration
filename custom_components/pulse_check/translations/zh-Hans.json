@@ -58,6 +58,7 @@
               "notify_warning": "警告",
               "reminder_days": "提醒间隔",
               "reminder_max": "最多提醒次数",
+              "integration_limit": "每个集成的离线和未上报消息数",
               "digest_time": "摘要时间",
               "digest_weekday": "每周摘要日",
               "weekly_all_clear": "无事可报时每周发送“一切正常”",
@@ -71,6 +72,7 @@
               "notify_warning": "久未上报设备和低电量电池的默认发送方式。",
               "reminder_days": "即时通知在未解决状态下保留多少天后再次发送。",
               "reminder_max": "0 表示关闭提醒。",
+              "integration_limit": "每个集成每小时最多发送这么多条离线或未上报消息，这样网络更新等故障不会为每个设备各发一条。其余的在一小时后合并为一条消息，列出仍未解决的设备。电池消息从不延后。0 表示不限制。",
               "startup_grace_minutes": "Home Assistant 启动后等待多少分钟才开始判断；集成会逐个加载，期间大多数设备看起来不可用。此期间结束时存在的问题只会被记录，不会通知。",
               "confirm_minutes": "离线或久未上报状态必须持续多少分钟才算数。在此时间内恢复的漏报不会发送任何通知。电池电量立即生效。",
               "maintenance_hours": "调用 pulse_check.maintenance_mode 且未指定小时数时，静默通知的时长。"

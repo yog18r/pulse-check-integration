@@ -17,6 +17,10 @@
   "digest_weekly": "Riepilogo settimanale di Pulse Check",
   "digest_all_clear": "Tutti i dispositivi sono OK.",
   "maintenance_summary": "La modalità manutenzione è terminata. Novità da quando è iniziata:",
+  "integration_held": {
+    "one": "{integration}: {count} altro dispositivo offline o senza notizie:",
+    "other": "{integration}: altri {count} dispositivi offline o senza notizie:"
+  },
   "action_mark_replaced": "Segna sostituita",
   "action_mark_charged": "Segna ricaricata",
   "action_remind_later": "Ricordamelo dopo",

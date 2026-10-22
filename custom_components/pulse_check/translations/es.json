@@ -58,6 +58,7 @@
               "notify_warning": "Avisos",
               "reminder_days": "Recordar tras",
               "reminder_max": "Máximo de recordatorios",
+              "integration_limit": "Mensajes de desconexión o sin noticias por integración",
               "digest_time": "Hora del resumen",
               "digest_weekday": "Día del resumen semanal",
               "weekly_all_clear": "\"Todo bien\" semanal cuando no hay nada que informar",
@@ -71,6 +72,7 @@
               "notify_warning": "Entrega predeterminada para dispositivos silenciosos y baterías bajas.",
               "reminder_days": "Días que una notificación inmediata puede seguir sin resolver antes de enviarse de nuevo.",
               "reminder_max": "0 desactiva los recordatorios.",
+              "integration_limit": "Como máximo este número de mensajes de desconexión o sin noticias por integración en una hora, para que una caída como una actualización de red no envíe uno por dispositivo. El resto llega una hora después en un solo mensaje con los que siguen sin resolver. Los mensajes de batería nunca se retienen. 0 significa sin límite.",
               "startup_grace_minutes": "Minutos tras el inicio de Home Assistant antes de evaluar nada; las integraciones se cargan una a una y mientras tanto la mayoría de dispositivos parecen no disponibles. Lo que falle al final de este periodo se registra, no se anuncia.",
               "confirm_minutes": "Minutos que un estado desconectado o silencioso debe mantenerse antes de contar. Un sondeo perdido que se recupera dentro de este tiempo no envía nada. Los niveles de batería cuentan al instante.",
               "maintenance_hours": "Cuánto tiempo silencia pulse_check.maintenance_mode las notificaciones cuando se llama sin horas."

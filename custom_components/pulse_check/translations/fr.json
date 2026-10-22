@@ -58,6 +58,7 @@
               "notify_warning": "Avertissements",
               "reminder_days": "Rappeler après",
               "reminder_max": "Nombre maximal de rappels",
+              "integration_limit": "Messages hors ligne ou sans nouvelles par intégration",
               "digest_time": "Heure du résumé",
               "digest_weekday": "Jour du résumé hebdomadaire",
               "weekly_all_clear": "« Tout va bien » hebdomadaire quand il n'y a rien à signaler",
@@ -71,6 +72,7 @@
               "notify_warning": "Envoi par défaut pour les appareils silencieux et les batteries faibles.",
               "reminder_days": "Jours pendant lesquels une notification immédiate peut rester non résolue avant d'être renvoyée.",
               "reminder_max": "0 désactive les rappels.",
+              "integration_limit": "Au plus ce nombre de messages hors ligne ou sans nouvelles par intégration et par heure, pour qu’une panne comme une mise à jour du réseau n’envoie pas un message par appareil. Le reste suit une heure plus tard en un seul message listant ceux encore non résolus. Les messages de batterie ne sont jamais retenus. 0 signifie aucune limite.",
               "startup_grace_minutes": "Minutes après le démarrage de Home Assistant avant toute évaluation ; les intégrations se chargent une à une et la plupart des appareils semblent indisponibles entre-temps. Ce qui ne va pas à la fin de ce délai est enregistré, pas annoncé.",
               "confirm_minutes": "Minutes pendant lesquelles un état hors ligne ou silencieux doit persister avant d'être pris en compte. Une interrogation manquée qui se rétablit dans ce délai n'envoie rien. Les niveaux de batterie comptent immédiatement.",
               "maintenance_hours": "Durée pendant laquelle pulse_check.maintenance_mode suspend les notifications lorsqu'il est appelé sans heures."

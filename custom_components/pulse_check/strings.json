@@ -58,6 +58,7 @@
               "notify_warning": "Warnings",
               "reminder_days": "Remind after",
               "reminder_max": "Reminders at most",
+              "integration_limit": "Offline and quiet messages per integration",
               "digest_time": "Digest time",
               "digest_weekday": "Weekly digest day",
               "weekly_all_clear": "Weekly \"all clear\" when there is nothing to report",
@@ -71,6 +72,7 @@
               "notify_warning": "Default delivery for quiet devices and low batteries.",
               "reminder_days": "Days an instant notification may stay unresolved before it is sent again.",
               "reminder_max": "0 turns reminders off.",
+              "integration_limit": "At most this many offline or quiet messages per integration in an hour, so an outage such as a network update does not send one per device. The rest follow an hour later as one message listing those still unresolved. Battery messages are never held back. 0 means no limit.",
               "startup_grace_minutes": "Minutes after Home Assistant has started before anything is judged; integrations load one by one and most devices look unavailable meanwhile. What is wrong at the end of it is recorded, not announced.",
               "confirm_minutes": "Minutes an offline or quiet state must persist before it counts. A missed poll that heals within this time sends nothing. Battery levels count at once.",
               "maintenance_hours": "How long pulse_check.maintenance_mode silences notifications when it is called without hours."

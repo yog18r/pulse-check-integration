@@ -17,6 +17,10 @@
   "digest_weekly": "Pulse Check weekly digest",
   "digest_all_clear": "All devices OK.",
   "maintenance_summary": "Maintenance mode is over. New since it began:",
+  "integration_held": {
+    "one": "{integration}: {count} more device offline or not heard from:",
+    "other": "{integration}: {count} more devices offline or not heard from:"
+  },
   "action_mark_replaced": "Mark replaced",
   "action_mark_charged": "Mark charged",
   "action_remind_later": "Remind me later",

@@ -17,6 +17,10 @@
   "digest_weekly": "Pulse Check – wöchentliche Zusammenfassung",
   "digest_all_clear": "Alle Geräte OK.",
   "maintenance_summary": "Der Wartungsmodus ist beendet. Neu seit Beginn:",
+  "integration_held": {
+    "one": "{integration}: {count} weiteres Gerät offline oder ohne Meldung:",
+    "other": "{integration}: {count} weitere Geräte offline oder ohne Meldung:"
+  },
   "action_mark_replaced": "Als ersetzt markieren",
   "action_mark_charged": "Als geladen markieren",
   "action_remind_later": "Später erinnern",

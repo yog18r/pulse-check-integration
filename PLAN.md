@@ -121,7 +121,9 @@ past cycles like for like, or on a sudden 20-point drop.
   blueprint. On startup: a baseline, a grace period, and a
   confirmation window; a device must have been seen online since startup
   before it can be reported offline, so slow-starting integrations do not
-  produce a flood of false alarms after a restart. Maintenance mode holds
+  produce a flood of false alarms after a restart. Offline and quiet
+  messages are limited per integration (default 3 an hour); the rest wait
+  an hour and go out as one message listing those still wrong. Maintenance mode holds
   messages back for a set time and ends with one summary.
 - **Services**: `snooze`, `unsnooze`, `set_device_settings`,
   `mark_replaced`, `mark_charged`, `refresh`, `maintenance_mode`.
@@ -212,6 +214,28 @@ change (`sensor.garden_soil_moisture` in the fixture).
 - The card's device picker offers them for per-device settings; the
   integration resolves `entity:<id>` for Done, snooze and history as for
   any device-less battery.
+
+**The per-integration limit.** An unplanned outage outside Home Assistant
+(a network controller update, a server restart) would send one message per
+device, and nobody remembers maintenance mode for those.
+
+- Each integration may send `integration_limit` offline or quiet messages
+  (default 3, 0 for none) in a rolling hour. The rest, and anything of that
+  integration while some are already waiting, are marked `held` on their
+  notify record, with the time and integration.
+- An hour after the first held one, one message per integration lists the
+  held issues that are still present, named by the integration's own name.
+  A recovered device's record is gone by then, so a short outage ends in
+  silence. Listed issues count as notified, so reminders run from there.
+- Battery messages are exempt: they never come in bursts, and a critical
+  battery must not wait. Reminders are counted, so a long outage does not
+  become a burst of reminders days later.
+- The recent-send counts live in memory; held markers live in the store and
+  survive a restart. Nothing is held during maintenance mode, whose summary
+  covers that window instead.
+- A global cap across integrations was considered for a server running
+  several of them; per integration was chosen first because it never lets
+  one noisy integration hide another's alert.
 
 **Maintenance mode.** Planned work (a coordinator migration) would send a
 burst of offline and quiet alerts that are expected and useless.

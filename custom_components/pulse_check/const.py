@@ -79,6 +79,12 @@ DEFAULT_DIGEST_WEEKDAY = "monday"
 DEFAULT_STARTUP_GRACE_MINUTES = 5
 DEFAULT_CONFIRM_MINUTES = 5
 DEFAULT_MAINTENANCE_HOURS = 2
+# At most this many offline or quiet messages per integration within
+# INTEGRATION_LIMIT_WINDOW; the rest wait and go out together as one
+# message. 0 means no limit.
+CONF_INTEGRATION_LIMIT = "integration_limit"
+DEFAULT_INTEGRATION_LIMIT = 3
+INTEGRATION_LIMIT_WINDOW = timedelta(hours=1)
 MAX_MAINTENANCE_HOURS = 24 * 30
 
 EVENT_TRANSITION = "pulse_check_transition"

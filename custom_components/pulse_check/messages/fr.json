@@ -17,6 +17,10 @@
   "digest_weekly": "Résumé hebdomadaire Pulse Check",
   "digest_all_clear": "Tous les appareils sont OK.",
   "maintenance_summary": "Le mode maintenance est terminé. Nouveau depuis son début :",
+  "integration_held": {
+    "one": "{integration} : {count} autre appareil hors ligne ou sans nouvelles :",
+    "other": "{integration} : {count} autres appareils hors ligne ou sans nouvelles :"
+  },
   "action_mark_replaced": "Marquer remplacée",
   "action_mark_charged": "Marquer rechargée",
   "action_remind_later": "Me rappeler plus tard",

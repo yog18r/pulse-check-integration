@@ -42,6 +42,15 @@ last judged (sent, or found to have nothing to say), so a slot missed
 because Home Assistant was off or still starting is caught up once, at
 the end of the next startup grace period.
 
+An outage outside Home Assistant (a network controller updating, a server
+restarting) can knock dozens of devices over at once. Offline and quiet
+messages are therefore limited per integration: a few go out as usual
+(three an hour by default), and the rest of that integration's wait an
+hour and go out as one message listing those still unresolved. A short
+outage ends with nothing more to say. Each integration has its own
+allowance, so a UniFi outage does not hold back an ESPHome alert, and
+battery messages are never held: they come one device at a time.
+
 Maintenance mode (`pulse_check.maintenance_mode`) silences everything for
 a few hours while someone works on the house: migrating a Zigbee
 coordinator would otherwise produce a burst of offline and quiet alerts.
@@ -55,6 +64,7 @@ everything runs as usual.
 from __future__ import annotations
 
 import logging
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
@@ -66,12 +76,14 @@ from homeassistant.helpers.event import (
     async_track_point_in_utc_time,
     async_track_time_change,
 )
+from homeassistant.loader import IntegrationNotLoaded, async_get_loaded_integration
 from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_CONFIRM_MINUTES,
     CONF_DIGEST_TIME,
     CONF_DIGEST_WEEKDAY,
+    CONF_INTEGRATION_LIMIT,
     CONF_NOTIFY_CRITICAL,
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_WARNING,
@@ -82,12 +94,14 @@ from .const import (
     DEFAULT_CONFIRM_MINUTES,
     DEFAULT_DIGEST_TIME,
     DEFAULT_DIGEST_WEEKDAY,
+    DEFAULT_INTEGRATION_LIMIT,
     DEFAULT_NOTIFY_CRITICAL,
     DEFAULT_NOTIFY_WARNING,
     DEFAULT_REMINDER_DAYS,
     DEFAULT_REMINDER_MAX,
     DEFAULT_STARTUP_GRACE_MINUTES,
     EVENT_TRANSITION,
+    INTEGRATION_LIMIT_WINDOW,
     WEEKDAYS,
 )
 from .core.models import as_utc, to_iso
@@ -230,6 +244,10 @@ class Notifier:
         # The timer that ends maintenance mode, and the end time it is set for.
         self._maintenance_timer: CALLBACK_TYPE | None = None
         self._maintenance_timer_at: datetime | None = None
+        # When each integration's recent offline and quiet messages went out,
+        # for the per-integration limit. Kept in memory: after a restart the
+        # startup baseline starts afresh anyway.
+        self._sent: dict[str, deque[datetime]] = {}
 
     # -- options -------------------------------------------------------------
 
@@ -266,6 +284,11 @@ class Notifier:
     def reminder_max(self) -> int:
         """How many reminders at most, per issue."""
         return int(self.entry.options.get(CONF_REMINDER_MAX, DEFAULT_REMINDER_MAX))
+
+    @property
+    def integration_limit(self) -> int:
+        """Offline and quiet messages per integration per window; 0 means no limit."""
+        return int(self.entry.options.get(CONF_INTEGRATION_LIMIT, DEFAULT_INTEGRATION_LIMIT))
 
     @property
     def startup_grace(self) -> timedelta:
@@ -454,8 +477,14 @@ class Notifier:
         if changed:
             self.store.async_save()
 
+        await self._after_evaluation(now, baseline)
+
+    async def _after_evaluation(self, now: datetime, baseline: bool) -> None:
+        """Messages that do not come from one transition: summaries and catch-ups."""
         if self.store.maintenance and not self.store.in_maintenance(now):
             await self._end_maintenance(now)
+        if not self.store.in_maintenance(now):
+            await self._send_held(now)
         if baseline:
             await self._catch_up_digests(now)
 
@@ -512,6 +541,8 @@ class Notifier:
         # In maintenance mode `notified_at` stays empty: the summary at the
         # end of the window picks the issue up from there.
         if policy == "instant" and not self.store.in_maintenance(now):
+            if self._hold_back(device, issue, record, now):
+                return
             await self._send(issue.message, self._actions(device, issue, reminders_sent=0))
             record["notified_at"] = to_iso(now)
 
@@ -523,12 +554,16 @@ class Notifier:
             return False
         if self.store.in_maintenance(now):
             return False  # due reminders wait for the end of the window
+        if "held" in record:
+            return False  # waiting to go out with its integration's others
         if record.get("reminders", 0) >= self.reminder_max:
             return False
         last = record.get("notified_at") or record.get("since")
         last_at = _at(last) if last else now
         if as_utc(now) - last_at < self.reminder_interval:
             return False
+        if self._hold_back(device, issue, record, now):
+            return True  # the record now waits with its integration's others
         days = (as_utc(now) - _at(record["since"])).days
         reminders = record.get("reminders", 0) + 1
         await self._send(
@@ -579,6 +614,85 @@ class Notifier:
             },
         )
 
+    # -- the per-integration limit -------------------------------------------
+
+    def _hold_back(
+        self, device: DeviceHealth, issue: Issue, record: dict[str, Any], now: datetime
+    ) -> bool:
+        """Apply the per-integration limit to one message. True means held, not sent.
+
+        Only offline and quiet count. Within the window an integration may
+        send `integration_limit` of them; after that, and while any of its
+        messages are already waiting, the rest are marked `held` on their
+        record and go out together from `_send_held`.
+        """
+        limit = self.integration_limit
+        if limit <= 0 or issue.key not in CONFIRMED_ISSUES:
+            return False
+        integration = device.integration
+        sent = self._sent.setdefault(integration, deque())
+        while sent and as_utc(now) - sent[0] >= INTEGRATION_LIMIT_WINDOW:
+            sent.popleft()
+        if len(sent) < limit and not self._has_held(integration):
+            sent.append(as_utc(now))
+            return False
+        record.setdefault("held", {"at": to_iso(now), "integration": integration})
+        return True
+
+    def _has_held(self, integration: str) -> bool:
+        """True while any message of this integration waits to go out."""
+        return any(
+            record.get("held", {}).get("integration") == integration
+            for records in self.store.notify.values()
+            for record in records.values()
+        )
+
+    async def _send_held(self, now: datetime) -> None:
+        """Send each integration's held messages as one, a window after the first.
+
+        A held record disappears when its device recovers, so only what is
+        still wrong is listed, and a short outage ends with no message at
+        all. Each listed issue counts as notified from here, so its
+        reminders run from this message; a held reminder counts as sent.
+        """
+        data: PulseCheckData = self.coordinator.data
+        groups: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+        for device in data.devices:
+            stored = self.store.notify.get(device.device_id, {})
+            for key, issue in device_issues(device, data.config, now, self.text).items():
+                record = stored.get(key)
+                if record is not None and "held" in record:
+                    integration = record["held"]["integration"]
+                    groups.setdefault(integration, []).append((issue.message, record))
+
+        changed = False
+        for integration, items in sorted(groups.items()):
+            first = min(_at(record["held"]["at"]) for _, record in items)
+            if as_utc(now) - first < INTEGRATION_LIMIT_WINDOW:
+                continue
+            for _, record in items:
+                del record["held"]
+                if record.get("notified_at"):
+                    record["reminders"] = record.get("reminders", 0) + 1
+                record["notified_at"] = to_iso(now)
+            changed = True
+            heading = self.text(
+                "integration_held",
+                count=len(items),
+                integration=self._integration_name(integration),
+            )
+            body = "\n".join(f"- {message}" for message, _ in sorted(items, key=lambda i: i[0]))
+            await self._send(f"{heading}\n{body}")
+        if changed:
+            self.store.async_save()
+
+    def _integration_name(self, domain: str) -> str:
+        """The integration's own name ("UniFi Network"), or its domain."""
+        try:
+            return async_get_loaded_integration(self.hass, domain).name
+        except IntegrationNotLoaded:
+            return domain
+
     # -- maintenance mode ----------------------------------------------------
 
     async def _end_maintenance(self, now: datetime) -> None:
@@ -609,6 +723,7 @@ class Notifier:
                     continue
                 lines.append(issue.message)
                 record["notified_at"] = to_iso(now)
+                record.pop("held", None)  # announced here, not again later
         self.store.clear_maintenance()
         _LOGGER.debug("Maintenance mode over; %d new problems", len(lines))
         if lines:

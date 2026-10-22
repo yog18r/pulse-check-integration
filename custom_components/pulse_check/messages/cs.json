@@ -18,6 +18,11 @@
   "digest_weekly": "Pulse Check – týdenní přehled",
   "digest_all_clear": "Všechna zařízení v pořádku.",
   "maintenance_summary": "Režim údržby skončil. Nové od jeho začátku:",
+  "integration_held": {
+    "one": "{integration}: další {count} zařízení je offline nebo se neozývá:",
+    "few": "{integration}: další {count} zařízení jsou offline nebo se neozývají:",
+    "other": "{integration}: dalších {count} zařízení je offline nebo se neozývá:"
+  },
   "action_mark_replaced": "Označit jako vyměněnou",
   "action_mark_charged": "Označit jako nabitou",
   "action_remind_later": "Připomenout později",

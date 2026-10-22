@@ -17,6 +17,10 @@
   "digest_weekly": "Pulse Check wekelijks overzicht",
   "digest_all_clear": "Alle apparaten OK.",
   "maintenance_summary": "De onderhoudsmodus is voorbij. Nieuw sinds het begin:",
+  "integration_held": {
+    "one": "{integration}: nog {count} apparaat offline of zonder bericht:",
+    "other": "{integration}: nog {count} apparaten offline of zonder bericht:"
+  },
   "action_mark_replaced": "Als vervangen markeren",
   "action_mark_charged": "Als opgeladen markeren",
   "action_remind_later": "Later herinneren",

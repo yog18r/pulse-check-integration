@@ -19,6 +19,11 @@
   "digest_weekly": "Tygodniowe podsumowanie Pulse Check",
   "digest_all_clear": "Wszystkie urządzenia OK.",
   "maintenance_summary": "Tryb konserwacji zakończony. Nowe od jego rozpoczęcia:",
+  "integration_held": {
+    "one": "{integration}: jeszcze {count} urządzenie offline lub bez sygnału:",
+    "few": "{integration}: jeszcze {count} urządzenia offline lub bez sygnału:",
+    "many": "{integration}: jeszcze {count} urządzeń offline lub bez sygnału:"
+  },
   "action_mark_replaced": "Oznacz wymianę",
   "action_mark_charged": "Oznacz ładowanie",
   "action_remind_later": "Przypomnij później",

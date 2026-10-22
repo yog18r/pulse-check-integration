@@ -58,6 +58,7 @@
               "notify_warning": "Avvisi",
               "reminder_days": "Ricorda dopo",
               "reminder_max": "Numero massimo di promemoria",
+              "integration_limit": "Messaggi offline o senza notizie per integrazione",
               "digest_time": "Ora del riepilogo",
               "digest_weekday": "Giorno del riepilogo settimanale",
               "weekly_all_clear": "\"Tutto a posto\" settimanale quando non c'è nulla da segnalare",
@@ -71,6 +72,7 @@
               "notify_warning": "Invio predefinito per dispositivi silenziosi e batterie scariche.",
               "reminder_days": "Giorni in cui una notifica immediata può restare irrisolta prima di essere inviata di nuovo.",
               "reminder_max": "0 disattiva i promemoria.",
+              "integration_limit": "Al massimo questo numero di messaggi offline o senza notizie per integrazione in un'ora, così un'interruzione come un aggiornamento di rete non invia un messaggio per dispositivo. Il resto arriva un'ora dopo in un unico messaggio con quelli ancora irrisolti. I messaggi sulla batteria non vengono mai trattenuti. 0 significa nessun limite.",
               "startup_grace_minutes": "Minuti dopo l'avvio di Home Assistant prima di valutare qualsiasi cosa; le integrazioni si caricano una alla volta e nel frattempo la maggior parte dei dispositivi sembra non disponibile. Ciò che non va al termine viene registrato, non annunciato.",
               "confirm_minutes": "Minuti per cui uno stato offline o silenzioso deve persistere prima di contare. Un'interrogazione mancata che si risolve entro questo tempo non invia nulla. I livelli della batteria contano subito.",
               "maintenance_hours": "Per quanto tempo pulse_check.maintenance_mode sospende le notifiche quando viene chiamato senza ore."

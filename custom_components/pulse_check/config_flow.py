@@ -61,6 +61,7 @@ from .const import (
     CONF_INCLUDE_AREAS,
     CONF_INCLUDE_INTEGRATIONS,
     CONF_INTEGRATION,
+    CONF_INTEGRATION_LIMIT,
     CONF_INTEGRATION_THRESHOLDS,
     CONF_MAINTENANCE_HOURS,
     CONF_NOTIFY_CRITICAL,
@@ -78,6 +79,7 @@ from .const import (
     DEFAULT_CONFIRM_MINUTES,
     DEFAULT_DIGEST_TIME,
     DEFAULT_DIGEST_WEEKDAY,
+    DEFAULT_INTEGRATION_LIMIT,
     DEFAULT_MAINTENANCE_HOURS,
     DEFAULT_NOTIFY_CRITICAL,
     DEFAULT_NOTIFY_WARNING,
@@ -126,6 +128,7 @@ NOTIFICATION_KEYS = (
     CONF_NOTIFY_WARNING,
     CONF_REMINDER_DAYS,
     CONF_REMINDER_MAX,
+    CONF_INTEGRATION_LIMIT,
     CONF_DIGEST_TIME,
     CONF_DIGEST_WEEKDAY,
     CONF_WEEKLY_ALL_CLEAR,
@@ -296,6 +299,11 @@ def _options_schema(platforms: list[str], notify_targets: list[str]) -> probatio
                 )
             ),
             probatio.Required(CONF_REMINDER_MAX, default=DEFAULT_REMINDER_MAX): NumberSelector(
+                NumberSelectorConfig(min=0, max=100, step=1, mode=NumberSelectorMode.BOX)
+            ),
+            probatio.Required(
+                CONF_INTEGRATION_LIMIT, default=DEFAULT_INTEGRATION_LIMIT
+            ): NumberSelector(
                 NumberSelectorConfig(min=0, max=100, step=1, mode=NumberSelectorMode.BOX)
             ),
             probatio.Required(CONF_DIGEST_TIME, default=DEFAULT_DIGEST_TIME): TimeSelector(),

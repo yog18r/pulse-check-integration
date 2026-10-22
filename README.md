@@ -127,6 +127,7 @@ The option keys match the card's YAML (`battery_warning`, `exclude_entities`, `i
 | Warnings | Weekly digest | Default delivery for quiet devices and low batteries |
 | Remind after | 3 days | How long an instant notification may stay unresolved before it is sent again |
 | Reminders at most | 3 | 0 turns reminders off |
+| Offline and quiet messages per integration | 3 | At most this many offline or quiet messages per integration in an hour; the rest follow as one message. 0 means no limit. See [Outages](#outages) |
 | Digest time | 09:00 | When the daily digest goes out, and the weekly one on its day. One missed while Home Assistant was off goes out once after the next start |
 | Weekly digest day | Monday | |
 | Weekly "all clear" | off | Send the weekly digest even when there is nothing to report |
@@ -271,6 +272,12 @@ A target that is a companion-app service (`notify.mobile_app_<phone>`, iOS or An
 Pressing one does what the service of the same name does, for that device, without opening the app. **Remind me later** changes nothing: the reminder comes when it was due anyway, so it is only offered when another reminder will actually follow. Digests and the maintenance summary cover many devices and have no buttons. Every other target (notify entities, e-mail, Telegram, a notify group) gets the plain message as before.
 
 The buttons follow the companion app's [actionable notifications](https://companion.home-assistant.io/docs/notifications/actionable-notifications/): each has an `action` identifier of the form `PULSE_CHECK_SNOOZE_DAY:<device id>`, and the app fires `mobile_app_notification_action` with it when pressed. Your own automations can listen for the same event.
+
+### Outages
+
+An outage outside Home Assistant can knock dozens of devices over at once: a UniFi controller updating, a server restart, a Wi-Fi access point rebooting. Without a limit that would be one message per device. So offline and quiet messages are limited **per integration**: three an hour by default, set under Notifications in the options. After that, the rest of that integration's problems wait an hour and go out as one message, such as "UniFi Network: 19 more devices offline or not heard from", followed by the list. Only devices still wrong at that point are listed, so an outage that is over within the hour ends with nothing more to say.
+
+Each integration has its own allowance: a UniFi outage that used up its three does not hold back an ESPHome device going offline. Battery messages are never held back, because they come one device at a time and a critical battery should not wait. Reminders count against the limit too, so a long outage does not turn into a burst of reminders three days later. When you know the work is coming, maintenance mode below is still the better tool.
 
 ### Maintenance mode
 

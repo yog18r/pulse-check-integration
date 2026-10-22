@@ -58,6 +58,7 @@
               "notify_warning": "Avisos",
               "reminder_days": "Lembrar após",
               "reminder_max": "Máximo de lembretes",
+              "integration_limit": "Mensagens de offline ou sem notícias por integração",
               "digest_time": "Horário do resumo",
               "digest_weekday": "Dia do resumo semanal",
               "weekly_all_clear": "\"Tudo certo\" semanal quando não houver nada a relatar",
@@ -71,6 +72,7 @@
               "notify_warning": "Entrega padrão para dispositivos inativos e baterias baixas.",
               "reminder_days": "Dias que uma notificação imediata pode ficar sem solução antes de ser enviada de novo.",
               "reminder_max": "0 desativa os lembretes.",
+              "integration_limit": "No máximo este número de mensagens de offline ou sem notícias por integração em uma hora, para que uma queda como uma atualização de rede não envie uma por dispositivo. O restante chega uma hora depois em uma única mensagem com os que continuam sem solução. Mensagens de bateria nunca são retidas. 0 significa sem limite.",
               "startup_grace_minutes": "Minutos após o Home Assistant iniciar antes de qualquer avaliação; as integrações carregam uma a uma e a maioria dos dispositivos parece indisponível enquanto isso. O que estiver errado ao final é registrado, não anunciado.",
               "confirm_minutes": "Minutos que um estado offline ou inativo precisa durar para contar. Uma leitura perdida que se resolve nesse tempo não envia nada. Níveis de bateria contam na hora.",
               "maintenance_hours": "Por quanto tempo pulse_check.maintenance_mode silencia as notificações quando chamado sem horas."

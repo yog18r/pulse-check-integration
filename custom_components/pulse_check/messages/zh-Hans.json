@@ -16,6 +16,9 @@
   "digest_weekly": "Pulse Check 每周摘要",
   "digest_all_clear": "所有设备正常。",
   "maintenance_summary": "维护模式已结束。开始以来新出现的问题：",
+  "integration_held": {
+    "other": "{integration}：另有 {count} 个设备离线或未上报："
+  },
   "action_mark_replaced": "标记已更换",
   "action_mark_charged": "标记已充电",
   "action_remind_later": "稍后提醒",

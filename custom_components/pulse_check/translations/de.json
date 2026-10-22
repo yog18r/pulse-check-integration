@@ -58,6 +58,7 @@
               "notify_warning": "Warnungen",
               "reminder_days": "Erinnern nach",
               "reminder_max": "Höchstens Erinnerungen",
+              "integration_limit": "Offline- und Stumm-Meldungen pro Integration",
               "digest_time": "Uhrzeit der Zusammenfassung",
               "digest_weekday": "Tag der Wochenzusammenfassung",
               "weekly_all_clear": "Wöchentlich „Alles in Ordnung“, wenn nichts zu melden ist",
@@ -71,6 +72,7 @@
               "notify_warning": "Standardzustellung für stumme Geräte und schwache Batterien.",
               "reminder_days": "Tage, die eine sofortige Benachrichtigung ungelöst bleiben darf, bevor sie erneut gesendet wird.",
               "reminder_max": "0 schaltet Erinnerungen ab.",
+              "integration_limit": "Höchstens so viele Offline- oder Stumm-Meldungen pro Integration und Stunde, damit ein Ausfall wie ein Netzwerk-Update nicht eine Meldung pro Gerät auslöst. Der Rest folgt eine Stunde später als eine Nachricht mit den noch ungelösten Geräten. Batteriemeldungen werden nie zurückgehalten. 0 bedeutet kein Limit.",
               "startup_grace_minutes": "Minuten nach dem Start von Home Assistant, bevor etwas bewertet wird; Integrationen laden nacheinander und die meisten Geräte wirken so lange nicht verfügbar. Was danach nicht stimmt, wird erfasst, aber nicht gemeldet.",
               "confirm_minutes": "Minuten, die ein Offline- oder Stumm-Zustand anhalten muss, bevor er zählt. Eine verpasste Abfrage, die sich in dieser Zeit erholt, sendet nichts. Batteriestände zählen sofort.",
               "maintenance_hours": "Wie lange pulse_check.maintenance_mode Benachrichtigungen zurückhält, wenn es ohne Stunden aufgerufen wird."

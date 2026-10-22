@@ -58,6 +58,7 @@
               "notify_warning": "Varování",
               "reminder_days": "Připomenout po",
               "reminder_max": "Nejvýše připomenutí",
+              "integration_limit": "Zprávy offline a bez ozvy na integraci",
               "digest_time": "Čas přehledu",
               "digest_weekday": "Den týdenního přehledu",
               "weekly_all_clear": "Týdenní „vše v pořádku“, když není co hlásit",
@@ -71,6 +72,7 @@
               "notify_warning": "Výchozí doručení pro neozývající se zařízení a slabé baterie.",
               "reminder_days": "Dny, po které smí okamžité oznámení zůstat nevyřešené, než se odešle znovu.",
               "reminder_max": "0 vypne připomenutí.",
+              "integration_limit": "Nejvýše tolik zpráv offline nebo bez ozvy na integraci za hodinu, aby výpadek, například aktualizace sítě, neposlal jednu zprávu za každé zařízení. Zbytek přijde o hodinu později v jedné zprávě se zařízeními, která jsou stále nevyřešená. Zprávy o baterii se nikdy nezadržují. 0 znamená bez omezení.",
               "startup_grace_minutes": "Minuty po spuštění Home Assistant, než se cokoli vyhodnotí; integrace se načítají postupně a většina zařízení mezitím vypadá nedostupně. Co je na konci špatně, se zaznamená, ale neohlásí.",
               "confirm_minutes": "Minuty, po které musí stav offline nebo neozývání trvat, než se započítá. Zmeškané dotazování, které se v této době napraví, nic neodešle. Úrovně baterie se počítají hned.",
               "maintenance_hours": "Jak dlouho pulse_check.maintenance_mode zadržuje oznámení, když je volán bez hodin."

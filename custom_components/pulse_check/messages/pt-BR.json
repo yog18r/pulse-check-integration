@@ -17,6 +17,10 @@
   "digest_weekly": "Resumo semanal do Pulse Check",
   "digest_all_clear": "Todos os dispositivos OK.",
   "maintenance_summary": "O modo de manutenção terminou. Novidades desde o início:",
+  "integration_held": {
+    "one": "{integration}: mais {count} dispositivo offline ou sem notícias:",
+    "other": "{integration}: mais {count} dispositivos offline ou sem notícias:"
+  },
   "action_mark_replaced": "Marcar trocada",
   "action_mark_charged": "Marcar carregada",
   "action_remind_later": "Lembrar depois",

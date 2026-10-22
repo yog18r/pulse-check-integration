@@ -58,6 +58,7 @@
               "notify_warning": "Waarschuwingen",
               "reminder_days": "Herinneren na",
               "reminder_max": "Maximaal aantal herinneringen",
+              "integration_limit": "Offline- en stil-meldingen per integratie",
               "digest_time": "Tijd van het overzicht",
               "digest_weekday": "Dag van het weekoverzicht",
               "weekly_all_clear": "Wekelijks \"alles in orde\" als er niets te melden is",
@@ -71,6 +72,7 @@
               "notify_warning": "Standaardbezorging voor stille apparaten en bijna lege batterijen.",
               "reminder_days": "Dagen dat een directe melding onopgelost mag blijven voordat ze opnieuw wordt verstuurd.",
               "reminder_max": "0 schakelt herinneringen uit.",
+              "integration_limit": "Hoogstens zoveel offline- of stil-meldingen per integratie per uur, zodat een storing zoals een netwerkupdate niet één melding per apparaat geeft. De rest volgt een uur later in één bericht met de apparaten die nog niet opgelost zijn. Batterijmeldingen worden nooit tegengehouden. 0 betekent geen limiet.",
               "startup_grace_minutes": "Minuten na het opstarten van Home Assistant voordat er iets wordt beoordeeld; integraties laden een voor een en de meeste apparaten lijken intussen onbeschikbaar. Wat daarna mis is, wordt vastgelegd maar niet gemeld.",
               "confirm_minutes": "Minuten dat een offline- of stilstatus moet aanhouden voordat die telt. Een gemiste poll die binnen deze tijd herstelt, verstuurt niets. Batterijniveaus tellen meteen.",
               "maintenance_hours": "Hoe lang pulse_check.maintenance_mode meldingen tegenhoudt als het zonder uren wordt aangeroepen."
