@@ -422,6 +422,15 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 }
 
+/* Shown as a popover (see SnoozeMenu.tsx): drawn above the page, so the
+   card's clipped corners cannot cut it off, and placed by script beside
+   its button. Without popover support the rule above places it inline. */
+.menu:popover-open {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+}
+
 .menu button {
   appearance: none;
   background: none;
