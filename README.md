@@ -340,7 +340,7 @@ These rules are shared with the card and checked against the same test fixture (
 
 **Charging.** A `binary_sensor` with `device_class: battery_charging` that is on; a battery-state sensor reading `charging` or `full`; a docked vacuum; or `is_charging` / `charging` / `battery_charging` / `battery_state` attributes. A charging device is never flagged for its level.
 
-**Offline.** Every primary entity (no entity category) is `unavailable`. Diagnostic and config entities are ignored, because integrations often leave those available when the hardware is gone, or vice versa. A Z-Wave JS node reported `dead` is offline regardless.
+**Offline.** Every primary entity (no entity category) is `unavailable`. Diagnostic and config entities are ignored, because integrations often leave those available when the hardware is gone, or vice versa. A device with no primary entities is judged by its diagnostic ones, never by settings or update checkers: a firmware update entity goes unavailable when its check fails, as on Home Assistant's SkyConnect, while the hardware works normally. A device with nothing else to judge by is never offline. A Z-Wave JS node reported `dead` is offline regardless.
 
 **Last heard and quiet.** The newest `last_reported` across the device's live entities. Settings-type entities (`number`, `select`, `button`, `update`, `text`, `scene`, `script`, and anything `entity_category: config`) do not count: changing a setting an hour ago says nothing about whether the sensor is alive. A device is quiet when that timestamp is older than its threshold. By default only battery devices can be quiet: a mains light nobody has touched for two days is fine, not quiet. Offline devices are not also counted as quiet.
 

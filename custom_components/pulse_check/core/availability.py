@@ -4,7 +4,9 @@
   `unavailable`. Primary means no `entity_category`; diagnostic and config
   entities (signal strength, firmware, identify buttons) are ignored
   because integrations often leave those available even when the hardware
-  is gone, or vice versa.
+  is gone, or vice versa. A device with no primary entities is judged by
+  its diagnostic ones; settings and update checkers never decide it, so a
+  Zigbee stick whose firmware check is unavailable is not offline.
 - A device's LAST HEARD timestamp is the newest `last_reported` across its
   live entities (`last_updated` when an entity has no `last_reported`).
 - A device is QUIET when that timestamp is older than a threshold.
@@ -33,12 +35,15 @@ def is_primary(entity: EntityEntry) -> bool:
 def detect_offline(entities: Sequence[EntityEntry], states: Mapping[str, EntityState]) -> bool:
     """Decide whether a device is offline from its registry entries and states.
 
-    Prefers primary entities. If the device only has diagnostic or config
-    entities, falls back to judging by all of them. A device with no
-    states at all is not offline: there is nothing to judge by.
+    Prefers primary entities. A device with none is judged by its other
+    live entities, such as diagnostic sensors, but never by static ones
+    (settings, buttons, update checkers): those say nothing about whether
+    the hardware answers. A firmware update entity goes unavailable when
+    its check fails, as Home Assistant's SkyConnect does while the radio
+    works normally. A device with nothing left to judge by is not offline.
     """
     primary = [e for e in entities if is_primary(e)]
-    candidates = primary or list(entities)
+    candidates = primary or [e for e in entities if not is_static_entity(e["entity_id"], e)]
     with_state = [states[e["entity_id"]] for e in candidates if e["entity_id"] in states]
     if not with_state:
         return False

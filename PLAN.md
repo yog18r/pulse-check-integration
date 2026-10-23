@@ -51,8 +51,12 @@ change must come with a deliberate change to the golden file.
   `battery_charging` / `battery_state` attributes. Charging devices are
   never flagged for their level.
 - **Offline**: every primary entity (no entity category) is `unavailable`;
-  all entities if there are no primary ones. A dead Z-Wave JS node is
-  offline regardless.
+  with no primary ones, every remaining entity that is not static
+  (settings, buttons, update checkers). A device with only static entities
+  is never offline: Home Assistant's SkyConnect has nothing but a firmware
+  update entity, which goes unavailable whenever its firmware check fails
+  while the radio works, and read as offline until 0.2.3. A dead Z-Wave JS
+  node is offline regardless.
 - **Last heard and quiet**: newest `last_reported` across live entities,
   ignoring settings-type entities (`entity_category: config`; domains
   `number`, `select`, `button`, `update`, `text`, `scene`, `script`). Quiet
