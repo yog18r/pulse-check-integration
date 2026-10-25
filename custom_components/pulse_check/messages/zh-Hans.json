@@ -1,12 +1,14 @@
 {
   "issue_offline": "{name}：离线",
   "issue_quiet": "{name}：已 {hours} 小时未上报",
+  "issue_not_provided": "{name}：{integration} 已不再提供",
   "issue_battery_critical": "{name}：电池电量严重不足（{level}）",
   "issue_battery_warning": "{name}：电池电量低（{level}）",
   "level_percent": "{level}%",
   "level_low": "报告电量低",
   "resolved_offline": "{name}：离线已恢复",
   "resolved_quiet": "{name}：已恢复上报",
+  "resolved_not_provided": "{name}：已重新提供",
   "resolved_battery_critical": "{name}：电池严重不足已解除",
   "resolved_battery_warning": "{name}：电池警告已解除",
   "reminder": {

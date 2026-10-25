@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from custom_components.pulse_check.core import CoreConfig, Snapshot, analyse_devices
+from custom_components.pulse_check.core import CoreConfig, Snapshot, analyse_devices, summarise
 from custom_components.pulse_check.core.availability import detect_offline
 from custom_components.pulse_check.core.models import EntityEntry, EntityState
 
@@ -98,3 +98,63 @@ def test_the_skyconnect_reads_as_ok() -> None:
     assert [(d.device_id, d.is_offline, d.severity) for d in devices] == [
         ("dev_skyconnect", False, "ok")
     ]
+
+
+def _unifi_policy(*entities: EntityEntry, states: dict[str, EntityState]) -> Snapshot:
+    """One device, "UniFi Network Allow DNS", with the given entities."""
+    return {
+        "states": states,
+        "entities": {e["entity_id"]: e for e in entities},
+        "devices": {
+            "dev": {
+                "id": "dev",
+                "name": "UniFi Network Allow DNS",
+                "name_by_user": None,
+                "manufacturer": None,
+                "model": None,
+                "area_id": None,
+                "entry_type": None,
+                "disabled_by": None,
+            }
+        },
+        "areas": {},
+    }
+
+
+def _not_provided(entity_id: str) -> EntityEntry:
+    entity = _entity(entity_id)
+    entity["not_provided"] = True
+    return entity
+
+
+def test_entities_the_integration_dropped_are_not_provided_not_offline() -> None:
+    """What a UniFi update leaves behind: stale configuration, a warning."""
+    snapshot = _unifi_policy(
+        _not_provided("switch.allow_dns"), states=_states(switch_allow_dns="unavailable")
+    )
+    [device] = analyse_devices(snapshot, CoreConfig(), NOW)
+    assert (device.is_offline, device.is_not_provided, device.is_quiet) == (False, True, False)
+    assert device.severity == "warning"
+    assert device.to_dict()["isNotProvided"] is True
+    assert summarise([device], CoreConfig()).to_dict()["notProvided"] == 1
+
+
+def test_one_real_unavailable_entity_makes_it_offline() -> None:
+    snapshot = _unifi_policy(
+        _not_provided("switch.allow_dns"),
+        _entity("switch.block_ads"),
+        states=_states(switch_allow_dns="unavailable", switch_block_ads="unavailable"),
+    )
+    [device] = analyse_devices(snapshot, CoreConfig(), NOW)
+    assert (device.is_offline, device.is_not_provided, device.severity) == (True, False, "critical")
+    assert "isNotProvided" not in device.to_dict()
+
+
+def test_a_working_entity_beside_a_dropped_one_is_fine() -> None:
+    snapshot = _unifi_policy(
+        _not_provided("switch.allow_dns"),
+        _entity("switch.block_ads"),
+        states=_states(switch_allow_dns="unavailable", switch_block_ads="on"),
+    )
+    [device] = analyse_devices(snapshot, CoreConfig(), NOW)
+    assert (device.is_offline, device.is_not_provided, device.severity) == (False, False, "ok")

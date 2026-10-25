@@ -1,12 +1,14 @@
 {
   "issue_offline": "{name}: offline",
   "issue_quiet": "{name}: al {hours} u niets van gehoord",
+  "issue_not_provided": "{name}: wordt niet meer geleverd door {integration}",
   "issue_battery_critical": "{name}: batterij kritiek ({level})",
   "issue_battery_warning": "{name}: batterij laag ({level})",
   "level_percent": "{level}%",
   "level_low": "meldt laag",
   "resolved_offline": "{name}: weer online",
   "resolved_quiet": "{name}: meldt zich weer",
+  "resolved_not_provided": "{name}: wordt weer geleverd",
   "resolved_battery_critical": "{name}: batterij niet meer kritiek",
   "resolved_battery_warning": "{name}: batterijwaarschuwing opgelost",
   "reminder": {

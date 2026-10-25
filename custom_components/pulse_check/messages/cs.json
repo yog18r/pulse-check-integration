@@ -1,12 +1,14 @@
 {
   "issue_offline": "{name}: offline",
   "issue_quiet": "{name}: neozývá se {hours} h",
+  "issue_not_provided": "{name}: už není poskytováno integrací {integration}",
   "issue_battery_critical": "{name}: kritická baterie ({level})",
   "issue_battery_warning": "{name}: slabá baterie ({level})",
   "level_percent": "{level} %",
   "level_low": "hlásí slabou",
   "resolved_offline": "{name}: opět online",
   "resolved_quiet": "{name}: opět se ozývá",
+  "resolved_not_provided": "{name}: opět poskytováno",
   "resolved_battery_critical": "{name}: baterie už není kritická",
   "resolved_battery_warning": "{name}: varování baterie vyřešeno",
   "reminder": {

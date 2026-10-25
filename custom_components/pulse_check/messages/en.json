@@ -1,12 +1,14 @@
 {
   "issue_offline": "{name}: offline",
   "issue_quiet": "{name}: not heard from for {hours} h",
+  "issue_not_provided": "{name}: no longer provided by {integration}",
   "issue_battery_critical": "{name}: battery critical ({level})",
   "issue_battery_warning": "{name}: battery low ({level})",
   "level_percent": "{level} %",
   "level_low": "reports low",
   "resolved_offline": "{name}: offline resolved",
   "resolved_quiet": "{name}: quiet resolved",
+  "resolved_not_provided": "{name}: provided again",
   "resolved_battery_critical": "{name}: battery critical resolved",
   "resolved_battery_warning": "{name}: battery warning resolved",
   "reminder": {

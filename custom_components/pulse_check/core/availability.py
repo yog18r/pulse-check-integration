@@ -7,6 +7,10 @@
   is gone, or vice versa. A device with no primary entities is judged by
   its diagnostic ones; settings and update checkers never decide it, so a
   Zigbee stick whose firmware check is unavailable is not offline.
+- A device is NOT PROVIDED when it would be offline, but every entity
+  deciding that is a placeholder Home Assistant keeps for an entity its
+  (running) integration no longer provides. That is stale configuration
+  to clean up, not hardware that stopped answering.
 - A device's LAST HEARD timestamp is the newest `last_reported` across its
   live entities (`last_updated` when an entity has no `last_reported`).
 - A device is QUIET when that timestamp is older than a threshold.
@@ -42,12 +46,32 @@ def detect_offline(entities: Sequence[EntityEntry], states: Mapping[str, EntityS
     its check fails, as Home Assistant's SkyConnect does while the radio
     works normally. A device with nothing left to judge by is not offline.
     """
+    deciding = _deciding_entities(entities, states)
+    return bool(deciding) and all(states[e["entity_id"]]["state"] == UNAVAILABLE for e in deciding)
+
+
+def detect_not_provided(entities: Sequence[EntityEntry], states: Mapping[str, EntityState]) -> bool:
+    """True when the device would be offline only because its integration dropped it.
+
+    Every entity that decides offline is unavailable and marked
+    `not_provided`. One real unavailable entity among them makes it a
+    genuine offline instead.
+    """
+    deciding = _deciding_entities(entities, states)
+    return (
+        bool(deciding)
+        and all(states[e["entity_id"]]["state"] == UNAVAILABLE for e in deciding)
+        and all(e.get("not_provided", False) for e in deciding)
+    )
+
+
+def _deciding_entities(
+    entities: Sequence[EntityEntry], states: Mapping[str, EntityState]
+) -> list[EntityEntry]:
+    """The entities, with a state, that decide whether a device is offline."""
     primary = [e for e in entities if is_primary(e)]
     candidates = primary or [e for e in entities if not is_static_entity(e["entity_id"], e)]
-    with_state = [states[e["entity_id"]] for e in candidates if e["entity_id"] in states]
-    if not with_state:
-        return False
-    return all(s["state"] == UNAVAILABLE for s in with_state)
+    return [e for e in candidates if e["entity_id"] in states]
 
 
 def parse_timestamp(value: object) -> datetime | None:

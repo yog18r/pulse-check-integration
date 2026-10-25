@@ -60,6 +60,10 @@ class EntityEntry(TypedDict):
     entity_category: NotRequired[EntityCategory]
     hidden: NotRequired[bool]
     name: NotRequired[str]
+    # True when the integration no longer provides the entity: its config
+    # entry is loaded, yet the state is Home Assistant's restored
+    # placeholder. Typically left behind by an integration update.
+    not_provided: NotRequired[bool]
 
 
 class DeviceEntry(TypedDict):
@@ -332,6 +336,9 @@ class DeviceHealth:
     # A short note when the battery behaves unlike its own past, e.g.
     # "draining 3× faster than usual".
     unusual: str | None = None
+    # True when the integration no longer provides the entities that would
+    # decide offline: stale configuration, not a fault. Never also offline.
+    is_not_provided: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """The card's `DeviceHealth` shape, JSON-ready."""
@@ -369,6 +376,8 @@ class DeviceHealth:
             out["lastReplaced"] = to_iso(self.last_replaced)
         if self.unusual is not None:
             out["unusual"] = self.unusual
+        if self.is_not_provided:
+            out["isNotProvided"] = True
         return out
 
 

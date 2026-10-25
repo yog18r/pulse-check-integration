@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .availability import detect_last_heard, detect_offline, is_quiet
+from .availability import detect_last_heard, detect_not_provided, detect_offline, is_quiet
 from .battery import detect_battery
 from .device_type import classify_device
 from .enhancers import apply_enhancers
@@ -138,8 +138,17 @@ def analyse_devices(
         # node, a Zigbee2MQTT last_seen timestamp) can feed the rules below.
         enhanced = apply_enhancers(enhancers, integration, group, snapshot)
 
-        is_offline = not is_orphan and (
-            enhanced.offline or detect_offline(group.entities, snapshot["states"])
+        # Entities the integration dropped (stale configuration) are not an
+        # outage; an enhancer's "dead node" still is.
+        not_provided = (
+            not is_orphan
+            and not enhanced.offline
+            and detect_not_provided(group.entities, snapshot["states"])
+        )
+        is_offline = (
+            not is_orphan
+            and not not_provided
+            and (enhanced.offline or detect_offline(group.entities, snapshot["states"]))
         )
 
         # Last heard: the newest of the generic rule and any enhancer signal.
@@ -155,6 +164,7 @@ def analyse_devices(
         quiet_eligible = (
             not is_orphan
             and not is_offline
+            and not not_provided
             and (config.quiet_scope == "all" or battery is not None)
         )
         quiet_hours = resolve_quiet_threshold(config, integration, group.device_id)
@@ -168,7 +178,7 @@ def analyse_devices(
             if snoozed
             else worst_severity(
                 battery_severity(battery, config),
-                connectivity_severity(is_offline, quiet),
+                connectivity_severity(is_offline, quiet, not_provided),
                 extras_severity(enhanced.extras),
             )
         )
@@ -183,6 +193,7 @@ def analyse_devices(
                 name=settings.name if settings and settings.name else display_name(group),
                 integration=integration,
                 is_offline=is_offline,
+                is_not_provided=not_provided,
                 is_quiet=quiet,
                 quiet_threshold_hours=quiet_hours,
                 severity=severity,

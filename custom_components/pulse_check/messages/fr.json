@@ -1,12 +1,14 @@
 {
   "issue_offline": "{name} : hors ligne",
   "issue_quiet": "{name} : aucune nouvelle depuis {hours} h",
+  "issue_not_provided": "{name} : n’est plus fourni par {integration}",
   "issue_battery_critical": "{name} : batterie critique ({level})",
   "issue_battery_warning": "{name} : batterie faible ({level})",
   "level_percent": "{level} %",
   "level_low": "signalée faible",
   "resolved_offline": "{name} : de nouveau en ligne",
   "resolved_quiet": "{name} : de nouveau actif",
+  "resolved_not_provided": "{name} : de nouveau fourni",
   "resolved_battery_critical": "{name} : batterie critique résolue",
   "resolved_battery_warning": "{name} : avertissement de batterie résolu",
   "reminder": {

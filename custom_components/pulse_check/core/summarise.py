@@ -29,6 +29,8 @@ class Summary:
     critical_batteries: int = 0
     offline: int = 0
     quiet: int = 0
+    # Devices whose integration no longer provides them (stale configuration).
+    not_provided: int = 0
     # Devices the user has muted; they count in nothing else.
     snoozed: int = 0
 
@@ -43,6 +45,7 @@ class Summary:
             "criticalBatteries": self.critical_batteries,
             "offline": self.offline,
             "quiet": self.quiet,
+            "notProvided": self.not_provided,
             "snoozed": self.snoozed,
         }
 
@@ -71,4 +74,6 @@ def summarise(devices: Iterable[DeviceHealth], config: CoreConfig) -> Summary:
             summary.offline += 1
         if device.is_quiet:
             summary.quiet += 1
+        if device.is_not_provided:
+            summary.not_provided += 1
     return summary

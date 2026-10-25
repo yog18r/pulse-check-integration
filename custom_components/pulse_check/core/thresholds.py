@@ -62,11 +62,13 @@ def battery_severity(battery: BatteryReading | None, config: CoreConfig) -> Seve
     return "ok"
 
 
-def connectivity_severity(is_offline: bool, is_quiet: bool) -> Severity:
-    """Severity from connectivity alone."""
+def connectivity_severity(
+    is_offline: bool, is_quiet: bool, is_not_provided: bool = False
+) -> Severity:
+    """Severity from connectivity alone. Stale configuration is only a warning."""
     if is_offline:
         return "critical"
-    if is_quiet:
+    if is_quiet or is_not_provided:
         return "warning"
     return "ok"
 

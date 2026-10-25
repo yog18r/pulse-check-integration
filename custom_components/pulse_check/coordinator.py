@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import EVENT_STATE_CHANGED, STATE_UNAVAILABLE
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, State, callback
 from homeassistant.helpers import (
@@ -316,6 +317,15 @@ def _analyse(
 
 
 @callback
+def _is_placeholder(state: State | None) -> bool:
+    """Home Assistant's stand-in for a registered entity nobody has set up."""
+    return (
+        state is not None
+        and state.state == STATE_UNAVAILABLE
+        and state.attributes.get("restored") is True
+    )
+
+
 def build_snapshot(hass: HomeAssistant) -> Snapshot:
     """Copy the parts of Home Assistant's state and registries the core reads.
 
@@ -323,6 +333,15 @@ def build_snapshot(hass: HomeAssistant) -> Snapshot:
     mapping, so this costs one small dict per entity and nothing more.
     """
     entities: dict[str, EntityEntry] = {}
+    # Integrations that are running. An entity of one of these that still
+    # shows Home Assistant's restored placeholder is one the integration no
+    # longer provides. For an integration that failed to start, the same
+    # placeholder means the hardware may really be down, so it is not marked.
+    loaded = {
+        entry.entry_id
+        for entry in hass.config_entries.async_entries()
+        if entry.state is ConfigEntryState.LOADED
+    }
     # A state with no registry entry is analysed as a device-less entity,
     # so a disabled entity's state, which lingers until its integration
     # reloads, must not be copied either.
@@ -344,6 +363,8 @@ def build_snapshot(hass: HomeAssistant) -> Snapshot:
             entity["hidden"] = True
         if entry.name:
             entity["name"] = entry.name
+        if entry.config_entry_id in loaded and _is_placeholder(hass.states.get(entry.entity_id)):
+            entity["not_provided"] = True
         entities[entry.entity_id] = entity
 
     states: dict[str, EntityState] = {}

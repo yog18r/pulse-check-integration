@@ -120,6 +120,8 @@ from .notify_actions import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from homeassistant.config_entries import ConfigEntry
 
     from .coordinator import PulseCheckCoordinator, PulseCheckData
@@ -137,7 +139,7 @@ ACTION_TITLE_KEYS = {
     SNOOZE_DAY: "action_snooze_day",
 }
 
-type IssueKey = Literal["offline", "quiet", "battery_critical", "battery_warning"]
+type IssueKey = Literal["offline", "quiet", "not_provided", "battery_critical", "battery_warning"]
 type Policy = Literal["instant", "daily", "weekly", "none"]
 type DigestKind = Literal["daily", "weekly"]
 
@@ -147,11 +149,12 @@ ISSUE_SEVERITY: dict[str, str] = {
     "offline": "critical",
     "battery_critical": "critical",
     "quiet": "warning",
+    "not_provided": "warning",
     "battery_warning": "warning",
 }
 
 # Issues that must persist for the confirmation window before they count.
-CONFIRMED_ISSUES = frozenset({"offline", "quiet"})
+CONFIRMED_ISSUES = frozenset({"offline", "quiet", "not_provided"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,7 +193,11 @@ def last_digest_slot(now: datetime, hour: int, minute: int, weekday: int | None 
 
 
 def device_issues(
-    device: DeviceHealth, config: CoreConfig, now: datetime, text: Catalog
+    device: DeviceHealth,
+    config: CoreConfig,
+    now: datetime,
+    text: Catalog,
+    integration_name: Callable[[str], str] = str,
 ) -> dict[str, Issue]:
     """The issues a device currently has, worded by `text`. A snoozed device has none."""
     if device.snoozed_until is not None:
@@ -202,6 +209,10 @@ def device_issues(
     elif device.is_quiet:
         hours = _hours_since(device.last_heard, now)
         issues["quiet"] = Issue("quiet", "warning", text("issue_quiet", name=name, hours=hours))
+    elif device.is_not_provided:
+        integration = integration_name(device.integration)
+        message = text("issue_not_provided", name=name, integration=integration)
+        issues["not_provided"] = Issue("not_provided", "warning", message)
     battery = device.battery
     if battery is not None:
         severity = battery_severity(battery, config)
@@ -456,7 +467,7 @@ class Notifier:
         changed = False
         for device in data.devices:
             stored: dict[str, dict[str, Any]] = state.get(device.device_id, {})
-            current = device_issues(device, data.config, now, self.text)
+            current = self._issues(device, data.config, now)
             if device.device_id not in self._seen_online:
                 # Not loaded yet: its battery can still be judged, but
                 # offline and quiet mean nothing until it has come up once.
@@ -614,6 +625,10 @@ class Notifier:
             },
         )
 
+    def _issues(self, device: DeviceHealth, config: CoreConfig, now: datetime) -> dict[str, Issue]:
+        """The device's current issues, worded in Home Assistant's language."""
+        return device_issues(device, config, now, self.text, self._integration_name)
+
     # -- the per-integration limit -------------------------------------------
 
     def _hold_back(
@@ -659,7 +674,7 @@ class Notifier:
         groups: dict[str, list[tuple[str, dict[str, Any]]]] = {}
         for device in data.devices:
             stored = self.store.notify.get(device.device_id, {})
-            for key, issue in device_issues(device, data.config, now, self.text).items():
+            for key, issue in self._issues(device, data.config, now).items():
                 record = stored.get(key)
                 if record is not None and "held" in record:
                     integration = record["held"]["integration"]
@@ -711,7 +726,7 @@ class Notifier:
         lines: list[str] = []
         for device in data.devices:
             stored = self.store.notify.get(device.device_id, {})
-            for key, issue in device_issues(device, data.config, now, self.text).items():
+            for key, issue in self._issues(device, data.config, now).items():
                 record = stored.get(key)
                 if record is None or not record.get("confirmed", True):
                     continue
@@ -770,7 +785,7 @@ class Notifier:
         lines: list[str] = []
         for device in data.devices:
             stored = self.store.notify.get(device.device_id, {})
-            for key, issue in device_issues(device, data.config, now, self.text).items():
+            for key, issue in self._issues(device, data.config, now).items():
                 if not stored.get(key, {}).get("confirmed", False):
                     continue
                 if self.policy_for(device.device_id, issue.severity) == kind:
