@@ -18,6 +18,7 @@
  */
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { hasConnectivityProblem } from '../core/thresholds';
 import type { DeviceHealth, HassLike, HassBox } from '../core/types';
 import { languageOf, translator } from '../i18n';
 import { App } from '../ui/App';
@@ -115,7 +116,7 @@ export class PulseCheckCardElement extends HTMLElement {
     const devices = this.lastSnapshot?.devices ?? [];
     const rows = Math.max(
       devices.filter((d) => d.battery).length,
-      devices.filter((d) => d.isOffline || d.isQuiet).length,
+      devices.filter(hasConnectivityProblem).length,
     );
     // header + tabs ≈ 2 rows, each device row ≈ 1 row, cap so we don't dominate.
     return 2 + Math.min(rows, 10);

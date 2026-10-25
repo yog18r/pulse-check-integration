@@ -49,6 +49,12 @@ export const pl: Catalog = {
     many: '{count} milczących',
     other: '{count} milczących',
   },
+  'breakdown.not_provided': {
+    one: '{count} niedostarczane',
+    few: '{count} niedostarczane',
+    many: '{count} niedostarczanych',
+    other: '{count} niedostarczanych',
+  },
 
   'empty.no_batteries': 'Brak urządzeń na baterie',
   'empty.no_batteries_detail': 'Nic tutaj nie działa na baterie.',
@@ -60,6 +66,8 @@ export const pl: Catalog = {
 
   'row.open': '{name}, otwórz w Home Assistant',
   'row.offline': 'Offline',
+  'row.not_provided': 'Niedostarczane',
+  'row.not_provided_by': 'nie jest już dostarczane przez {integration}',
   'row.quiet': 'Milczy',
   'row.online': 'Online',
   'row.charging': 'ładowanie',

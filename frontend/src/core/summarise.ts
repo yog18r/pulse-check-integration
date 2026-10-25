@@ -20,6 +20,8 @@ export interface Summary {
   criticalBatteries: number;
   offline: number;
   quiet: number;
+  /** Devices whose integration no longer provides them (stale configuration). */
+  notProvided: number;
   /** Devices the user has muted; they count in nothing else. */
   snoozed: number;
 }
@@ -33,6 +35,7 @@ export const EMPTY_SUMMARY: Summary = {
   criticalBatteries: 0,
   offline: 0,
   quiet: 0,
+  notProvided: 0,
   snoozed: 0,
 };
 
@@ -59,6 +62,7 @@ export function summarise(devices: DeviceHealth[], thresholds: Thresholds): Summ
     }
     if (d.isOffline) summary.offline += 1;
     if (d.isQuiet) summary.quiet += 1;
+    if (d.isNotProvided) summary.notProvided += 1;
   }
   return summary;
 }
@@ -75,5 +79,8 @@ export function breakdown(summary: Summary, t: Translator = EN): string {
   if (summary.lowBatteries > 0) parts.push(t.tn('breakdown.low', summary.lowBatteries));
   if (summary.offline > 0) parts.push(t.tn('breakdown.offline', summary.offline));
   if (summary.quiet > 0) parts.push(t.tn('breakdown.quiet', summary.quiet));
+  if (summary.notProvided > 0) {
+    parts.push(t.tn('breakdown.not_provided', summary.notProvided));
+  }
   return parts.join(' · ');
 }

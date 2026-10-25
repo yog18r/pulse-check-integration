@@ -19,6 +19,7 @@ const LABELS: Record<string, string> = {
   hue: 'Hue',
   tuya: 'Tuya',
   template: 'Template',
+  unifi: 'UniFi Network',
 };
 
 export function integrationLabel(platform: string, t: Translator = EN): string {

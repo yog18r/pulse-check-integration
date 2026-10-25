@@ -28,6 +28,7 @@ export const nl: Catalog = {
   'breakdown.low': { one: '{count} batterij laag', other: '{count} batterijen laag' },
   'breakdown.offline': { one: '{count} offline', other: '{count} offline' },
   'breakdown.quiet': { one: '{count} stil', other: '{count} stil' },
+  'breakdown.not_provided': { one: '{count} niet geleverd', other: '{count} niet geleverd' },
 
   'empty.no_batteries': 'Geen apparaten op batterijen',
   'empty.no_batteries_detail': 'Niets hier werkt op batterijen.',
@@ -40,6 +41,8 @@ export const nl: Catalog = {
   // -- one device row ---------------------------------------------------------
   'row.open': '{name}, openen in Home Assistant',
   'row.offline': 'Offline',
+  'row.not_provided': 'Niet geleverd',
+  'row.not_provided_by': 'niet meer geleverd door {integration}',
   'row.quiet': 'Stil',
   'row.online': 'Online',
   'row.charging': 'laadt op',

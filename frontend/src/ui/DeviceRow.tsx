@@ -14,6 +14,7 @@ import { translateBasis, translateUnusual } from '../i18n/serverText';
 import { BatteryBar } from './BatteryBar';
 import { useT } from './i18n';
 import { IntegrationBadge } from './IntegrationBadge';
+import { integrationLabel } from './labels';
 import { SnoozeMenu } from './SnoozeMenu';
 import { Sparkline } from './Sparkline';
 
@@ -40,6 +41,7 @@ interface Props {
 
 function connectivityLabel(device: DeviceHealth, t: Translator): string {
   if (device.isOffline) return t.t('row.offline');
+  if (device.isNotProvided) return t.t('row.not_provided');
   if (device.isQuiet) return t.t('row.quiet');
   return t.t('row.online');
 }
@@ -155,7 +157,11 @@ export function DeviceRow({
                 {connectivityLabel(device, t)}
               </span>
               <span className="sub">
-                {t.t('row.last_heard', { time: lastHeard })}
+                {device.isNotProvided
+                  ? t.t('row.not_provided_by', {
+                      integration: integrationLabel(device.integration, t),
+                    })
+                  : t.t('row.last_heard', { time: lastHeard })}
                 {device.isQuiet &&
                   ` · ${t.t('row.limit', { hours: formatHours(device.quietThresholdHours, t) })}`}
               </span>

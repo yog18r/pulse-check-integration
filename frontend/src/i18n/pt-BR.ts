@@ -27,6 +27,7 @@ export const ptBR: Catalog = {
   'breakdown.low': { one: '{count} bateria baixa', other: '{count} baterias baixas' },
   'breakdown.offline': { one: '{count} offline', other: '{count} offline' },
   'breakdown.quiet': { one: '{count} inativo', other: '{count} inativos' },
+  'breakdown.not_provided': { one: '{count} não fornecido', other: '{count} não fornecidos' },
 
   'empty.no_batteries': 'Nenhum dispositivo a bateria',
   'empty.no_batteries_detail': 'Nada aqui funciona a bateria.',
@@ -38,6 +39,8 @@ export const ptBR: Catalog = {
 
   'row.open': '{name}, abrir no Home Assistant',
   'row.offline': 'Offline',
+  'row.not_provided': 'Não fornecido',
+  'row.not_provided_by': 'não é mais fornecido por {integration}',
   'row.quiet': 'Inativo',
   'row.online': 'Online',
   'row.charging': 'carregando',

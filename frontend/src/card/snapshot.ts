@@ -178,6 +178,7 @@ export function parseDevice(raw: unknown): DeviceHealth | undefined {
       ? raw.entityIds.filter((id): id is string => typeof id === 'string')
       : [],
   };
+  if (raw.isNotProvided === true) device.isNotProvided = true;
   const area = str(raw.area);
   if (area !== undefined) device.area = area;
   const manufacturer = str(raw.manufacturer);

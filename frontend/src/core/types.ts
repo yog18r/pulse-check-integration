@@ -176,6 +176,12 @@ export interface DeviceHealth {
   isOffline: boolean;
   /** True when `lastHeard` is older than the device's quiet threshold. */
   isQuiet: boolean;
+  /**
+   * True when the integration no longer provides the entities that would
+   * make the device offline: stale configuration left by an integration
+   * update, to delete in Home Assistant. Never also offline or quiet.
+   */
+  isNotProvided?: boolean;
   /** The threshold that applied to this device, after overrides, in hours. */
   quietThresholdHours: number;
   /** Set while the user has snoozed this device; severity is then "ok". */

@@ -11,7 +11,7 @@
  *   warning   battery at/below warning %
  *   ok        everything else, including anything charging
  */
-import type { BatteryReading, Severity } from './types';
+import type { BatteryReading, DeviceHealth, Severity } from './types';
 
 /** The two numbers these rules need. */
 export interface Thresholds {
@@ -35,8 +35,19 @@ export function batterySeverity(
   return 'ok';
 }
 
-export function connectivitySeverity(isOffline: boolean, isQuiet: boolean): Severity {
+export function connectivitySeverity(
+  isOffline: boolean,
+  isQuiet: boolean,
+  isNotProvided = false,
+): Severity {
   if (isOffline) return 'critical';
-  if (isQuiet) return 'warning';
+  if (isQuiet || isNotProvided) return 'warning';
   return 'ok';
+}
+
+/** Whether a device belongs on the Connectivity tab: offline, quiet or not provided. */
+export function hasConnectivityProblem(
+  d: Pick<DeviceHealth, 'isOffline' | 'isQuiet' | 'isNotProvided'>,
+): boolean {
+  return d.isOffline || d.isQuiet || d.isNotProvided === true;
 }

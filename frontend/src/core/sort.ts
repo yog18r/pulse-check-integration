@@ -7,7 +7,12 @@
  *                     of 80 fine devices hides the 3 that matter.
  */
 import type { SortOrder } from '../card/config';
-import { batterySeverity, SEVERITY_RANK, type Thresholds } from './thresholds';
+import {
+  batterySeverity,
+  hasConnectivityProblem,
+  SEVERITY_RANK,
+  type Thresholds,
+} from './thresholds';
 import type { DeviceHealth, Estimate } from './types';
 
 /**
@@ -75,7 +80,7 @@ export function batteryList(
 
 export function connectivityList(devices: DeviceHealth[]): DeviceHealth[] {
   return devices
-    .filter((d) => (d.isOffline || d.isQuiet) && !d.snoozedUntil)
+    .filter((d) => hasConnectivityProblem(d) && !d.snoozedUntil)
     .sort((a, b) => {
       // Offline before quiet.
       if (a.isOffline !== b.isOffline) return a.isOffline ? -1 : 1;

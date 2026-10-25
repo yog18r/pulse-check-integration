@@ -24,6 +24,7 @@ export const zhHans: Catalog = {
   'breakdown.low': { other: '{count} 个电池电量低' },
   'breakdown.offline': { other: '{count} 个离线' },
   'breakdown.quiet': { other: '{count} 个久未上报' },
+  'breakdown.not_provided': { other: '{count} 个未提供' },
 
   'empty.no_batteries': '没有电池供电的设备',
   'empty.no_batteries_detail': '这里没有使用电池的设备。',
@@ -35,6 +36,8 @@ export const zhHans: Catalog = {
 
   'row.open': '{name}，在 Home Assistant 中打开',
   'row.offline': '离线',
+  'row.not_provided': '未提供',
+  'row.not_provided_by': '{integration} 已不再提供',
   'row.quiet': '久未上报',
   'row.online': '在线',
   'row.charging': '充电中',

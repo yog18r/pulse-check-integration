@@ -41,6 +41,11 @@ export const cs: Catalog = {
     few: '{count} se neozývají',
     other: '{count} se neozývá',
   },
+  'breakdown.not_provided': {
+    one: '{count} neposkytováno',
+    few: '{count} neposkytována',
+    other: '{count} neposkytováno',
+  },
 
   'empty.no_batteries': 'Žádná zařízení na baterie',
   'empty.no_batteries_detail': 'Nic tady neběží na baterie.',
@@ -53,6 +58,8 @@ export const cs: Catalog = {
   // -- one device row ---------------------------------------------------------
   'row.open': '{name}, otevřít v Home Assistant',
   'row.offline': 'Offline',
+  'row.not_provided': 'Neposkytováno',
+  'row.not_provided_by': 'už neposkytováno integrací {integration}',
   'row.quiet': 'Neozývá se',
   'row.online': 'Online',
   'row.charging': 'nabíjí se',

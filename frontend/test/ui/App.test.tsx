@@ -73,6 +73,36 @@ describe('App', () => {
     );
   });
 
+  it('shows devices an integration no longer provides as stale, not offline', async () => {
+    const { emit } = renderApp();
+    await screen.findByText('⚠️ 7 devices need attention');
+    const leftover = {
+      deviceId: 'dev_unifi_rule',
+      name: 'UniFi Network Allow DNS',
+      integration: 'unifi',
+      deviceType: 'switch',
+      isOffline: false,
+      isQuiet: false,
+      isNotProvided: true,
+      quietThresholdHours: 24,
+      severity: 'warning',
+      extras: [],
+      entityIds: ['switch.allow_dns'],
+    };
+    const devices = SNAPSHOT_PAYLOAD.devices as unknown[];
+    emit({ ...SNAPSHOT_PAYLOAD, devices: [...devices, leftover] });
+    expect(await screen.findByText('⚠️ 8 devices need attention')).toBeInTheDocument();
+    expect(screen.getByText(/1 not provided/)).toBeInTheDocument();
+
+    await user().click(screen.getByRole('tab', { name: /Connectivity/ }));
+    const row = screen.getByText('UniFi Network Allow DNS').closest('li');
+    expect(row).not.toBeNull();
+    const cells = within(row!);
+    expect(cells.getByText('Not provided')).toBeInTheDocument();
+    expect(cells.getByText('no longer provided by UniFi Network')).toBeInTheDocument();
+    expect(cells.queryByText('Offline')).not.toBeInTheDocument();
+  });
+
   it("speaks the user's language", async () => {
     const fake = fakeHass();
     fake.hass.locale = { language: 'de' };

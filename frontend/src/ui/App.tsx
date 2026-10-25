@@ -23,7 +23,7 @@ import { filterActions, type ActionKind } from '../core/actions';
 import { filterDevices } from '../core/filters';
 import { batteryList, connectivityList } from '../core/sort';
 import { breakdown, headline, summarise } from '../core/summarise';
-import { batterySeverity, connectivitySeverity } from '../core/thresholds';
+import { batterySeverity, connectivitySeverity, hasConnectivityProblem } from '../core/thresholds';
 import { formatClock } from '../core/time';
 import type { DeviceHealth, HassBox } from '../core/types';
 import { languageOf, translator } from '../i18n';
@@ -289,7 +289,7 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
                   <DeviceRow
                     key={d.deviceId}
                     device={d}
-                    severity={connectivitySeverity(d.isOffline, d.isQuiet)}
+                    severity={connectivitySeverity(d.isOffline, d.isQuiet, d.isNotProvided)}
                     mode="connectivity"
                     {...rowProps}
                   />
@@ -322,7 +322,7 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
                     key={d.deviceId}
                     device={d}
                     severity="ok"
-                    mode={d.isOffline || d.isQuiet ? 'connectivity' : 'battery'}
+                    mode={hasConnectivityProblem(d) ? 'connectivity' : 'battery'}
                     {...rowProps}
                   />
                 ))}

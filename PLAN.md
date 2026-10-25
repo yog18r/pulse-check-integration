@@ -57,6 +57,14 @@ change must come with a deliberate change to the golden file.
   update entity, which goes unavailable whenever its firmware check fails
   while the radio works, and read as offline until 0.2.3. A dead Z-Wave JS
   node is offline regardless.
+- **Not provided**: a device that would be offline, but whose deciding
+  entities are all Home Assistant's restored placeholders for entities a
+  *loaded* integration no longer provides (`not_provided` on the entity,
+  set in `build_snapshot`). A warning, never also offline or quiet;
+  notified as "no longer provided by <integration>". Added in 0.2.4 after
+  a UniFi update left one device per firewall policy behind, each read as
+  offline and paged as critical. For an integration that failed to start
+  the same placeholder can mean real trouble, so it stays offline.
 - **Last heard and quiet**: newest `last_reported` across live entities,
   ignoring settings-type entities (`entity_category: config`; domains
   `number`, `select`, `button`, `update`, `text`, `scene`, `script`). Quiet

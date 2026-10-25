@@ -28,6 +28,10 @@ export const de: Catalog = {
   'breakdown.low': { one: '{count} schwache Batterie', other: '{count} schwache Batterien' },
   'breakdown.offline': { one: '{count} offline', other: '{count} offline' },
   'breakdown.quiet': { one: '{count} stumm', other: '{count} stumm' },
+  'breakdown.not_provided': {
+    one: '{count} nicht bereitgestellt',
+    other: '{count} nicht bereitgestellt',
+  },
 
   'empty.no_batteries': 'Keine batteriebetriebenen Geräte',
   'empty.no_batteries_detail': 'Hier läuft nichts mit Batterien.',
@@ -40,6 +44,8 @@ export const de: Catalog = {
   // -- one device row ---------------------------------------------------------
   'row.open': '{name}, in Home Assistant öffnen',
   'row.offline': 'Offline',
+  'row.not_provided': 'Nicht bereitgestellt',
+  'row.not_provided_by': 'von {integration} nicht mehr bereitgestellt',
   'row.quiet': 'Stumm',
   'row.online': 'Online',
   'row.charging': 'lädt',

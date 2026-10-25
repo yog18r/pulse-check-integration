@@ -38,6 +38,7 @@ export const en = {
   'breakdown.low': { one: '{count} low battery', other: '{count} low batteries' },
   'breakdown.offline': { one: '{count} offline', other: '{count} offline' },
   'breakdown.quiet': { one: '{count} quiet', other: '{count} quiet' },
+  'breakdown.not_provided': { one: '{count} not provided', other: '{count} not provided' },
 
   'empty.no_batteries': 'No battery-powered devices',
   'empty.no_batteries_detail': 'Nothing here runs on batteries.',
@@ -50,6 +51,8 @@ export const en = {
   // -- one device row ---------------------------------------------------------
   'row.open': '{name}, open in Home Assistant',
   'row.offline': 'Offline',
+  'row.not_provided': 'Not provided',
+  'row.not_provided_by': 'no longer provided by {integration}',
   'row.quiet': 'Quiet',
   'row.online': 'Online',
   'row.charging': 'charging',
