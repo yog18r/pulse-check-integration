@@ -342,11 +342,37 @@ function errorKind(err: unknown): [SubscribeFailure, string] {
   return ['error', err instanceof Error ? err.message : String(err)];
 }
 
+/** Waits before trying again: quick while Home Assistant starts, then every 30 s. */
+export const RETRY_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 30_000] as const;
+
+/** True while Home Assistant is still starting and integrations are loading one by one. */
+function isStarting(hass: HassLike | undefined): boolean {
+  const state = hass?.config?.state;
+  return state !== undefined && state !== 'RUNNING';
+}
+
 /**
- * Subscribe to the integration's snapshots. Returns a function that stops
- * the subscription; safe to call before the subscription was confirmed.
+ * Subscribe to the integration's snapshots, and keep the subscription
+ * alive. Returns a function that stops it; safe to call at any time.
+ *
+ * After Home Assistant restarts, the browser reconnects before every
+ * integration has loaded. So:
+ * - a failed subscribe is tried again, quickly at first and then every
+ *   30 seconds, so the card recovers without a page refresh (and finds
+ *   the integration once it is installed);
+ * - while Home Assistant says it is still starting, "not found" is not
+ *   reported: the card keeps saying it is connecting;
+ * - after a reconnect the card subscribes again itself. The websocket
+ *   library would re-send the subscription once, possibly before Pulse
+ *   Check has loaded, and give up silently, leaving stale data on screen.
+ *
+ * `currentHass` returns the latest `hass`, for its run state.
  */
-export function subscribeSnapshots(hass: HassLike, handlers: SubscribeHandlers): () => void {
+export function subscribeSnapshots(
+  hass: HassLike,
+  handlers: SubscribeHandlers,
+  currentHass: () => HassLike | undefined = () => hass,
+): () => void {
   const connection = hass.connection;
   if (!connection) {
     handlers.onError('error', 'No websocket connection');
@@ -354,22 +380,54 @@ export function subscribeSnapshots(hass: HassLike, handlers: SubscribeHandlers):
   }
   let cancelled = false;
   let unsubscribe: UnsubscribeFunc | undefined;
-  connection
-    .subscribeMessage(
-      (message) => {
-        if (!cancelled) handlers.onSnapshot(parseSnapshot(message));
-      },
-      { type: 'pulse_check/subscribe' },
-    )
-    .then((unsub) => {
-      if (cancelled) void unsub();
-      else unsubscribe = unsub;
-    })
-    .catch((err: unknown) => {
-      if (!cancelled) handlers.onError(...errorKind(err));
-    });
+  let retry: ReturnType<typeof setTimeout> | undefined;
+  let failures = 0;
+  // Each attempt has a number, so an answer to a superseded one is ignored.
+  let attempt = 0;
+
+  const subscribe = () => {
+    retry = undefined;
+    const mine = ++attempt;
+    connection
+      .subscribeMessage(
+        (message) => {
+          if (!cancelled && mine === attempt) handlers.onSnapshot(parseSnapshot(message));
+        },
+        { type: 'pulse_check/subscribe' },
+        { resubscribe: false },
+      )
+      .then((unsub) => {
+        if (cancelled || mine !== attempt) {
+          void unsub();
+          return;
+        }
+        unsubscribe = unsub;
+        failures = 0;
+      })
+      .catch((err: unknown) => {
+        if (cancelled || mine !== attempt) return;
+        if (!isStarting(currentHass())) handlers.onError(...errorKind(err));
+        const delay = RETRY_DELAYS_MS[Math.min(failures, RETRY_DELAYS_MS.length - 1)];
+        failures += 1;
+        retry = setTimeout(subscribe, delay);
+      });
+  };
+
+  // Back after a restart: the old subscription died with the old server.
+  const onReady = () => {
+    if (cancelled) return;
+    if (retry !== undefined) clearTimeout(retry);
+    unsubscribe = undefined;
+    failures = 0;
+    subscribe();
+  };
+
+  connection.addEventListener?.('ready', onReady);
+  subscribe();
   return () => {
     cancelled = true;
+    if (retry !== undefined) clearTimeout(retry);
+    connection.removeEventListener?.('ready', onReady);
     void unsubscribe?.();
   };
 }

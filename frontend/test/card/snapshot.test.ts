@@ -93,20 +93,104 @@ describe('subscribeSnapshots', () => {
 
   it('tells "integration missing" apart from other errors', async () => {
     const onError = vi.fn();
-    subscribeSnapshots(fakeHass({ reject: { code: 'not_loaded', message: 'nope' } }).hass, {
-      onSnapshot: () => undefined,
-      onError,
-    });
+    const stopMissing = subscribeSnapshots(
+      fakeHass({ reject: { code: 'not_loaded', message: 'nope' } }).hass,
+      { onSnapshot: () => undefined, onError },
+    );
     await vi.waitFor(() => {
       expect(onError).toHaveBeenCalledWith('missing', 'nope');
     });
     const other = vi.fn();
-    subscribeSnapshots(fakeHass({ reject: { code: 'unauthorized', message: 'no' } }).hass, {
-      onSnapshot: () => undefined,
-      onError: other,
-    });
+    const stopOther = subscribeSnapshots(
+      fakeHass({ reject: { code: 'unauthorized', message: 'no' } }).hass,
+      { onSnapshot: () => undefined, onError: other },
+    );
     await vi.waitFor(() => {
       expect(other).toHaveBeenCalledWith('error', 'no');
+    });
+    stopMissing();
+    stopOther();
+  });
+
+  describe('after Home Assistant restarts', () => {
+    const NOT_YET = { code: 'unknown_command', message: 'Unknown command.' };
+
+    it('tries again until Pulse Check answers, then clears the error', async () => {
+      vi.useFakeTimers();
+      try {
+        const fake = fakeHass({ reject: NOT_YET, rejectTimes: 2, state: 'RUNNING' });
+        const onError = vi.fn();
+        const onSnapshot = vi.fn();
+        const stop = subscribeSnapshots(fake.hass, { onSnapshot, onError });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(onError).toHaveBeenCalledWith('missing', 'Unknown command.');
+        expect(onSnapshot).not.toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(1_000); // second attempt, still loading
+        expect(fake.attempts()).toBe(2);
+        await vi.advanceTimersByTimeAsync(2_000); // third attempt succeeds
+        expect(fake.attempts()).toBe(3);
+        expect(onSnapshot).toHaveBeenCalledOnce();
+        stop();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not say "not found" while Home Assistant is still starting', async () => {
+      vi.useFakeTimers();
+      try {
+        const fake = fakeHass({ reject: NOT_YET, rejectTimes: 3, state: 'STARTING' });
+        const onError = vi.fn();
+        const onSnapshot = vi.fn();
+        const stop = subscribeSnapshots(fake.hass, { onSnapshot, onError });
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(onError).not.toHaveBeenCalled();
+        expect(onSnapshot).toHaveBeenCalledOnce();
+        stop();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('subscribes again itself after the connection comes back', async () => {
+      const fake = fakeHass();
+      const received: Snapshot[] = [];
+      const stop = subscribeSnapshots(fake.hass, {
+        onSnapshot: (s) => received.push(s),
+        onError: () => undefined,
+      });
+      await vi.waitFor(() => {
+        expect(received).toHaveLength(1);
+      });
+      // The websocket library must not re-send it on its own.
+      expect(fake.lastOptions()).toEqual({ resubscribe: false });
+
+      fake.reconnect();
+      await vi.waitFor(() => {
+        expect(received).toHaveLength(2);
+      });
+      expect(fake.attempts()).toBe(2);
+      stop();
+    });
+
+    it('stops trying once the card is gone', async () => {
+      vi.useFakeTimers();
+      try {
+        const fake = fakeHass({ reject: NOT_YET, state: 'RUNNING' });
+        const stop = subscribeSnapshots(fake.hass, {
+          onSnapshot: () => undefined,
+          onError: () => undefined,
+        });
+        await vi.advanceTimersByTimeAsync(0);
+        stop();
+        await vi.advanceTimersByTimeAsync(120_000);
+        expect(fake.attempts()).toBe(1);
+        fake.reconnect();
+        expect(fake.attempts()).toBe(1);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

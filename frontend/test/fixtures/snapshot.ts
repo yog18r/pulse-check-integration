@@ -27,6 +27,10 @@ export interface FakeHassOptions {
   payload?: unknown;
   /** Reject the subscription with this error instead. */
   reject?: { code: string; message: string };
+  /** Reject only the first this-many attempts, then succeed. Default: every attempt. */
+  rejectTimes?: number;
+  /** Home Assistant's run state, `hass.config.state`. Unset by default. */
+  state?: string;
   /** Answer `pulse_check/history` with this, per entity id. */
   history?: (entityId: string, days: number) => unknown;
 }
@@ -38,23 +42,40 @@ export interface FakeHass {
   callService: ReturnType<typeof vi.fn>;
   unsubscribe: ReturnType<typeof vi.fn>;
   subscribed: () => boolean;
+  /** How many times the card has asked to subscribe. */
+  attempts: () => number;
+  /** The options of the last subscribe call. */
+  lastOptions: () => { resubscribe?: boolean } | undefined;
+  /** Fire the connection's "ready" event, as after Home Assistant restarted. */
+  reconnect: () => void;
 }
 
 export function fakeHass(options: FakeHassOptions = {}): FakeHass {
   let callback: ((message: unknown) => void) | undefined;
+  let attempts = 0;
+  let lastOptions: { resubscribe?: boolean } | undefined;
+  const readyListeners = new Set<() => void>();
   const unsubscribe = vi.fn(() => {
     callback = undefined;
     return Promise.resolve();
   });
   const connection: HassConnection = {
-    subscribeMessage(cb: (message: unknown) => void, message: Record<string, unknown>) {
+    subscribeMessage(
+      cb: (message: unknown) => void,
+      message: Record<string, unknown>,
+      subscribeOptions?: { resubscribe?: boolean },
+    ) {
       // Home Assistant rejects with a plain { code, message } object, not an Error.
       if (message.type !== 'pulse_check/subscribe') {
         // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
         return Promise.reject({ code: 'unknown_command', message: 'Unknown command.' });
       }
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
-      if (options.reject) return Promise.reject(options.reject);
+      attempts += 1;
+      lastOptions = subscribeOptions;
+      if (options.reject && attempts <= (options.rejectTimes ?? Number.POSITIVE_INFINITY)) {
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+        return Promise.reject(options.reject);
+      }
       callback = cb;
       // HA confirms the subscription first and sends the first event after.
       queueMicrotask(() => {
@@ -62,11 +83,18 @@ export function fakeHass(options: FakeHassOptions = {}): FakeHass {
       });
       return Promise.resolve(unsubscribe);
     },
+    addEventListener(_event, listener) {
+      readyListeners.add(listener);
+    },
+    removeEventListener(_event, listener) {
+      readyListeners.delete(listener);
+    },
   };
   const callService = vi.fn(() => Promise.resolve());
   const hass: HassLike = {
     ...buildHass(FIXED_NOW),
     connection,
+    ...(options.state === undefined ? {} : { config: { state: options.state } }),
     callService,
     callWS: <T>(message: Record<string, unknown>) => {
       if (message.type === 'pulse_check/history' && options.history) {
@@ -83,5 +111,11 @@ export function fakeHass(options: FakeHassOptions = {}): FakeHass {
     callService,
     unsubscribe,
     subscribed: () => callback !== undefined,
+    attempts: () => attempts,
+    lastOptions: () => lastOptions,
+    reconnect: () => {
+      callback = undefined; // the old subscription died with the old server
+      for (const listener of readyListeners) listener();
+    },
   };
 }

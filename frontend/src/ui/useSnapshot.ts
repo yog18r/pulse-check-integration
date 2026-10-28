@@ -2,7 +2,9 @@
  * `useSnapshot`: the integration's live data as React state.
  *
  * Subscribes once per websocket connection and re-renders whenever a new
- * snapshot arrives. The subscription is torn down when the component
+ * snapshot arrives. `subscribeSnapshots` retries a failed subscribe and
+ * subscribes again after a reconnect, so a failure shown here clears by
+ * itself once Pulse Check answers. The subscription is torn down when the component
  * unmounts (Home Assistant removes and re-adds cards while editing
  * dashboards) or when the connection object changes (a reconnect).
  *
@@ -44,14 +46,18 @@ export function useSnapshot(
   useEffect(() => {
     const hass = hassBox.latest;
     if (!hass || !connection) return;
-    return subscribeSnapshots(hass, {
-      onSnapshot: (snapshot) => {
-        setState({ status: 'ready', snapshot });
+    return subscribeSnapshots(
+      hass,
+      {
+        onSnapshot: (snapshot) => {
+          setState({ status: 'ready', snapshot });
+        },
+        onError: (kind, message) => {
+          setState({ status: kind, error: message });
+        },
       },
-      onError: (kind, message) => {
-        setState({ status: kind, error: message });
-      },
-    });
+      () => hassBox.latest,
+    );
   }, [hassBox, connection]);
 
   return state;

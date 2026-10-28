@@ -74,7 +74,12 @@ export interface HassConnection {
   subscribeMessage(
     callback: (message: unknown) => void,
     message: Record<string, unknown>,
+    /** `resubscribe: false`: do not re-send it after a reconnect; the card does that itself. */
+    options?: { resubscribe?: boolean },
   ): Promise<UnsubscribeFunc>;
+  /** "ready" fires when the connection is back after Home Assistant restarted. */
+  addEventListener?(event: 'ready', listener: () => void): void;
+  removeEventListener?(event: 'ready', listener: () => void): void;
 }
 
 /**
@@ -90,6 +95,8 @@ export interface HassLike {
   areas: Record<string, HassAreaRegistryEntry>;
   /** The websocket connection, for the integration's subscription. */
   connection?: HassConnection;
+  /** Home Assistant's run state: "STARTING" while integrations are still loading. */
+  config?: { state?: string };
   /** Send a websocket command and await the result (used for history). */
   callWS?: <T>(message: Record<string, unknown>) => Promise<T>;
   /** The user's language and formats; `language` is the code, e.g. "de" or "pt-BR". */
