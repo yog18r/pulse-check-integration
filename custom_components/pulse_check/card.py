@@ -15,6 +15,14 @@ default "storage" mode we add ours, or update it when the version changes;
 in "YAML" mode resources live in configuration.yaml, which an integration
 must not edit, so we log the line to add instead.
 
+The file is served from the integration's `async_setup`, the earliest
+moment Home Assistant runs any of its code: before the config entry sets
+up, and whether or not that succeeds. A dashboard opened while Home
+Assistant is still starting can then load the card, which shows that it is
+connecting and fills in once Pulse Check answers. Served only at the end of
+entry setup, the file was a 404 for those first seconds, the dashboard
+showed "Configuration error", and only a page refresh fetched it again.
+
 The resource URL carries the integration's version (`?v=0.2.0`), so a
 browser never keeps an old bundle after an update. The file is also served
 without long-lived cache headers, so a rebuilt bundle with the same
@@ -45,30 +53,44 @@ CARD_PATH = Path(__file__).parent / "frontend" / "pulse-check-card.js"
 # Set once the static path exists. Web routes cannot be removed or added
 # twice, so reloading the config entry must not register it again.
 _SERVED: HassKey[bool] = HassKey(f"{DOMAIN}_card_served")
+# Set once a missing bundle has been logged, so it is said once, not twice.
+_MISSING_LOGGED: HassKey[bool] = HassKey(f"{DOMAIN}_card_missing_logged")
+
+
+async def async_serve_card(hass: HomeAssistant) -> bool:
+    """Make the card file available over HTTP. True when it is.
+
+    Called from `async_setup` and again from entry setup; it registers the
+    route once. A missing bundle is logged once and skipped: the rest of
+    the integration works without the card.
+    """
+    if hass.data.get(_SERVED):
+        return True
+    path = CARD_PATH
+    if not await hass.async_add_executor_job(path.is_file):
+        if not hass.data.get(_MISSING_LOGGED):
+            _LOGGER.warning(
+                "The Pulse Check card is missing (%s), so it will not be available on "
+                "dashboards. When installing from a copy of the repository, run "
+                "`npm ci` and `npm run build` in its frontend/ folder first",
+                path,
+            )
+            hass.data[_MISSING_LOGGED] = True
+        return False
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(CARD_URL, str(path), cache_headers=False)]
+    )
+    hass.data[_SERVED] = True
+    return True
 
 
 async def async_setup_card(hass: HomeAssistant) -> None:
     """Serve the card and make sure the dashboards load it.
 
-    Safe to call on every entry setup: nothing is registered twice. A
-    missing bundle is logged and skipped; the rest of the integration
-    works without the card.
+    Safe to call on every entry setup: nothing is registered twice.
     """
-    path = CARD_PATH
-    if not await hass.async_add_executor_job(path.is_file):
-        _LOGGER.warning(
-            "The Pulse Check card is missing (%s), so it will not be available on "
-            "dashboards. When installing from a copy of the repository, run "
-            "`npm ci` and `npm run build` in its frontend/ folder first",
-            path,
-        )
+    if not await async_serve_card(hass):
         return
-
-    if not hass.data.get(_SERVED):
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(CARD_URL, str(path), cache_headers=False)]
-        )
-        hass.data[_SERVED] = True
 
     await _async_register_resource(hass, await _versioned_url(hass))
 

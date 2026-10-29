@@ -28,7 +28,7 @@ from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .card import async_remove_card_resource, async_setup_card
+from .card import async_remove_card_resource, async_serve_card, async_setup_card
 from .const import DOMAIN, SIGNAL_SNAPSHOT
 from .coordinator import PulseCheckCoordinator
 from .messages import async_load_messages
@@ -53,6 +53,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the services once, whether or not an entry exists yet."""
     async_setup_services(hass)
     async_setup_websocket(hass)
+    # Serve the card file now, not at the end of entry setup: a dashboard
+    # opened while Home Assistant starts can then load the card at all.
+    await async_serve_card(hass)
     return True
 
 

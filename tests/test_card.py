@@ -130,6 +130,24 @@ async def test_yaml_dashboards_that_list_the_card_are_left_quiet(
     assert "managed in YAML" not in caplog.text
 
 
+async def test_the_card_is_served_before_the_entry_sets_up(
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    card_bundle: Path,
+) -> None:
+    """A dashboard opened while Home Assistant starts must be able to load it."""
+    card_bundle.write_text(BUNDLE, encoding="utf-8")
+    # The integration's own setup, with no config entry at all: what
+    # Home Assistant has run by the time the entry is still setting up.
+    assert await async_setup_component(hass, DOMAIN, {})
+    await hass.async_block_till_done()
+
+    client = await hass_client()
+    response = await client.get(f"{CARD_URL}?v=0.0.0")
+    assert response.status == 200
+    assert await response.text() == BUNDLE
+
+
 async def test_a_missing_bundle_is_logged_and_setup_carries_on(
     hass: HomeAssistant, config_entry: MockConfigEntry, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -137,7 +155,7 @@ async def test_a_missing_bundle_is_logged_and_setup_carries_on(
 
     await _setup(hass, config_entry)
 
-    assert "The Pulse Check card is missing" in caplog.text
+    assert caplog.text.count("The Pulse Check card is missing") == 1
     assert _ours(hass) == []
     assert hass.states.get("sensor.pulse_check_attention") is not None
 
