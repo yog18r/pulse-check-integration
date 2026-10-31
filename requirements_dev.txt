@@ -1,6 +1,6 @@
 # Development dependencies. The test package pins the exact Home Assistant
-# release it was built for (0.13.372 -> Home Assistant 2026.10.1), which is
+# release it was built for (0.13.375 -> Home Assistant 2026.10.4), which is
 # how the integration is tested against one known HA version.
-pytest-homeassistant-custom-component==0.13.372
-ruff==0.17.0
-mypy==2.4.0
+pytest-homeassistant-custom-component==0.13.375
+ruff==0.17.3
+mypy==2.4.1
