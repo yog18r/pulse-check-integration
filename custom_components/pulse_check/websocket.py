@@ -30,15 +30,18 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, SIGNAL_SNAPSHOT
+from .const import DATA_VERSION, DOMAIN, SIGNAL_SNAPSHOT
 from .core.models import to_iso
 
 if TYPE_CHECKING:
     from .coordinator import PulseCheckCoordinator, PulseCheckData
+    from .core.drain import DrainPoint
 
 ERR_NOT_LOADED = "not_loaded"
 ERR_UNKNOWN_ENTITY = "unknown_entity"
 MAX_HISTORY_DAYS = 365
+# Sparklines asked for in one request, at most.
+MAX_HISTORY_REQUESTS = 500
 
 
 @callback
@@ -69,6 +72,9 @@ def snapshot_payload(coordinator: PulseCheckCoordinator) -> dict[str, Any]:
         "computed_at": to_iso(data.computed_at),
         # When maintenance mode ends, while it holds notifications back.
         "maintenance_until": to_iso(until) if until is not None else None,
+        # The installed version. A page keeps the card it loaded until it is
+        # refreshed; the card compares this with its own and says so.
+        "version": coordinator.hass.data.get(DATA_VERSION),
     }
 
 
@@ -130,31 +136,87 @@ async def ws_history(
     history = await coordinator.history.async_points(
         entity_id, msg["days"], attribute=battery.source == "attribute"
     )
+    connection.send_result(msg["id"], _history_result(coordinator, entity_id, msg["days"], history))
+
+
+@websocket_command(
+    {
+        probatio.Required("type"): "pulse_check/histories",
+        probatio.Required("requests"): probatio.All(
+            [
+                {
+                    probatio.Required("entity_id"): str,
+                    probatio.Optional("days", default=14): probatio.All(
+                        int, probatio.Range(min=1, max=MAX_HISTORY_DAYS)
+                    ),
+                }
+            ],
+            probatio.Length(max=MAX_HISTORY_REQUESTS),
+        ),
+    }
+)
+@async_response
+async def ws_histories(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """History points for many watched batteries in one request.
+
+    The card asks for every sparkline on screen at once. An entity that is
+    not a watched battery gets an `error` in its place instead of failing
+    the whole request.
+    """
+    coordinator = _coordinator(hass)
+    if coordinator is None:
+        connection.send_error(msg["id"], ERR_NOT_LOADED, "Pulse Check is not set up")
+        return
+    sources = {
+        device.battery.entity_id: device.battery.source
+        for device in coordinator.data.devices
+        if device.battery is not None
+    }
+    requests: list[dict[str, Any]] = msg["requests"]
+    wanted = [
+        (r["entity_id"], r["days"], sources[r["entity_id"]] == "attribute")
+        for r in requests
+        if r["entity_id"] in sources
+    ]
+    found = await coordinator.history.async_points_many(wanted)
+    results = [
+        _history_result(
+            coordinator, r["entity_id"], r["days"], found.get((r["entity_id"], r["days"]), [])
+        )
+        if r["entity_id"] in sources
+        else {"entity_id": r["entity_id"], "days": r["days"], "error": ERR_UNKNOWN_ENTITY}
+        for r in requests
+    ]
+    connection.send_result(msg["id"], {"results": results})
+
+
+def _history_result(
+    coordinator: PulseCheckCoordinator, entity_id: str, days: int, history: list[DrainPoint]
+) -> dict[str, Any]:
+    """One battery's sparkline points and current estimate, JSON-ready."""
     insight = coordinator.history.insights.get(entity_id)
     estimate = insight.estimate if insight is not None else None
-    connection.send_result(
-        msg["id"],
-        {
-            "entity_id": entity_id,
-            "days": msg["days"],
-            "points": [
-                {"time": int(point.time.timestamp() * 1000), "level": point.level}
-                for point in history
-            ],
-            "estimate": (
-                {
-                    "daysLeft": estimate.days_left,
-                    "basis": estimate.basis,
-                    "confidence": estimate.confidence,
-                    "kind": estimate.kind,
-                    "openEnded": estimate.open_ended,
-                    "ratePerDay": estimate.rate_per_day,
-                }
-                if estimate is not None
-                else None
-            ),
-        },
-    )
+    return {
+        "entity_id": entity_id,
+        "days": days,
+        "points": [
+            {"time": int(point.time.timestamp() * 1000), "level": point.level} for point in history
+        ],
+        "estimate": (
+            {
+                "daysLeft": estimate.days_left,
+                "basis": estimate.basis,
+                "confidence": estimate.confidence,
+                "kind": estimate.kind,
+                "openEnded": estimate.open_ended,
+                "ratePerDay": estimate.rate_per_day,
+            }
+            if estimate is not None
+            else None
+        ),
+    }
 
 
 @callback
@@ -162,3 +224,4 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register the commands. Called once from `async_setup`."""
     async_register_command(hass, ws_subscribe)
     async_register_command(hass, ws_history)
+    async_register_command(hass, ws_histories)

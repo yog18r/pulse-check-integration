@@ -223,6 +223,16 @@
         }
       }
     },
+    "undo_mark": {
+      "name": "Batteriewechsel oder Ladung rückgängig machen",
+      "description": "Entfernt den zuletzt manuell erfassten Batteriewechsel oder Ladevorgang samt dem damit abgeschlossenen Zyklus. Automatisch an einem Pegelsprung erkannte lassen sich nicht rückgängig machen.",
+      "fields": {
+        "device_id": {
+          "name": "Gerät",
+          "description": "Die Geräte-ID oder die Entitäts-ID eines Batteriesensors ohne Gerät."
+        }
+      }
+    },
     "refresh": {
       "name": "Aktualisieren",
       "description": "Jetzt neu berechnen und den Batterieverlauf erneut aus dem Recorder lesen."
@@ -244,6 +254,9 @@
     },
     "unknown_device": {
       "message": "Pulse Check kennt kein Gerät „{device_id}“."
+    },
+    "nothing_to_undo": {
+      "message": "Für „{device_id}“ gibt es keinen erfassten Wechsel oder Ladevorgang zum Rückgängigmachen."
     }
   },
   "entity": {

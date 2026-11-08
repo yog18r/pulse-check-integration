@@ -223,6 +223,16 @@
         }
       }
     },
+    "undo_mark": {
+      "name": "Desfazer troca ou carga da bateria",
+      "description": "Remove a última troca ou carga registrada manualmente, junto com o ciclo que ela encerrou. As detectadas automaticamente por um salto de nível não podem ser desfeitas.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+        }
+      }
+    },
     "refresh": {
       "name": "Atualizar",
       "description": "Recalcula agora e relê o histórico de bateria do gravador."
@@ -244,6 +254,9 @@
     },
     "unknown_device": {
       "message": "O Pulse Check não conhece um dispositivo \"{device_id}\"."
+    },
+    "nothing_to_undo": {
+      "message": "Não há troca ou carga registrada para desfazer em \"{device_id}\"."
     }
   },
   "entity": {

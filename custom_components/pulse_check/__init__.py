@@ -27,9 +27,10 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.loader import async_get_integration
 
 from .card import async_remove_card_resource, async_serve_card, async_setup_card
-from .const import DOMAIN, SIGNAL_SNAPSHOT
+from .const import DATA_VERSION, DOMAIN, SIGNAL_SNAPSHOT
 from .coordinator import PulseCheckCoordinator
 from .messages import async_load_messages
 from .notify import Notifier
@@ -51,6 +52,7 @@ type PulseCheckConfigEntry = ConfigEntry[PulseCheckCoordinator]
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the services once, whether or not an entry exists yet."""
+    hass.data[DATA_VERSION] = str((await async_get_integration(hass, DOMAIN)).version)
     async_setup_services(hass)
     async_setup_websocket(hass)
     # Serve the card file now, not at the end of entry setup: a dashboard

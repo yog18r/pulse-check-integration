@@ -223,6 +223,16 @@
         }
       }
     },
+    "undo_mark": {
+      "name": "Deshacer cambio o carga de batería",
+      "description": "Elimina el último cambio o carga registrado a mano, junto con el ciclo que cerró. Los detectados automáticamente por un salto de nivel no se pueden deshacer.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "El ID del dispositivo, o el ID de entidad de un sensor de batería sin dispositivo."
+        }
+      }
+    },
     "refresh": {
       "name": "Actualizar",
       "description": "Recalcula ahora y vuelve a leer el historial de baterías desde la grabadora."
@@ -244,6 +254,9 @@
     },
     "unknown_device": {
       "message": "Pulse Check no conoce ningún dispositivo \"{device_id}\"."
+    },
+    "nothing_to_undo": {
+      "message": "No hay ningún cambio ni carga registrado que deshacer para «{device_id}»."
     }
   },
   "entity": {

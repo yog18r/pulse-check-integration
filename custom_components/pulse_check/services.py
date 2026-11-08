@@ -35,6 +35,7 @@ SERVICE_UNSNOOZE = "unsnooze"
 SERVICE_SET_DEVICE_SETTINGS = "set_device_settings"
 SERVICE_MARK_REPLACED = "mark_replaced"
 SERVICE_MARK_CHARGED = "mark_charged"
+SERVICE_UNDO_MARK = "undo_mark"
 SERVICE_REFRESH = "refresh"
 SERVICE_MAINTENANCE_MODE = "maintenance_mode"
 
@@ -87,6 +88,7 @@ SET_DEVICE_SETTINGS_SCHEMA = probatio.Schema(
 )
 MARK_SCHEMA = probatio.Schema({**DEVICE_SCHEMA, probatio.Optional(ATTR_BATTERY_TYPE): cv.string})
 REFRESH_SCHEMA = probatio.Schema({})
+DEVICE_ONLY_SCHEMA = probatio.Schema(DEVICE_SCHEMA)
 MAINTENANCE_SCHEMA = probatio.Schema(
     {
         probatio.Optional(ATTR_HOURS): probatio.All(
@@ -163,6 +165,18 @@ async def _mark_charged(call: ServiceCall) -> None:
     await coordinator.async_refresh()
 
 
+async def _undo_mark(call: ServiceCall) -> None:
+    coordinator = _coordinator(call.hass)
+    device_id = resolve_device_id(coordinator, call.data[ATTR_DEVICE_ID])
+    if not coordinator.replacements.undo_last(device_id):
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="nothing_to_undo",
+            translation_placeholders={"device_id": call.data[ATTR_DEVICE_ID]},
+        )
+    await coordinator.async_refresh()
+
+
 async def _refresh(call: ServiceCall) -> None:
     # Re-reads battery history from the recorder (logging the insight
     # count), then recomputes: the slow path, on demand.
@@ -204,6 +218,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_SET_DEVICE_SETTINGS, _set_device_settings, SET_DEVICE_SETTINGS_SCHEMA),
         (SERVICE_MARK_REPLACED, _mark_replaced, MARK_SCHEMA),
         (SERVICE_MARK_CHARGED, _mark_charged, MARK_SCHEMA),
+        (SERVICE_UNDO_MARK, _undo_mark, DEVICE_ONLY_SCHEMA),
         (SERVICE_REFRESH, _refresh, REFRESH_SCHEMA),
         (SERVICE_MAINTENANCE_MODE, _maintenance_mode, MAINTENANCE_SCHEMA),
     ):

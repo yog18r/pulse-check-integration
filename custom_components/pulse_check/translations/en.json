@@ -223,6 +223,16 @@
         }
       }
     },
+    "undo_mark": {
+      "name": "Undo battery replaced or charged",
+      "description": "Remove the most recent replacement or charge recorded by hand, with the cycle it closed. One detected automatically from a jump in level cannot be undone.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The device id, or the entity id of a battery sensor that has no device."
+        }
+      }
+    },
     "refresh": {
       "name": "Refresh",
       "description": "Recompute now and re-read battery history from the recorder."
@@ -244,6 +254,9 @@
     },
     "unknown_device": {
       "message": "Pulse Check does not know a device \"{device_id}\"."
+    },
+    "nothing_to_undo": {
+      "message": "There is no recorded replacement or charge to undo for \"{device_id}\"."
     }
   },
   "entity": {

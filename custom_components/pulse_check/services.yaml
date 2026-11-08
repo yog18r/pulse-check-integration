@@ -97,6 +97,14 @@ mark_replaced:
       selector:
         text:
 
+undo_mark:
+  fields:
+    device_id:
+      required: true
+      example: "3f2a9c1e8b7d4f6a"
+      selector:
+        text:
+
 mark_charged:
   fields:
     device_id:

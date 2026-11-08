@@ -223,6 +223,16 @@
         }
       }
     },
+    "undo_mark": {
+      "name": "Cofnij wymianę lub ładowanie baterii",
+      "description": "Usuwa ostatnią ręcznie zapisaną wymianę lub ładowanie razem z cyklem, który zamknęła. Wykrytych automatycznie po skoku poziomu nie można cofnąć.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+        }
+      }
+    },
     "refresh": {
       "name": "Odśwież",
       "description": "Przelicza teraz i ponownie wczytuje historię baterii z rejestratora."
@@ -244,6 +254,9 @@
     },
     "unknown_device": {
       "message": "Pulse Check nie zna urządzenia \"{device_id}\"."
+    },
+    "nothing_to_undo": {
+      "message": "Brak zapisanej wymiany lub ładowania do cofnięcia dla „{device_id}”."
     }
   },
   "entity": {

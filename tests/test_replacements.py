@@ -5,8 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
+import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
@@ -150,3 +152,52 @@ async def test_a_phone_losing_charge_quickly_is_not_unusual(
     phone = _device(hass, "Pixel 9")
     assert phone["battery"]["level"] == 40
     assert "unusual" not in phone
+
+
+async def test_undo_removes_the_last_mark_and_the_cycle_it_closed(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """A mistaken "Done": the device goes back to how it was before the tap."""
+    _, device_ids = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    kitchen = device_ids["dev_shelly_ht"]
+    coordinator = hass.config_entries.async_loaded_entries(DOMAIN)[0].runtime_data
+
+    await hass.services.async_call(DOMAIN, "mark_replaced", {"device_id": kitchen}, blocking=True)
+    await _set_level(hass, freezer, 100)
+    freezer.tick(timedelta(days=10))
+    await _set_level(hass, freezer, 80)
+    await hass.services.async_call(DOMAIN, "mark_replaced", {"device_id": kitchen}, blocking=True)
+    await hass.async_block_till_done()
+    assert coordinator.replacements.cycle_stats(kitchen)["cycles"] == 1
+    second_mark = _device(hass, "Kitchen H&T")["lastReplaced"]
+
+    await hass.services.async_call(DOMAIN, "undo_mark", {"device_id": kitchen}, blocking=True)
+    await hass.async_block_till_done()
+    assert coordinator.replacements.cycle_stats(kitchen)["cycles"] == 0
+    assert _device(hass, "Kitchen H&T")["lastReplaced"] == "2026-10-15T10:00:00.000Z"
+    assert second_mark != "2026-10-15T10:00:00.000Z"
+    assert len(coordinator.store.history[kitchen]["events"]) == 1
+
+
+async def test_undo_leaves_automatic_detections_alone(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    _, device_ids = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    kitchen = device_ids["dev_shelly_ht"]
+    with pytest.raises(ServiceValidationError):  # nothing recorded yet
+        await hass.services.async_call(DOMAIN, "undo_mark", {"device_id": kitchen}, blocking=True)
+
+    # 92 % -> 60 % -> 100 %: a new battery, detected from the jump.
+    await _set_level(hass, freezer, 60)
+    await _set_level(hass, freezer, 100)
+    coordinator = hass.config_entries.async_loaded_entries(DOMAIN)[0].runtime_data
+    assert coordinator.store.history[kitchen]["events"][-1]["auto"] is True
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(DOMAIN, "undo_mark", {"device_id": kitchen}, blocking=True)
+    assert len(coordinator.store.history[kitchen]["events"]) == 1

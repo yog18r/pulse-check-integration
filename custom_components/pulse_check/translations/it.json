@@ -223,6 +223,16 @@
         }
       }
     },
+    "undo_mark": {
+      "name": "Annulla sostituzione o ricarica",
+      "description": "Rimuove l'ultima sostituzione o ricarica registrata a mano, insieme al ciclo che ha chiuso. Quelle rilevate automaticamente da un salto di livello non possono essere annullate.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "L'ID del dispositivo, o l'ID entità di un sensore della batteria senza dispositivo."
+        }
+      }
+    },
     "refresh": {
       "name": "Aggiorna",
       "description": "Ricalcola ora e rilegge la cronologia delle batterie dal registratore."
@@ -244,6 +254,9 @@
     },
     "unknown_device": {
       "message": "Pulse Check non conosce alcun dispositivo \"{device_id}\"."
+    },
+    "nothing_to_undo": {
+      "message": "Non c'è nessuna sostituzione o ricarica registrata da annullare per \"{device_id}\"."
     }
   },
   "entity": {

@@ -223,6 +223,16 @@
         }
       }
     },
+    "undo_mark": {
+      "name": "Vrátit výměnu nebo nabití baterie",
+      "description": "Odstraní poslední ručně zaznamenanou výměnu nebo nabití spolu s cyklem, který uzavřela. Automaticky rozpoznané podle skoku úrovně vrátit nelze.",
+      "fields": {
+        "device_id": {
+          "name": "Zařízení",
+          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+        }
+      }
+    },
     "refresh": {
       "name": "Obnovit",
       "description": "Přepočítá teď a znovu načte historii baterie z recorderu."
@@ -244,6 +254,9 @@
     },
     "unknown_device": {
       "message": "Pulse Check nezná zařízení „{device_id}“."
+    },
+    "nothing_to_undo": {
+      "message": "Pro „{device_id}“ není zaznamenaná žádná výměna ani nabití k vrácení."
     }
   },
   "entity": {

@@ -223,6 +223,16 @@
         }
       }
     },
+    "undo_mark": {
+      "name": "Batterijwissel of lading ongedaan maken",
+      "description": "Verwijdert de laatst handmatig vastgelegde batterijwissel of lading, samen met de cyclus die daarmee werd afgesloten. Automatisch herkende, door een sprong in het niveau, kunnen niet ongedaan worden gemaakt.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+        }
+      }
+    },
     "refresh": {
       "name": "Vernieuwen",
       "description": "Nu opnieuw berekenen en de batterijgeschiedenis opnieuw uit de recorder lezen."
@@ -244,6 +254,9 @@
     },
     "unknown_device": {
       "message": "Pulse Check kent geen apparaat \"{device_id}\"."
+    },
+    "nothing_to_undo": {
+      "message": "Er is geen vastgelegde wissel of lading om ongedaan te maken voor \"{device_id}\"."
     }
   },
   "entity": {

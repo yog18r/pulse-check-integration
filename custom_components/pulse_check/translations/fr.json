@@ -223,6 +223,16 @@
         }
       }
     },
+    "undo_mark": {
+      "name": "Annuler un remplacement ou une charge",
+      "description": "Supprime le dernier remplacement ou la dernière charge enregistrés à la main, avec le cycle qu’ils ont clôturé. Ceux détectés automatiquement à partir d’un saut de niveau ne peuvent pas être annulés.",
+      "fields": {
+        "device_id": {
+          "name": "Appareil",
+          "description": "L'ID de l'appareil, ou l'ID d'entité d'un capteur de batterie sans appareil."
+        }
+      }
+    },
     "refresh": {
       "name": "Actualiser",
       "description": "Recalcule maintenant et relit l'historique des batteries depuis l'enregistreur."
@@ -244,6 +254,9 @@
     },
     "unknown_device": {
       "message": "Pulse Check ne connaît aucun appareil « {device_id} »."
+    },
+    "nothing_to_undo": {
+      "message": "Aucun remplacement ou charge enregistré à annuler pour « {device_id} »."
     }
   },
   "entity": {

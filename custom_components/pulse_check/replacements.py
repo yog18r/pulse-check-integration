@@ -98,6 +98,25 @@ class ReplacementTracker:
         )
         self.store.async_save()
 
+    def undo_last(self, device_id: str) -> bool:
+        """Remove the most recent manual replacement or charge, and the cycle it closed.
+
+        For a mistaken tap on "Done", or a service call made too soon.
+        False when there is nothing to undo: no events, or the latest was
+        detected automatically from a jump in level, which only another
+        jump can explain.
+        """
+        entry = self.store.history.get(device_id)
+        events: list[dict[str, Any]] = entry["events"] if entry else []
+        if not events or events[-1].get("auto"):
+            return False
+        removed = events.pop()
+        cycles: list[dict[str, Any]] = entry["cycles"] if entry else []
+        if cycles and cycles[-1].get("end") == removed["at"]:
+            cycles.pop()
+        self.store.async_save()
+        return True
+
     def last_event(self, device_id: str) -> dict[str, Any] | None:
         """The most recent replacement or charge, if any."""
         events = self.store.history.get(device_id, {}).get("events") or []

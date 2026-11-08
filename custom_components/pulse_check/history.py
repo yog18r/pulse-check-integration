@@ -233,15 +233,31 @@ class HistoryTracker:
         recorder has them, else raw state history collapsed the same way;
         attribute batteries always use raw history with attributes.
         """
+        found = await self.async_points_many([(entity_id, days, attribute)])
+        return found.get((entity_id, days), [])
+
+    async def async_points_many(
+        self, wanted: Iterable[tuple[str, int, bool]]
+    ) -> dict[tuple[str, int], list[DrainPoint]]:
+        """History points for many batteries at once, keyed by (entity id, days).
+
+        `wanted` holds (entity id, days, is an attribute battery). The
+        recorder is asked once per window length, for every battery that
+        shares it, instead of once per battery: a dashboard opening with
+        forty sparklines costs one query, not forty.
+        """
         if not self.available:
-            return []
-        hourly = days <= HOURLY_MAX_DAYS
-        if attribute:
+            return {}
+        windows: dict[int, tuple[set[str], set[str]]] = {}
+        for entity_id, days, attribute in wanted:
+            sensors, attributes = windows.setdefault(days, (set(), set()))
+            (attributes if attribute else sensors).add(entity_id)
+        found: dict[tuple[str, int], list[DrainPoint]] = {}
+        for days, (sensors, attributes) in windows.items():
+            hourly = days <= HOURLY_MAX_DAYS
             points = await self._means(
-                set(), {entity_id}, days, "hour" if hourly else "day", hourly
+                sensors, attributes, days, "hour" if hourly else "day", hourly
             )
-        else:
-            points = await self._means(
-                {entity_id}, set(), days, "hour" if hourly else "day", hourly
-            )
-        return points.get(entity_id, [])
+            for entity_id in sensors | attributes:
+                found[(entity_id, days)] = points.get(entity_id, [])
+        return found

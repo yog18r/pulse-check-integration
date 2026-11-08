@@ -223,6 +223,16 @@
         }
       }
     },
+    "undo_mark": {
+      "name": "撤销电池更换或充电",
+      "description": "删除最近一次手动记录的更换或充电，以及它结束的周期。根据电量跳升自动检测到的记录无法撤销。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+        }
+      }
+    },
     "refresh": {
       "name": "刷新",
       "description": "立即重新计算，并从记录器重新读取电池历史。"
@@ -244,6 +254,9 @@
     },
     "unknown_device": {
       "message": "Pulse Check 不认识设备“{device_id}”。"
+    },
+    "nothing_to_undo": {
+      "message": "“{device_id}”没有可撤销的更换或充电记录。"
     }
   },
   "entity": {

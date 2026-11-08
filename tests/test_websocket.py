@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Any
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.loader import async_get_integration
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
@@ -187,4 +189,105 @@ async def test_history_rejects_entities_that_are_not_batteries(
         "points": [],
         "estimate": None,
     }
+    await client.close()
+
+
+async def _loaded(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    freezer.move_to(fixed_now)
+    await load_fixture_into_hass(hass, fixture_snapshot)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_the_snapshot_carries_the_installed_version(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """The card compares it with its own to tell when the page needs a refresh."""
+    client = await hass_ws_client(hass)
+    await _loaded(hass, config_entry, fixture_snapshot, freezer, fixed_now)
+    integration = await async_get_integration(hass, DOMAIN)
+    await client.send_json({"id": 1, "type": "pulse_check/subscribe"})
+    assert (await client.receive_json())["success"] is True
+    event = (await client.receive_json())["event"]
+    assert event["version"] == str(integration.version)
+    await client.close()
+
+
+async def test_histories_answer_many_batteries_in_one_request(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    client = await hass_ws_client(hass)
+    await _loaded(hass, config_entry, fixture_snapshot, freezer, fixed_now)
+    await client.send_json(
+        {
+            "id": 1,
+            "type": "pulse_check/histories",
+            "requests": [
+                {"entity_id": "sensor.kitchen_ht_battery"},
+                {"entity_id": "light.garage_lights", "days": 7},
+                {"entity_id": "sensor.front_door_battery", "days": 30},
+            ],
+        }
+    )
+    result = await client.receive_json()
+    assert result["success"] is True
+    # In the order asked; a non-battery gets an error, not a failed request.
+    assert result["result"]["results"] == [
+        {"entity_id": "sensor.kitchen_ht_battery", "days": 14, "points": [], "estimate": None},
+        {"entity_id": "light.garage_lights", "days": 7, "error": "unknown_entity"},
+        {"entity_id": "sensor.front_door_battery", "days": 30, "points": [], "estimate": None},
+    ]
+    await client.close()
+
+
+async def test_histories_ask_the_recorder_once_per_window(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """Three batteries over two window lengths: two recorder queries, not three."""
+    client = await hass_ws_client(hass)
+    await _loaded(hass, config_entry, fixture_snapshot, freezer, fixed_now)
+    tracker = type(config_entry.runtime_data.history)
+    means = AsyncMock(return_value={})
+    with (
+        patch.object(tracker, "available", new_callable=PropertyMock, return_value=True),
+        patch.object(tracker, "_means", means),
+    ):
+        await client.send_json(
+            {
+                "id": 1,
+                "type": "pulse_check/histories",
+                "requests": [
+                    {"entity_id": "sensor.kitchen_ht_battery", "days": 14},
+                    {"entity_id": "sensor.front_door_battery", "days": 14},
+                    {"entity_id": "sensor.window_sensor_battery", "days": 30},
+                ],
+            }
+        )
+        assert (await client.receive_json())["success"] is True
+    asked = sorted((call.args[2], sorted(call.args[0])) for call in means.await_args_list)
+    assert asked == [
+        (14, ["sensor.front_door_battery", "sensor.kitchen_ht_battery"]),
+        (30, ["sensor.window_sensor_battery"]),
+    ]
     await client.close()

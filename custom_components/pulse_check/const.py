@@ -89,6 +89,10 @@ MAX_MAINTENANCE_HOURS = 24 * 30
 
 EVENT_TRANSITION = "pulse_check_transition"
 
+# The installed integration's version, read once at setup. Sent to the card,
+# which compares it with its own to tell when the page needs a refresh.
+DATA_VERSION = f"{DOMAIN}_version"
+
 # Dispatcher signal sent after every recompute (and after a reload), so
 # websocket subscribers get the latest snapshot whichever coordinator made it.
 SIGNAL_SNAPSHOT = f"{DOMAIN}_snapshot"
