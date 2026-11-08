@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -104,6 +104,8 @@ class PulseCheckData:
     computed_at: datetime
     # The battery device with the fewest days left, when any has an estimate.
     next_to_run_out: DeviceHealth | None = None
+    # The devices by id, for entities that look up their own.
+    by_id: dict[str, DeviceHealth] = field(default_factory=dict)
 
 
 class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
@@ -129,6 +131,8 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             request_refresh_debouncer=self._refresh_debouncer,
         )
         self.store = PulseCheckStore(hass)
+        # The websocket snapshot for the current `data`, shared by subscribers.
+        self.payload_cache: tuple[PulseCheckData, dict[str, Any]] | None = None
         self.core_config = core_config_from_options(entry.options)
         self.history = HistoryTracker(hass)
         self.replacements = ReplacementTracker(self.store)
@@ -237,6 +241,7 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             config=config,
             computed_at=now,
             next_to_run_out=next_to_run_out,
+            by_id={device.device_id: device for device in devices},
         )
 
     def _attach_drain_estimates(
@@ -326,6 +331,61 @@ def _is_placeholder(state: State | None) -> bool:
     )
 
 
+@callback
+def _is_running(hass: HomeAssistant, entry: er.RegistryEntry, loaded: set[str]) -> bool:
+    """Whether the integration that made the entity is running.
+
+    For a config entry, that it is loaded. An entity set up from YAML has
+    none: its platform is running when Home Assistant lists it among the
+    loaded components ("template.sensor"), which it only does once the
+    platform has set up without error. An integration that is its own
+    domain (automation, script, input_boolean) is listed by its name alone.
+    """
+    if entry.config_entry_id is not None:
+        return entry.config_entry_id in loaded
+    components = hass.config.components
+    if entry.platform == entry.domain:
+        return entry.platform in components
+    return f"{entry.platform}.{entry.domain}" in components
+
+
+@callback
+def _registry_devices(hass: HomeAssistant) -> dict[str, DeviceEntry]:
+    """The device registry, child devices included, as the core reads it."""
+    registry = dr.async_get(hass)
+    devices: dict[str, DeviceEntry] = {}
+    for device in registry.devices:
+        devices[device.id] = {
+            "id": device.id,
+            "name": device.name,
+            "name_by_user": device.name_by_user,
+            "manufacturer": device.manufacturer,
+            "model": device.model,
+            "area_id": device.area_id,
+            "entry_type": "service" if device.entry_type is dr.DeviceEntryType.SERVICE else None,
+            "disabled_by": device.disabled_by.value if device.disabled_by is not None else None,
+        }
+    # Child devices (Home Assistant 2026.10) are not among `devices`, yet an
+    # entity's `device_id` can point at one. Each is a device of its own;
+    # what it does not say for itself comes from its parent.
+    for child in getattr(registry, "child_devices", ()):
+        parent = devices.get(child.parent_device_id)
+        child_disabled = child.disabled_by.value if child.disabled_by is not None else None
+        devices[child.id] = {
+            "id": child.id,
+            "name": child.name,
+            "name_by_user": child.name_by_user,
+            # A child has no manufacturer or model of its own (asking for
+            # them logs a deprecation warning): they are its parent's.
+            "manufacturer": parent["manufacturer"] if parent else None,
+            "model": parent["model"] if parent else None,
+            "area_id": child.area_id or (parent["area_id"] if parent else None),
+            "entry_type": parent["entry_type"] if parent else None,
+            "disabled_by": child_disabled or (parent["disabled_by"] if parent else None),
+        }
+    return devices
+
+
 def build_snapshot(hass: HomeAssistant) -> Snapshot:
     """Copy the parts of Home Assistant's state and registries the core reads.
 
@@ -363,7 +423,7 @@ def build_snapshot(hass: HomeAssistant) -> Snapshot:
             entity["hidden"] = True
         if entry.name:
             entity["name"] = entry.name
-        if entry.config_entry_id in loaded and _is_placeholder(hass.states.get(entry.entity_id)):
+        if _is_running(hass, entry, loaded) and _is_placeholder(hass.states.get(entry.entity_id)):
             entity["not_provided"] = True
         entities[entry.entity_id] = entity
 
@@ -380,18 +440,7 @@ def build_snapshot(hass: HomeAssistant) -> Snapshot:
             "last_reported": state.last_reported,
         }
 
-    devices: dict[str, DeviceEntry] = {}
-    for device in dr.async_get(hass).devices:
-        devices[device.id] = {
-            "id": device.id,
-            "name": device.name,
-            "name_by_user": device.name_by_user,
-            "manufacturer": device.manufacturer,
-            "model": device.model,
-            "area_id": device.area_id,
-            "entry_type": "service" if device.entry_type is dr.DeviceEntryType.SERVICE else None,
-            "disabled_by": device.disabled_by.value if device.disabled_by is not None else None,
-        }
+    devices = _registry_devices(hass)
 
     areas: dict[str, AreaEntry] = {
         area.id: {"area_id": area.id, "name": area.name}

@@ -150,7 +150,7 @@ The option keys match the card's YAML (`battery_warning`, `exclude_entities`, `i
 | Weekly "all clear" | off | Send the weekly digest even when there is nothing to report |
 | Quiet period after start | 5 min | Nothing is judged until Home Assistant has started plus this long. Integrations load one by one and most devices look unavailable meanwhile; what is still wrong at the end is recorded as the starting point, not announced |
 | Confirm offline or quiet after | 5 min | An offline or quiet state must persist this long before it counts. A missed poll that heals within the window sends nothing. Battery levels count at once |
-| Offline if not back after a restart | 30 min | Minutes after the start. A device not seen working by then counts as offline, "offline since the restart", so one that died while Home Assistant was off is still reported. 0 waits for ever |
+| Offline if not back after a restart | 30 min | Minutes after the start. A device not seen working by then counts as offline, "offline since the restart", so one that died while Home Assistant was off is still reported. Never earlier than a minute after the quiet period. 0 waits for ever |
 | Maintenance mode length | 2 h | How long `pulse_check.maintenance_mode` holds notifications back when it is called without `hours` |
 
 A device's own `notify_policy` (set with the `set_device_settings` service) overrides the defaults: `instant`, `daily`, `weekly` or `none`. A leak detector can be instant while the blinds wait for the weekly digest.
@@ -209,7 +209,7 @@ The visual editor also has a **Per-device settings** panel: display name, area, 
 
 | Entity | State | Attributes |
 | --- | --- | --- |
-| `sensor.pulse_check_attention` | Number of devices that need attention (warning or critical) | `summary`: the counts below as one mapping; `computed_at`. The device list itself is served over the websocket (see below), not as an attribute |
+| `sensor.pulse_check_attention` | Number of devices that need attention (warning or critical) | `summary`: the counts below as one mapping; `shopping`: the batteries to buy, a list of `{batteryType, count, devices}`. Neither is kept in the recorder. The device list itself is served over the websocket (see below), not as an attribute |
 | `sensor.pulse_check_low_batteries` | Battery devices at or below the warning level, or reporting "low" | |
 | `sensor.pulse_check_critical_batteries` | Battery devices at or below the critical level, or reporting "low" | |
 | `sensor.pulse_check_offline` | Devices with every primary entity unavailable | |
@@ -279,6 +279,10 @@ Each device entry also carries `deviceType` (lock, cover, vacuum, phone, media, 
 
 A message is sent when a device *enters* a state: goes offline, goes quiet, or its battery drops to warning or critical. Nothing is sent on every update, and the states each device is in are stored, so a restart does not repeat old news. After a restart nothing is judged until Home Assistant has started plus a quiet period (default five minutes), and the first look after that only records what is wrong rather than announcing it; an offline or quiet state must then persist for a confirmation window (default five minutes) before it counts, so a brief hiccup never notifies. A device that has not been seen online at all since the restart is treated as not loaded yet rather than offline, so integrations that are slow to come up never look like outages. That lasts until the restart timeout (default 30 minutes after the start): a device still not seen working by then counts as offline, and the message says "offline since the restart" ("unavailable since the restart" for a service or an entity with no device). It died while Home Assistant was off, or its integration never came up; for the latter the per-integration limit keeps it to a few messages. What was already known before the restart is kept: a device that was offline then and is still down is not reported as resolved, its reminders carry on, and it is not announced a second time. When the problem goes away nothing is sent either, but the event below fires with `kind: resolved`.
 
+Saving the options reloads Pulse Check but is not a restart: it records what is wrong under the new settings at once, without a new quiet period, and devices already seen working stay seen.
+
+A message no target accepts (the phone is unreachable, the service fails, or it takes longer than 30 seconds) is not counted as sent: it is tried again every 15 minutes, four times in all, and the same goes for the grouped messages of the per-integration limit and the maintenance summary. Digests are not retried: the next one lists the same problems anyway. A target that does not exist or keeps failing shows up under **Settings → Repairs**, and the repair goes away by itself once a message gets through, or when the target is taken out of the options. With no targets at all, nothing is sent and nothing is retried.
+
 Each device has a policy: **instant** (sent at once, then a reminder every few days while it stays unresolved, up to a cap), **daily** or **weekly** (collected into one digest message at the configured time; no message when there is nothing to say), or **none**. The defaults are by severity (critical instant, warning weekly) and any device can override them.
 
 A digest whose time passes while Home Assistant is off, or still starting, is not lost. The integration stores when each digest was last due and dealt with, whether or not there was anything to say. When the quiet period after the next start ends, a digest that has fallen due since then is sent once, with what is wrong at that moment, however many were missed; then the normal schedule resumes. The same rules apply as at the usual time: nothing is sent when there is nothing to say, unless the weekly "all clear" is on. A new install starts counting from the moment it is set up, so it never sends a digest for a time before that.
@@ -321,7 +325,7 @@ Every transition also fires a `pulse_check_transition` event with `device_id`, `
 | `pulse_check.set_device_settings` | `name`, `area`, `quiet_threshold_hours`, `battery_type`, `battery_count`, `rechargeable`, `notify_policy`, `sparkline_days`. Only given fields change; an empty value clears one |
 | `pulse_check.mark_replaced` | Record a replacement now (optional `battery_type`), closing the current cycle |
 | `pulse_check.mark_charged` | The same for a charge |
-| `pulse_check.undo_mark` | Take back the most recent replacement or charge recorded by hand, with the cycle it closed. One detected automatically from a jump in level is left alone |
+| `pulse_check.undo_mark` | Take back the most recent replacement or charge, with the cycle it closed: one recorded by hand, or one detected from a rise in level that was not a new battery after all |
 | `pulse_check.refresh` | Recompute now and re-read battery history |
 | `pulse_check.maintenance_mode` | Hold every notification back for `hours` (default from the options; 0 ends it now). See [Maintenance mode](#maintenance-mode) |
 
@@ -346,12 +350,12 @@ actions:
 ```
 
 ```yaml
-# A shopping list from the action totals
+# A shopping list from the action totals (an empty list when nothing needs replacing)
 actions:
   - action: notify.mobile_app_pixel_9
     data:
       message: >
-        {% for line in state_attr('sensor.pulse_check_attention', 'actions').shopping %}
+        {% for line in state_attr('sensor.pulse_check_attention', 'shopping') %}
         {{ line.count }} × {{ line.batteryType }}
         {% endfor %}
 ```
@@ -366,7 +370,7 @@ These rules are shared with the card and checked against the same test fixture (
 
 **Offline.** Every primary entity (no entity category) is `unavailable`. Diagnostic and config entities are ignored, because integrations often leave those available when the hardware is gone, or vice versa. A device with no primary entities is judged by its diagnostic ones, never by settings or update checkers: a firmware update entity goes unavailable when its check fails, as on Home Assistant's SkyConnect, while the hardware works normally. A device with nothing else to judge by is never offline. A Z-Wave JS node reported `dead` is offline regardless.
 
-**Not provided.** When an integration stops providing an entity, typically after an update, Home Assistant keeps its registry entry and shows a placeholder `unavailable` state. A device made only of such leftovers would otherwise read as offline. Instead, while the integration itself is running, it reads as *not provided*: a warning, shown on the Connectivity tab as "no longer provided by UniFi Network" and notified under the warning policy (the weekly digest by default). It is stale configuration to delete from the device page, not hardware that stopped answering. While an integration fails to start, its entities show the same placeholder and may really be down, so they still count as offline, as does a device with even one genuinely unavailable entity among the leftovers.
+**Not provided.** When an integration stops providing an entity (or a YAML entity is removed from the configuration while its platform runs), typically after an update, Home Assistant keeps its registry entry and shows a placeholder `unavailable` state. A device made only of such leftovers would otherwise read as offline. Instead, while the integration itself is running, it reads as *not provided*: a warning, shown on the Connectivity tab as "no longer provided by UniFi Network" and notified under the warning policy (the weekly digest by default). It is stale configuration to delete from the device page, not hardware that stopped answering. While an integration fails to start, its entities show the same placeholder and may really be down, so they still count as offline, as does a device with even one genuinely unavailable entity among the leftovers.
 
 **Last heard and quiet.** The newest `last_reported` across the device's live entities. Settings-type entities (`number`, `select`, `button`, `update`, `text`, `scene`, `script`, and anything `entity_category: config`) do not count: changing a setting an hour ago says nothing about whether the sensor is alive. A device is quiet when that timestamp is older than its threshold. By default only battery devices can be quiet: a mains light nobody has touched for two days is fine, not quiet. Offline devices are not also counted as quiet.
 

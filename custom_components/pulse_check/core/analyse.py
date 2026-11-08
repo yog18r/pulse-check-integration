@@ -45,9 +45,6 @@ if TYPE_CHECKING:
     from .enhancers import Enhancer
     from .models import CoreConfig, Snapshot
 
-# Pulse Check's own entities, which live on a service device of their own.
-OWN_INTEGRATION = "pulse_check"
-
 
 def _list_has(items: Iterable[str], *values: str | None) -> bool:
     """Case-insensitive membership test for user-typed lists."""
@@ -127,8 +124,6 @@ def analyse_devices(
 
     for raw_group in collect_device_groups(snapshot):
         integration = dominant_integration(raw_group.entities)
-        if integration == OWN_INTEGRATION:
-            continue  # it cannot report itself unavailable
         if _is_excluded(raw_group, integration, config, snapshot):
             continue
 

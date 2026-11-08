@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 
 # Prefix used for the synthetic id of a device-less entity.
 ORPHAN_PREFIX = "entity:"
+# Pulse Check's own platform, whose entities are left out of every group.
+OWN_INTEGRATION = "pulse_check"
 
 
 @dataclass(slots=True)
@@ -60,6 +62,11 @@ def collect_device_groups(snapshot: Snapshot) -> list[DeviceGroup]:
     """
     groups: dict[str, DeviceGroup] = {}
     for entity in snapshot["entities"].values():
+        if entity.get("platform") == OWN_INTEGRATION:
+            # Pulse Check's own entities, including the per-device sensors it
+            # attaches to watched devices: they must never decide anything
+            # about a device (they update on every recompute).
+            continue
         device_id = entity.get("device_id")
         device: DeviceEntry | None = None
         if device_id is not None:

@@ -2,8 +2,8 @@
  * Per-device settings, edited in the card editor but stored by the
  * integration.
  *
- * Pick a device (any device in the house, or a battery sensor that has no
- * device), then change its display name, area, battery type and count,
+ * Pick a device (any device or service in the house, or an entity that
+ * has no device), then change its display name, area, battery type and count,
  * rechargeable, quiet hours, trend window or notification policy. Every
  * change is sent straight to `pulse_check.set_device_settings`; the next
  * snapshot from the subscription shows it saved. Nothing lands in the
@@ -16,7 +16,12 @@
  * checkboxes save immediately.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { callPulseCheck, NOTIFY_POLICIES, type DeviceSettings } from '../card/snapshot';
+import {
+  callPulseCheck,
+  errorMessage,
+  NOTIFY_POLICIES,
+  type DeviceSettings,
+} from '../card/snapshot';
 import {
   BATTERY_TYPE_GROUPS,
   batteryTypeLabel,
@@ -26,7 +31,7 @@ import {
 import {
   deviceLabel,
   listDevices,
-  listOrphanBatteryEntities,
+  listOrphanEntities,
   type DeviceOption,
 } from '../core/registryOptions';
 import type { HassBox, HassLike } from '../core/types';
@@ -178,10 +183,11 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
     };
   }, [feedback]);
 
-  // Real devices plus battery sensors that have no device, so a cloud or
-  // template sensor can be renamed or typed like anything else.
+  // Devices and services, plus entities that have no device, so a cloud
+  // or template sensor, or an automation, can be renamed or given its own
+  // notification policy like anything else.
   const options = useMemo<DeviceOption[]>(
-    () => (hass ? [...listDevices(hass), ...listOrphanBatteryEntities(hass)] : []),
+    () => (hass ? [...listDevices(hass), ...listOrphanEntities(hass)] : []),
     [hass],
   );
   const areaNames = useMemo(
@@ -211,7 +217,7 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
         setFeedback({ kind: 'saved', text: t.t('settings.saved') });
       },
       (err: unknown) => {
-        const reason = err instanceof Error ? err.message : String(err);
+        const reason = errorMessage(err) ?? String(err);
         setFeedback({ kind: 'error', text: t.t('settings.not_saved', { reason }) });
       },
     );

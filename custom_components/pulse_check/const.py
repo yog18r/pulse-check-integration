@@ -3,8 +3,19 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import TYPE_CHECKING
+
+from homeassistant.util.hass_dict import HassKey
+
+if TYPE_CHECKING:
+    from .coordinator import PulseCheckCoordinator
 
 DOMAIN = "pulse_check"
+# The running coordinator. Services and the websocket commands look it up
+# here every time, so a reload (which is how saved options take effect)
+# swaps it under them. Set before the platforms load, so the snapshot sent
+# during setup already finds it.
+DATA_COORDINATOR: HassKey[PulseCheckCoordinator] = HassKey(DOMAIN)
 
 # How long to wait after a relevant state change before recomputing. A
 # burst of changes (a Zigbee device reporting five sensors at once) costs
@@ -26,6 +37,8 @@ HISTORY_DAYS = 14
 # entity: an attribute that changes on every run would give the recorder a
 # new row each time even when the counts are identical.
 ATTR_SUMMARY = "summary"
+# The batteries to buy, from the action list: [{batteryType, count, devices}].
+ATTR_SHOPPING = "shopping"
 
 # Options (Settings > Devices & services > Pulse Check > Configure).
 # The keys match the card's YAML config so the two stay easy to compare.

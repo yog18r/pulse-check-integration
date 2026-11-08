@@ -457,7 +457,8 @@ export function buildHass(now: Date): HassLike {
     }),
   );
 
-  // --- Sun: a "service" device with no hardware. Must be skipped entirely.
+  // --- Sun: a "service" device with no hardware. Watched (and offered in the
+  // editor) like any other device since 0.2.8.
   devices.push(makeDevice(DEV.sun, 'Sun', { entry_type: 'service' }));
   entities.push(makeEntity('sun.sun', 'sun', DEV.sun));
   states.push(

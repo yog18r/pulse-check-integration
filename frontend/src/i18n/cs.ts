@@ -22,9 +22,15 @@ export const cs: Catalog = {
   'app.updated':
     'Pulse Check byl aktualizován na {version}. Obnovte stránku pro načtení nové karty.',
   'app.refresh': 'Obnovit',
+  'app.stale': 'Pulse Check byl naposledy aktualizován {time}; data níže mohou být zastaralá.',
   'undo.replaced': '{name} označeno jako vyměněné.',
   'undo.charged': '{name} označeno jako nabité.',
   'undo.undo': 'Zpět',
+  'failed.snooze': '{name} se nepodařilo ztlumit.',
+  'failed.unsnooze': 'Ztlumení {name} se nepodařilo zrušit.',
+  'failed.replaced': '{name} se nepodařilo označit jako vyměněné.',
+  'failed.charged': '{name} se nepodařilo označit jako nabité.',
+  'failed.undo': 'Označení {name} se nepodařilo vrátit zpět.',
 
   'tab.batteries': 'Baterie',
   'tab.connectivity': 'Připojení',

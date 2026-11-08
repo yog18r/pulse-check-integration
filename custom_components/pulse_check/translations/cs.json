@@ -229,7 +229,7 @@
     },
     "undo_mark": {
       "name": "Vrátit výměnu nebo nabití baterie",
-      "description": "Odstraní poslední ručně zaznamenanou výměnu nebo nabití spolu s cyklem, který uzavřela. Automaticky rozpoznané podle skoku úrovně vrátit nelze.",
+      "description": "Odstraní poslední výměnu nebo nabití i s cyklem, který uzavřelo: zapsané ručně, nebo zjištěné z nárůstu úrovně, který nakonec nebyl novou baterií.",
       "fields": {
         "device_id": {
           "name": "Zařízení",
@@ -304,6 +304,16 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "notify_target_missing": {
+      "title": "Pulse Check nemůže najít {target}",
+      "description": "Pulse Check má posílat oznámení na `{target}`, ale taková služba ani entita notify neexistuje, takže nic nedorazí. Vyberte správný cíl v Nastavení → Zařízení a služby → Pulse Check → Konfigurovat → Oznámení. Zmizí samo, jakmile nějaká zpráva dorazí."
+    },
+    "notify_failed": {
+      "title": "Pulse Check nemůže odesílat na {target}",
+      "description": "Odeslání oznámení na `{target}` selhalo: {error}\n\nPulse Check zkouší každou nedoručenou zprávu ještě několikrát. Ověřte, že cíl funguje, například tím, že akci notify zavoláte sami. Zmizí samo, jakmile nějaká zpráva dorazí."
     }
   }
 }

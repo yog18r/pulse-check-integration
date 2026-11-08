@@ -229,7 +229,7 @@
     },
     "undo_mark": {
       "name": "Cofnij wymianę lub ładowanie baterii",
-      "description": "Usuwa ostatnią ręcznie zapisaną wymianę lub ładowanie razem z cyklem, który zamknęła. Wykrytych automatycznie po skoku poziomu nie można cofnąć.",
+      "description": "Usuwa ostatnią wymianę lub ładowanie wraz z cyklem, który zamknęło: zapisane ręcznie albo wykryte ze wzrostu poziomu, który jednak nie był nową baterią.",
       "fields": {
         "device_id": {
           "name": "Urządzenie",
@@ -304,6 +304,16 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "notify_target_missing": {
+      "title": "Pulse Check nie może znaleźć {target}",
+      "description": "Pulse Check ma wysyłać powiadomienia do `{target}`, ale nie ma takiej usługi ani encji notify, więc nic nie dociera. Wybierz właściwy cel w Ustawienia → Urządzenia i usługi → Pulse Check → Konfiguruj → Powiadomienia. Zniknie samo, gdy wiadomość dotrze."
+    },
+    "notify_failed": {
+      "title": "Pulse Check nie może wysłać do {target}",
+      "description": "Wysłanie powiadomienia do `{target}` nie powiodło się: {error}\n\nPulse Check ponawia kilka razy każdą niedostarczoną wiadomość. Sprawdź, czy cel działa, na przykład wywołując samodzielnie akcję notify. Zniknie samo, gdy wiadomość dotrze."
     }
   }
 }

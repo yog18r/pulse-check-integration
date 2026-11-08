@@ -351,6 +351,20 @@ pressed button's `action` identifier.
   for logs. The card picker entry is registered before any `hass` exists,
   so it uses `<html lang>`, which Home Assistant's frontend sets.
 
+## Review fixes (after 0.2.9)
+
+A full review found, and these were fixed: Pulse Check's own per-device
+sensors deciding a device's last report and integration (own entities
+are now left out of every group); overlapping notifier runs (a lock);
+undelivered messages counted as sent (retries, a send timeout, repair
+issues for failing targets); a new grace period on every options save;
+a restart timeout inside the grace period; level glitches recorded as
+replacements (a rise must hold an hour, and undo removes automatic
+events); raw history read twice per refresh; child devices and YAML
+leftovers; and in the card, silent failures of row actions, no sign of
+a stale snapshot, and an editor that could not pick services or
+entities with no device.
+
 ## Still open
 
 - A native-speaker review of the translations.

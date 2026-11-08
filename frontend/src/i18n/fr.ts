@@ -17,9 +17,16 @@ export const fr: Catalog = {
   'app.updated':
     'Pulse Check a été mis à jour en {version}. Actualisez pour charger la nouvelle carte.',
   'app.refresh': 'Actualiser',
+  'app.stale':
+    'Pulse Check a été mis à jour pour la dernière fois {time} ; les données ci-dessous sont peut-être obsolètes.',
   'undo.replaced': '{name} marqué comme remplacé.',
   'undo.charged': '{name} marqué comme chargé.',
   'undo.undo': 'Annuler',
+  'failed.snooze': 'Impossible de mettre {name} en sourdine.',
+  'failed.unsnooze': 'Impossible de réactiver {name}.',
+  'failed.replaced': 'Impossible de marquer {name} comme remplacé.',
+  'failed.charged': 'Impossible de marquer {name} comme chargé.',
+  'failed.undo': "Impossible d'annuler le marquage de {name}.",
   'tab.batteries': 'Batteries',
   'tab.connectivity': 'Connectivité',
   'tab.actions': 'Actions',

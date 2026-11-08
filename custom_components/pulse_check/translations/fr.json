@@ -229,7 +229,7 @@
     },
     "undo_mark": {
       "name": "Annuler un remplacement ou une charge",
-      "description": "Supprime le dernier remplacement ou la dernière charge enregistrés à la main, avec le cycle qu’ils ont clôturé. Ceux détectés automatiquement à partir d’un saut de niveau ne peuvent pas être annulés.",
+      "description": "Supprime le dernier remplacement ou la dernière recharge, avec le cycle qu'il a clos : saisi à la main, ou détecté à partir d'une hausse du niveau qui n'était finalement pas une nouvelle pile.",
       "fields": {
         "device_id": {
           "name": "Appareil",
@@ -304,6 +304,16 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "notify_target_missing": {
+      "title": "Pulse Check ne trouve pas {target}",
+      "description": "Pulse Check doit envoyer des notifications à `{target}`, mais aucun service ou entité notify de ce nom n'existe, donc rien n'arrive. Choisissez la bonne cible dans Paramètres → Appareils et services → Pulse Check → Configurer → Notifications. Ce message disparaît de lui-même dès qu'une notification arrive."
+    },
+    "notify_failed": {
+      "title": "Pulse Check ne peut pas envoyer à {target}",
+      "description": "L'envoi d'une notification à `{target}` a échoué : {error}\n\nPulse Check réessaie plusieurs fois chaque message non remis. Vérifiez que la cible fonctionne, par exemple en appelant vous-même l'action notify. Ce message disparaît de lui-même dès qu'une notification arrive."
     }
   }
 }

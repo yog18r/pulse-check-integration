@@ -229,7 +229,7 @@
     },
     "undo_mark": {
       "name": "Batterijwissel of lading ongedaan maken",
-      "description": "Verwijdert de laatst handmatig vastgelegde batterijwissel of lading, samen met de cyclus die daarmee werd afgesloten. Automatisch herkende, door een sprong in het niveau, kunnen niet ongedaan worden gemaakt.",
+      "description": "Verwijdert de laatste vervanging of lading, met de cyclus die daarmee eindigde: een met de hand vastgelegde, of een die werd herkend aan een stijging van het niveau die toch geen nieuwe batterij was.",
       "fields": {
         "device_id": {
           "name": "Apparaat",
@@ -304,6 +304,16 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "notify_target_missing": {
+      "title": "Pulse Check kan {target} niet vinden",
+      "description": "Pulse Check moet meldingen naar `{target}` sturen, maar er bestaat geen notify-dienst of -entiteit met die naam, dus er komt niets aan. Kies het juiste doel onder Instellingen → Apparaten & diensten → Pulse Check → Configureren → Meldingen. Dit verdwijnt vanzelf zodra er een bericht aankomt."
+    },
+    "notify_failed": {
+      "title": "Pulse Check kan niet naar {target} sturen",
+      "description": "Het versturen van een melding naar `{target}` is mislukt: {error}\n\nPulse Check probeert elk niet-afgeleverd bericht nog een paar keer. Controleer of het doel werkt, bijvoorbeeld door zelf de notify-actie aan te roepen. Dit verdwijnt vanzelf zodra er een bericht aankomt."
     }
   }
 }

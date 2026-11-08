@@ -17,9 +17,16 @@ export const it: Catalog = {
   'app.updated':
     'Pulse Check è stato aggiornato alla {version}. Ricarica per usare la nuova scheda.',
   'app.refresh': 'Ricarica',
+  'app.stale':
+    "Pulse Check è stato aggiornato l'ultima volta {time}; i dati qui sotto potrebbero non essere aggiornati.",
   'undo.replaced': '{name} segnato come sostituito.',
   'undo.charged': '{name} segnato come ricaricato.',
   'undo.undo': 'Annulla',
+  'failed.snooze': 'Impossibile posticipare {name}.',
+  'failed.unsnooze': 'Impossibile riattivare {name}.',
+  'failed.replaced': 'Impossibile segnare {name} come sostituito.',
+  'failed.charged': 'Impossibile segnare {name} come ricaricato.',
+  'failed.undo': 'Impossibile annullare la segnalazione di {name}.',
   'tab.batteries': 'Batterie',
   'tab.connectivity': 'Connettività',
   'tab.actions': 'Azioni',

@@ -229,7 +229,7 @@
     },
     "undo_mark": {
       "name": "撤销电池更换或充电",
-      "description": "删除最近一次手动记录的更换或充电，以及它结束的周期。根据电量跳升自动检测到的记录无法撤销。",
+      "description": "删除最近一次更换或充电记录及其结束的周期：无论是手动记录的，还是根据电量上升检测到、但实际并非新电池的记录。",
       "fields": {
         "device_id": {
           "name": "设备",
@@ -304,6 +304,16 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "notify_target_missing": {
+      "title": "Pulse Check 找不到 {target}",
+      "description": "Pulse Check 设置为向 `{target}` 发送通知，但不存在这个通知服务或实体，因此收不到任何消息。请在 设置 → 设备与服务 → Pulse Check → 配置 → 通知 中选择正确的目标。一旦有消息送达，此提示会自动消失。"
+    },
+    "notify_failed": {
+      "title": "Pulse Check 无法发送到 {target}",
+      "description": "向 `{target}` 发送通知失败：{error}\n\nPulse Check 会对每条未送达的消息重试几次。请检查该目标是否正常，例如自己调用一次通知操作。一旦有消息送达，此提示会自动消失。"
     }
   }
 }

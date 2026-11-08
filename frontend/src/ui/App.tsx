@@ -7,7 +7,9 @@
  *  - show the header with title, headline and breakdown
  *  - manage which tab is selected
  *  - hand each tab its sorted (and optionally grouped) list
- *  - turn snooze / unsnooze / done into service calls
+ *  - turn snooze / unsnooze / done into service calls, and say when one fails
+ *  - warn when the newest snapshot is old enough that the integration
+ *    seems to have stopped updating
  *
  * Nothing is analysed here. The integration decided every device's
  * severity, days left and so on; the card orders, groups and draws.
@@ -18,13 +20,18 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ResolvedConfig, TabId } from '../card/config';
-import { callPulseCheck, type Snapshot } from '../card/snapshot';
+import {
+  callPulseCheck,
+  errorMessage,
+  type PulseCheckService,
+  type Snapshot,
+} from '../card/snapshot';
 import { filterActions, type ActionKind } from '../core/actions';
 import { filterDevices } from '../core/filters';
 import { batteryList, connectivityList } from '../core/sort';
 import { breakdown, headline, summarise } from '../core/summarise';
 import { batterySeverity, connectivitySeverity, hasConnectivityProblem } from '../core/thresholds';
-import { formatClock } from '../core/time';
+import { formatClock, formatRelative } from '../core/time';
 import type { DeviceHealth, HassBox } from '../core/types';
 import { languageOf, translator } from '../i18n';
 import { ActionsTab } from './ActionsTab';
@@ -55,11 +62,25 @@ const TAB_EMOJI: Record<TabId, string> = {
 /** How long the "Undo" after a Done stays on screen. */
 export const UNDO_MS = 10_000;
 
-/** The last Done: which device, what was recorded, and the call recording it. */
+/** How long a "could not snooze" style notice stays on screen. */
+export const FAILURE_MS = 10_000;
+
+/**
+ * The integration recomputes at least every five minutes. A snapshot three
+ * times that old means it has stopped (or the subscription has gone quiet).
+ */
+export const STALE_MS = 15 * 60 * 1000;
+
+/** The last Done that the integration confirmed: which device and what. */
 interface DoneRecord {
   device: DeviceHealth;
   kind: ActionKind;
-  recorded: Promise<void>;
+}
+
+/** A row action the integration refused, with its reason when it gave one. */
+interface Failure {
+  text: string;
+  reason?: string | undefined;
 }
 
 export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
@@ -68,7 +89,15 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
   const t = translator(languageOf(hassBox.latest));
   const connection = hassBox.latest?.connection;
   const { status, snapshot, error } = useSnapshot(hassBox, connection);
-  if (snapshot) onSnapshot?.(snapshot);
+
+  // Tell the element about each new snapshot (it sizes itself from the
+  // last one). React note: calling a parent's callback is a side effect,
+  // and render must stay free of those (React may render more than once
+  // per screen update), so it runs in an effect, after the render, and
+  // only when `snapshot` is a new object.
+  useEffect(() => {
+    if (snapshot) onSnapshot?.(snapshot);
+  }, [snapshot, onSnapshot]);
 
   // `useState` returns the current value and a setter. Calling the setter
   // re-renders this component with the new value.
@@ -141,21 +170,19 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
     [snapshot, byId],
   );
 
-  // Snoozes and replacements are the integration's business: one service
-  // call, and the next snapshot shows the result everywhere.
-  const handleSnooze = useCallback(
-    (device: DeviceHealth, days: number) => {
-      void callPulseCheck(hassBox.latest, 'snooze', { device_id: device.deviceId, days });
-    },
-    [hassBox],
-  );
-  const handleUnsnooze = useCallback(
-    (device: DeviceHealth) => {
-      void callPulseCheck(hassBox.latest, 'unsnooze', { device_id: device.deviceId });
-    },
-    [hassBox],
-  );
-  // "Done" records at once; for a few seconds it can be taken back.
+  // A refused row action shows for a few seconds, then goes.
+  const [failure, setFailure] = useState<Failure | null>(null);
+  useEffect(() => {
+    if (!failure) return;
+    const timer = setTimeout(() => {
+      setFailure(null);
+    }, FAILURE_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [failure]);
+
+  // "Done" can be taken back for a few seconds.
   const [lastDone, setLastDone] = useState<DoneRecord | null>(null);
   useEffect(() => {
     if (!lastDone) return;
@@ -167,24 +194,82 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
     };
   }, [lastDone]);
 
-  const handleDone = useCallback(
-    (device: DeviceHealth, kind: ActionKind) => {
-      const service = kind === 'charge' ? 'mark_charged' : 'mark_replaced';
-      const recorded = callPulseCheck(hassBox.latest, service, { device_id: device.deviceId });
-      setLastDone({ device, kind, recorded });
+  // Snoozes and replacements are the integration's business: one service
+  // call, and the next snapshot shows the result everywhere. If the call
+  // is refused (the integration is reloading, the device is unknown, the
+  // user may not call services), nothing would change on screen, so say so.
+  // The failure text is worded when the user taps, in the language of the
+  // moment; `t` is cached per language, so listing it as a dependency only
+  // rebuilds these callbacks when the language changes.
+  const runAction = useCallback(
+    (
+      service: PulseCheckService,
+      data: Record<string, unknown>,
+      failText: string,
+      onDone?: () => void,
+    ) => {
+      callPulseCheck(hassBox.latest, service, data).then(
+        () => {
+          onDone?.();
+        },
+        (err: unknown) => {
+          setFailure({ text: failText, reason: errorMessage(err) });
+        },
+      );
     },
     [hassBox],
   );
 
+  const handleSnooze = useCallback(
+    (device: DeviceHealth, days: number) => {
+      runAction(
+        'snooze',
+        { device_id: device.deviceId, days },
+        t.t('failed.snooze', { name: device.name }),
+      );
+    },
+    [runAction, t],
+  );
+  const handleUnsnooze = useCallback(
+    (device: DeviceHealth) => {
+      runAction(
+        'unsnooze',
+        { device_id: device.deviceId },
+        t.t('failed.unsnooze', { name: device.name }),
+      );
+    },
+    [runAction, t],
+  );
+
+  const handleDone = useCallback(
+    (device: DeviceHealth, kind: ActionKind) => {
+      const service = kind === 'charge' ? 'mark_charged' : 'mark_replaced';
+      const failKey = kind === 'charge' ? 'failed.charged' : 'failed.replaced';
+      setLastDone(null);
+      // "Marked … Undo" only once the integration has recorded it: undoing
+      // a mark that never landed would find nothing to undo.
+      runAction(
+        service,
+        { device_id: device.deviceId },
+        t.t(failKey, { name: device.name }),
+        () => {
+          setLastDone({ device, kind });
+        },
+      );
+    },
+    [runAction, t],
+  );
+
   const handleUndo = useCallback(() => {
     if (!lastDone) return;
-    // Only after the mark itself is in: undoing first would find nothing.
-    const { device, recorded } = lastDone;
-    void recorded.then(() =>
-      callPulseCheck(hassBox.latest, 'undo_mark', { device_id: device.deviceId }),
-    );
+    const { device } = lastDone;
     setLastDone(null);
-  }, [hassBox, lastDone]);
+    runAction(
+      'undo_mark',
+      { device_id: device.deviceId },
+      t.t('failed.undo', { name: device.name }),
+    );
+  }, [runAction, t, lastDone]);
 
   if (status !== 'ready' || !snapshot) {
     return (
@@ -247,6 +332,14 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
             {t.t('app.maintenance', {
               time: formatClock(snapshot.maintenanceUntil, now, t.language),
             })}
+          </p>
+        )}
+
+        {snapshot.computedAt && now.getTime() - snapshot.computedAt.getTime() > STALE_MS && (
+          <p className="notice" role="status" data-kind="warning">
+            <span>
+              ⏱️ {t.t('app.stale', { time: formatRelative(snapshot.computedAt, now, t) })}
+            </span>
           </p>
         )}
 
@@ -360,6 +453,15 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
               <button type="button" className="noticebutton" onClick={handleUndo}>
                 {t.t('undo.undo')}
               </button>
+            </p>
+          )}
+
+          {failure && (
+            <p className="notice" role="alert" data-kind="error">
+              <span>
+                ⚠️ {failure.text}
+                {failure.reason !== undefined && ` ${failure.reason}`}
+              </span>
             </p>
           )}
         </div>

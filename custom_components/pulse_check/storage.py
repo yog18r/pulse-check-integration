@@ -72,6 +72,14 @@ class PulseCheckStore:
         """Write soon (delayed and coalesced)."""
         self._store.async_delay_save(lambda: self.data, SAVE_DELAY_SECONDS)
 
+    async def async_save_now(self) -> None:
+        """Write at once. On unload, so the next load (a reload) reads every change."""
+        await self._store.async_save(self.data)
+
+    async def async_remove(self) -> None:
+        """Delete the file, when the integration is removed."""
+        await self._store.async_remove()
+
     # -- per-device settings -------------------------------------------------
 
     @property

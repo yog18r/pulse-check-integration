@@ -229,7 +229,7 @@
     },
     "undo_mark": {
       "name": "Annulla sostituzione o ricarica",
-      "description": "Rimuove l'ultima sostituzione o ricarica registrata a mano, insieme al ciclo che ha chiuso. Quelle rilevate automaticamente da un salto di livello non possono essere annullate.",
+      "description": "Rimuove l'ultima sostituzione o ricarica, con il ciclo che ha chiuso: registrata a mano, o rilevata da un aumento del livello che alla fine non era una batteria nuova.",
       "fields": {
         "device_id": {
           "name": "Dispositivo",
@@ -304,6 +304,16 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "notify_target_missing": {
+      "title": "Pulse Check non trova {target}",
+      "description": "Pulse Check deve inviare notifiche a `{target}`, ma non esiste alcun servizio o entità notify con quel nome, quindi non arriva nulla. Scegli la destinazione corretta in Impostazioni → Dispositivi e servizi → Pulse Check → Configura → Notifiche. Scompare da solo appena un messaggio arriva."
+    },
+    "notify_failed": {
+      "title": "Pulse Check non riesce a inviare a {target}",
+      "description": "L'invio di una notifica a `{target}` non è riuscito: {error}\n\nPulse Check riprova alcune volte ogni messaggio non recapitato. Verifica che la destinazione funzioni, ad esempio chiamando tu stesso l'azione notify. Scompare da solo appena un messaggio arriva."
     }
   }
 }

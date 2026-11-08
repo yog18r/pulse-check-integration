@@ -17,9 +17,16 @@ export const nl: Catalog = {
   'app.hide': 'verbergen',
   'app.updated': 'Pulse Check is bijgewerkt naar {version}. Vernieuw om de nieuwe kaart te laden.',
   'app.refresh': 'Vernieuwen',
+  'app.stale':
+    'Pulse Check is voor het laatst {time} bijgewerkt; de gegevens hieronder zijn mogelijk verouderd.',
   'undo.replaced': '{name} gemarkeerd als vervangen.',
   'undo.charged': '{name} gemarkeerd als opgeladen.',
   'undo.undo': 'Ongedaan maken',
+  'failed.snooze': '{name} kon niet worden gepauzeerd.',
+  'failed.unsnooze': 'Pauze van {name} kon niet worden beëindigd.',
+  'failed.replaced': '{name} kon niet als vervangen worden gemarkeerd.',
+  'failed.charged': '{name} kon niet als opgeladen worden gemarkeerd.',
+  'failed.undo': 'Markering van {name} kon niet ongedaan worden gemaakt.',
 
   'tab.batteries': 'Batterijen',
   'tab.connectivity': 'Verbinding',

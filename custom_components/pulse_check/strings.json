@@ -229,7 +229,7 @@
     },
     "undo_mark": {
       "name": "Undo battery replaced or charged",
-      "description": "Remove the most recent replacement or charge recorded by hand, with the cycle it closed. One detected automatically from a jump in level cannot be undone.",
+      "description": "Remove the most recent replacement or charge, with the cycle it closed: one recorded by hand, or one detected from a rise in level that was not a new battery after all.",
       "fields": {
         "device_id": {
           "name": "Device",
@@ -304,6 +304,16 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "notify_target_missing": {
+      "title": "Pulse Check cannot find {target}",
+      "description": "Pulse Check is set to send notifications to `{target}`, but there is no such notify service or entity, so nothing reaches it. Choose the right target under Settings → Devices & services → Pulse Check → Configure → Notifications. This goes away by itself once a message reaches it."
+    },
+    "notify_failed": {
+      "title": "Pulse Check cannot send to {target}",
+      "description": "Sending a notification to `{target}` failed: {error}\n\nPulse Check tries each undelivered message again a few times. Check that the target works, for example by calling the notify action yourself. This goes away by itself once a message reaches it."
     }
   }
 }

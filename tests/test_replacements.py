@@ -13,6 +13,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.pulse_check.const import CONF_PER_DEVICE_SENSORS, DEBOUNCE_SECONDS, DOMAIN
+from custom_components.pulse_check.replacements import JUMP_CONFIRM_SECONDS
 from tests.conftest import device_dict as _device, load_fixture_into_hass
 
 BATTERY = {"device_class": "battery", "unit_of_measurement": "%"}
@@ -21,6 +22,13 @@ BATTERY = {"device_class": "battery", "unit_of_measurement": "%"}
 async def _set_level(hass: HomeAssistant, freezer: FrozenDateTimeFactory, level: int) -> None:
     hass.states.async_set("sensor.kitchen_ht_battery", str(level), BATTERY)
     freezer.tick(timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+
+async def _hold(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
+    """Let a rise in level hold long enough to count, and recompute."""
+    freezer.tick(timedelta(seconds=JUMP_CONFIRM_SECONDS + 60))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
@@ -85,7 +93,11 @@ async def test_a_jump_is_detected_as_a_replacement(
     assert _device(hass, "Kitchen H&T")["unusual"] == "level dropped suddenly"
     freezer.tick(timedelta(days=1))
     await _set_level(hass, freezer, 100)
+    # A rise only counts once it holds: one 100 % reading may be a glitch.
+    assert "lastReplaced" not in _device(hass, "Kitchen H&T")
+    await _hold(hass, freezer)
     device = _device(hass, "Kitchen H&T")
+    # Dated from the rise, not from when it was confirmed.
     assert device["lastReplaced"].startswith("2026-10-16T10:00")
     coordinator = hass.config_entries.async_loaded_entries(DOMAIN)[0].runtime_data
     event = coordinator.replacements.last_event(device_ids["dev_shelly_ht"])
@@ -137,6 +149,28 @@ async def test_per_device_sensors_appear_when_enabled(
     assert last.attributes["kind"] == "charged"
 
 
+async def test_per_device_sensors_go_when_the_option_is_turned_off(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """Not left behind on every device page as entities nobody provides."""
+    entry, device_ids = await _set_up(
+        hass, fixture_snapshot, freezer, fixed_now, {CONF_PER_DEVICE_SENSORS: True}
+    )
+    registry = er.async_get(hass)
+    unique_id = f"{entry.entry_id}_{device_ids['dev_shelly_ht']}_days_left"
+    assert registry.async_get_entity_id("sensor", DOMAIN, unique_id) is not None
+
+    hass.config_entries.async_update_entry(entry, options={CONF_PER_DEVICE_SENSORS: False})
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert registry.async_get_entity_id("sensor", DOMAIN, unique_id) is None
+    # The integration's own sensors stay.
+    assert hass.states.get("sensor.pulse_check_attention") is not None
+
+
 async def test_a_phone_losing_charge_quickly_is_not_unusual(
     hass: HomeAssistant,
     fixture_snapshot: dict[str, Any],
@@ -182,7 +216,29 @@ async def test_undo_removes_the_last_mark_and_the_cycle_it_closed(
     assert len(coordinator.store.history[kitchen]["events"]) == 1
 
 
-async def test_undo_leaves_automatic_detections_alone(
+async def test_a_level_that_falls_straight_back_is_a_glitch(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """A Zigbee device reporting 100 % once on rejoining is not a new battery."""
+    _, device_ids = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    kitchen = device_ids["dev_shelly_ht"]
+    await _set_level(hass, freezer, 50)
+    freezer.tick(timedelta(days=8))  # the sudden drop above is long forgotten
+    await _set_level(hass, freezer, 100)
+    await _set_level(hass, freezer, 50)
+    await _hold(hass, freezer)
+    coordinator = hass.config_entries.async_loaded_entries(DOMAIN)[0].runtime_data
+    assert coordinator.store.history.get(kitchen, {}).get("events", []) == []
+    device = _device(hass, "Kitchen H&T")
+    assert "lastReplaced" not in device
+    # Falling back from the glitch is not a sudden drop either.
+    assert device.get("unusual") is None
+
+
+async def test_undo_takes_back_an_automatic_detection(
     hass: HomeAssistant,
     fixture_snapshot: dict[str, Any],
     freezer: FrozenDateTimeFactory,
@@ -196,8 +252,9 @@ async def test_undo_leaves_automatic_detections_alone(
     # 92 % -> 60 % -> 100 %: a new battery, detected from the jump.
     await _set_level(hass, freezer, 60)
     await _set_level(hass, freezer, 100)
+    await _hold(hass, freezer)
     coordinator = hass.config_entries.async_loaded_entries(DOMAIN)[0].runtime_data
     assert coordinator.store.history[kitchen]["events"][-1]["auto"] is True
-    with pytest.raises(ServiceValidationError):
-        await hass.services.async_call(DOMAIN, "undo_mark", {"device_id": kitchen}, blocking=True)
-    assert len(coordinator.store.history[kitchen]["events"]) == 1
+    # It was not a new battery after all: undo takes it back like a manual one.
+    await hass.services.async_call(DOMAIN, "undo_mark", {"device_id": kitchen}, blocking=True)
+    assert coordinator.store.history[kitchen]["events"] == []

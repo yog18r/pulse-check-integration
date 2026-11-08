@@ -69,6 +69,7 @@ everything runs as usual.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections import deque
 from dataclasses import dataclass
@@ -77,6 +78,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import CALLBACK_TYPE, CoreState, Event, HomeAssistant, callback
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_point_in_utc_time,
@@ -108,6 +110,7 @@ from .const import (
     DEFAULT_REMINDER_MAX,
     DEFAULT_RESTART_TIMEOUT_MINUTES,
     DEFAULT_STARTUP_GRACE_MINUTES,
+    DOMAIN,
     EVENT_TRANSITION,
     INTEGRATION_LIMIT_WINDOW,
     WEEKDAYS,
@@ -172,6 +175,19 @@ class Issue:
     key: IssueKey
     severity: str
     message: str
+
+
+# Sending: how long one target may take, and how an undelivered message
+# is retried before it counts as sent anyway (the repair issue says why).
+SEND_TIMEOUT = 30  # seconds
+SEND_RETRY = timedelta(minutes=15)
+SEND_ATTEMPTS = 4
+# What must outlive a reload of the entry (saving the options) but not a
+# restart of Home Assistant: when it started, which devices have been seen
+# working since, and the per-integration send times.
+DATA_RUNTIME = f"{DOMAIN}_notify_runtime"
+# Repair issue ids are one of these followed by the notify target.
+REPAIR_PREFIXES = ("notify_target_missing_", "notify_failed_")
 
 
 def _hours_since(moment: datetime | None, now: datetime) -> int:
@@ -264,22 +280,31 @@ class Notifier:
         self.entry = entry
         self.coordinator = coordinator
         self.store = coordinator.store
-        self._missing_targets: set[str] = set()
+        # Targets whose last send failed or that do not exist, so each
+        # failure is logged once rather than on every message.
+        self._failing: set[str] = set()
+        # One evaluation or digest at a time: each awaits slow notify calls
+        # while it changes the stored records.
+        self._lock = asyncio.Lock()
         # When evaluation may begin: Home Assistant started + the grace period.
         self.ready_at: datetime | None = None
         # When a device not yet seen working counts as offline after all.
         self.overdue_at: datetime | None = None
-        # True until the first evaluation after `ready_at` has recorded the baseline.
+        # This run of Home Assistant, shared with the next load of the entry.
+        self._runtime: dict[str, Any] = hass.data.setdefault(DATA_RUNTIME, {})
+        # True until the first evaluation after `ready_at` has recorded the
+        # baseline. A reload records one too, at once: new thresholds would
+        # otherwise announce every battery that now falls below them.
         self.baseline_pending = True
         # Devices seen online (not offline) at least once in this run.
-        self._seen_online: set[str] = set()
+        self._seen_online: set[str] = self._runtime.setdefault("seen_online", set())
         # The timer that ends maintenance mode, and the end time it is set for.
         self._maintenance_timer: CALLBACK_TYPE | None = None
         self._maintenance_timer_at: datetime | None = None
         # When each integration's recent offline and quiet messages went out,
         # for the per-integration limit. Kept in memory: after a restart the
         # startup baseline starts afresh anyway.
-        self._sent: dict[str, deque[datetime]] = {}
+        self._sent: dict[str, deque[datetime]] = self._runtime.setdefault("sent", {})
 
     # -- options -------------------------------------------------------------
 
@@ -362,6 +387,7 @@ class Notifier:
     def async_setup(self) -> None:
         """Listen to coordinator updates, the start of HA, and the digest time."""
         self.entry.async_on_unload(self.coordinator.async_add_listener(self._handle_update))
+        self._clear_stale_repairs()
 
         hour, minute = self.digest_time
         self.entry.async_on_unload(
@@ -406,19 +432,36 @@ class Notifier:
 
     @callback
     def _mark_started(self) -> None:
-        """Start the grace period, and evaluate once when it ends."""
-        started = dt_util.utcnow()
-        self.ready_at = started + self.startup_grace
+        """Start the grace period, and evaluate once when it ends.
+
+        Timed from when Home Assistant started. A reload of the entry
+        (saving the options) keeps that time: it does not wait out a new
+        grace period or restart timeout, and devices seen working stay seen.
+        Only a restart starts them again.
+        """
+        now = dt_util.utcnow()
+        started: datetime = self._runtime.setdefault("started_at", now)
+        # The grace period of this run, fixed when Home Assistant started:
+        # raising it in the options afterwards does not start another one.
+        first_ready: datetime = self._runtime.setdefault("ready_at", started + self.startup_grace)
+        # After a reload the grace period is usually over: the baseline is
+        # taken by the first evaluation, which this triggers straight away.
+        self.ready_at = max(first_ready, now)
         self.entry.async_on_unload(
-            async_call_later(self.hass, self.startup_grace, self._handle_grace_over)
+            async_call_later(
+                self.hass, max(self.ready_at - now, timedelta(0)), self._handle_grace_over
+            )
         )
         timeout = self.restart_timeout
         if timeout is not None:
-            # Recompute when the time is up, so the overdue are judged then.
-            self.overdue_at = started + timeout
-            self.entry.async_on_unload(
-                async_call_later(self.hass, timeout, self._handle_restart_timeout)
-            )
+            # Never at or before the baseline (after a start or a reload),
+            # which would record the overdue as known instead of announcing them.
+            self.overdue_at = max(started + timeout, self.ready_at + timedelta(minutes=1))
+            if self.overdue_at > now:
+                # Recompute when the time is up, so the overdue are judged then.
+                self.entry.async_on_unload(
+                    async_call_later(self.hass, self.overdue_at - now, self._handle_restart_timeout)
+                )
 
     @callback
     def _handle_grace_over(self, _now: datetime) -> None:
@@ -494,7 +537,15 @@ class Notifier:
     # -- transitions ---------------------------------------------------------
 
     async def async_process(self) -> None:
-        """Compare the latest result with what was last seen; act on the difference."""
+        """Compare the latest result with what was last seen; act on the difference.
+
+        Runs after every recompute. Runs never overlap: a second one waits
+        for the first, then judges the newest result.
+        """
+        async with self._lock:
+            await self._process()
+
+    async def _process(self) -> None:
         data: PulseCheckData = self.coordinator.data
         now = data.computed_at
         # Learn which devices are up, even during the grace period: a device
@@ -632,8 +683,9 @@ class Notifier:
         if policy == "instant" and not self.store.in_maintenance(now):
             if self._hold_back(device, issue, record, now):
                 return
-            await self._send(issue.message, self._actions(device, issue, reminders_sent=0))
-            record["notified_at"] = to_iso(now)
+            actions = self._actions(device, issue, reminders_sent=0)
+            if await self._deliver(issue.message, actions, record, now):
+                record["notified_at"] = to_iso(now)
 
     async def _maybe_remind(
         self, device: DeviceHealth, issue: Issue, record: dict[str, Any], now: datetime
@@ -645,6 +697,16 @@ class Notifier:
             return False  # due reminders wait for the end of the window
         if "held" in record:
             return False  # waiting to go out with its integration's others
+        retry_at = record.get("retry_at")
+        if retry_at is not None:
+            if as_utc(now) < _at(retry_at):
+                return False
+            if record.get("notified_at") is None:
+                # The first message never arrived: try it again.
+                actions = self._actions(device, issue, reminders_sent=0)
+                if await self._deliver(issue.message, actions, record, now):
+                    record["notified_at"] = to_iso(now)
+                return True
         if record.get("reminders", 0) >= self.reminder_max:
             return False
         last = record.get("notified_at") or record.get("since")
@@ -655,12 +717,15 @@ class Notifier:
             return True  # the record now waits with its integration's others
         days = (as_utc(now) - _at(record["since"])).days
         reminders = record.get("reminders", 0) + 1
-        await self._send(
+        delivered = await self._deliver(
             self.text("reminder", count=days, message=issue.message),
             self._actions(device, issue, reminders_sent=reminders),
+            record,
+            now,
         )
-        record["notified_at"] = to_iso(now)
-        record["reminders"] = reminders
+        if delivered:
+            record["notified_at"] = to_iso(now)
+            record["reminders"] = reminders
         return True
 
     def _actions(
@@ -748,10 +813,18 @@ class Notifier:
         all. Each listed issue counts as notified from here, so its
         reminders run from this message; a held reminder counts as sent.
         """
+        if not any(
+            "held" in record
+            for records in self.store.notify.values()
+            for record in records.values()
+        ):
+            return
         data: PulseCheckData = self.coordinator.data
         groups: dict[str, list[tuple[str, dict[str, Any]]]] = {}
         for device in data.devices:
             stored = self.store.notify.get(device.device_id, {})
+            if not any("held" in record for record in stored.values()):
+                continue
             for key, issue in self._issues(device, data.config, now).items():
                 record = stored.get(key)
                 if record is not None and "held" in record:
@@ -760,24 +833,46 @@ class Notifier:
 
         changed = False
         for integration, items in sorted(groups.items()):
-            first = min(_at(record["held"]["at"]) for _, record in items)
-            if as_utc(now) - first < INTEGRATION_LIMIT_WINDOW:
-                continue
-            for _, record in items:
-                del record["held"]
-                if record.get("notified_at"):
-                    record["reminders"] = record.get("reminders", 0) + 1
-                record["notified_at"] = to_iso(now)
-            changed = True
-            heading = self.text(
-                "integration_held",
-                count=len(items),
-                integration=self._integration_name(integration),
-            )
-            body = "\n".join(f"- {message}" for message, _ in sorted(items, key=lambda i: i[0]))
-            await self._send(f"{heading}\n{body}")
+            changed |= await self._send_held_group(integration, items, now)
         if changed:
             self.store.async_save()
+
+    async def _send_held_group(
+        self, integration: str, items: list[tuple[str, dict[str, Any]]], now: datetime
+    ) -> bool:
+        """One integration's held messages as one, when due. True when records changed.
+
+        A failed send is retried like any other message (`_deliver`): after
+        `SEND_RETRY`, `SEND_ATTEMPTS` times in all, then counted as sent.
+        """
+        first = min(_at(record["held"]["at"]) for _, record in items)
+        if as_utc(now) - first < INTEGRATION_LIMIT_WINDOW:
+            return False
+        retries = [
+            record["held"]["retry_at"] for _, record in items if "retry_at" in record["held"]
+        ]
+        if retries and as_utc(now) < max(_at(at) for at in retries):
+            return False  # the last attempt failed; wait before the next
+        heading = self.text(
+            "integration_held", count=len(items), integration=self._integration_name(integration)
+        )
+        body = "\n".join(f"- {message}" for message, _ in sorted(items, key=lambda i: i[0]))
+        if not await self._send(f"{heading}\n{body}"):
+            attempts = max(record["held"].get("attempts", 0) for _, record in items) + 1
+            if attempts < SEND_ATTEMPTS:
+                for _, record in items:
+                    record["held"]["attempts"] = attempts
+                    record["held"]["retry_at"] = to_iso(as_utc(now) + SEND_RETRY)
+                return True  # still held, tried again later
+            _LOGGER.warning("Giving up on a held message after %d attempts", attempts)
+        for _, record in items:
+            del record["held"]
+            record.pop("retry_at", None)
+            record.pop("attempts", None)
+            if record.get("notified_at"):
+                record["reminders"] = record.get("reminders", 0) + 1
+            record["notified_at"] = to_iso(now)
+        return True
 
     def _integration_name(self, domain: str) -> str:
         """The integration's own name ("UniFi Network"), or its domain."""
@@ -802,6 +897,7 @@ class Notifier:
         known: dict[str, list[str]] = window.get("known", {})
         data: PulseCheckData = self.coordinator.data
         lines: list[str] = []
+        listed: list[dict[str, Any]] = []
         for device in data.devices:
             stored = self.store.notify.get(device.device_id, {})
             for key, issue in self._issues(device, data.config, now).items():
@@ -815,21 +911,35 @@ class Notifier:
                 if self.policy_for(device.device_id, issue.severity) != "instant":
                     continue
                 lines.append(issue.message)
-                record["notified_at"] = to_iso(now)
+                listed.append(record)
                 record.pop("held", None)  # announced here, not again later
         self.store.clear_maintenance()
         _LOGGER.debug("Maintenance mode over; %d new problems", len(lines))
         if lines:
             body = "\n".join(f"- {line}" for line in lines)
-            await self._send(f"{self.text('maintenance_summary')}\n{body}")
+            if await self._send(f"{self.text('maintenance_summary')}\n{body}"):
+                for record in listed:
+                    record["notified_at"] = to_iso(now)
+                    record.pop("retry_at", None)
+                    record.pop("attempts", None)
+            else:
+                # Each problem is then retried on its own, like any message
+                # that did not get through (see `_maybe_remind`).
+                for record in listed:
+                    record["attempts"] = 1
+                    record["retry_at"] = to_iso(as_utc(now) + SEND_RETRY)
+            # Written after the send: the save `clear_maintenance` scheduled
+            # may already have run.
+            self.store.async_save()
 
     # -- digests -------------------------------------------------------------
 
     async def async_send_due_digests(self, now: datetime) -> None:
         """At the digest time: the daily digest every day, the weekly one on its day."""
-        await self.async_send_digest("daily", now)
-        if WEEKDAYS[dt_util.as_local(now).weekday()] == self.digest_weekday:
-            await self.async_send_digest("weekly", now)
+        async with self._lock:
+            await self.async_send_digest("daily", now)
+            if WEEKDAYS[dt_util.as_local(now).weekday()] == self.digest_weekday:
+                await self.async_send_digest("weekly", now)
 
     def _last_slot(self, kind: DigestKind, now: datetime) -> datetime:
         """When this kind of digest was last due, by the current schedule."""
@@ -882,29 +992,120 @@ class Notifier:
 
     # -- sending -------------------------------------------------------------
 
-    async def _send(self, message: str, actions: list[dict[str, str]] | None = None) -> None:
+    async def _deliver(
+        self,
+        message: str,
+        actions: list[dict[str, str]] | None,
+        record: dict[str, Any],
+        now: datetime,
+    ) -> bool:
+        """Send a message about one record. True when it counts as sent.
+
+        When no target accepts it, the record gets a `retry_at` and the
+        message is tried again then, `SEND_ATTEMPTS` times in all. After
+        that it counts as sent anyway, so reminders follow their schedule;
+        the repair issue raised by `_send` tells the user why nothing came.
+        """
+        if await self._send(message, actions):
+            record.pop("retry_at", None)
+            record.pop("attempts", None)
+            return True
+        attempts = record.get("attempts", 0) + 1
+        if attempts >= SEND_ATTEMPTS:
+            _LOGGER.warning("Giving up on a message after %d attempts: %s", attempts, message)
+            record.pop("retry_at", None)
+            record.pop("attempts", None)
+            return True
+        record["attempts"] = attempts
+        record["retry_at"] = to_iso(as_utc(now) + SEND_RETRY)
+        return False
+
+    async def _send(self, message: str, actions: list[dict[str, str]] | None = None) -> bool:
         """Deliver to every target: a legacy `notify.<name>` service or a notify entity.
 
         `actions` become buttons for companion-app targets only; every
         other target gets the title and message alone, as it always has.
+        True when at least one target accepted the message, or when there
+        are no targets (notifications are off, nothing to retry). A target
+        that does not exist or fails gets a repair issue, removed again
+        once it works.
         """
-        for target in self.targets:
+        targets = self.targets
+        if not targets:
+            return True
+        delivered = False
+        for target in targets:
             domain, _, name = target.partition(".")
             try:
-                if domain == "notify" and self.hass.services.has_service("notify", name):
-                    data: dict[str, Any] = {"title": TITLE, "message": message}
-                    if actions and is_mobile_app_target(target):
-                        data["data"] = {"actions": actions}
-                    await self.hass.services.async_call("notify", name, data, blocking=True)
-                elif domain == "notify" and self.hass.states.get(target) is not None:
-                    await self.hass.services.async_call(
-                        "notify",
-                        "send_message",
-                        {"entity_id": target, "title": TITLE, "message": message},
-                        blocking=True,
-                    )
-                elif target not in self._missing_targets:
-                    self._missing_targets.add(target)
-                    _LOGGER.warning("Notify target %s does not exist; skipping it", target)
-            except Exception:
-                _LOGGER.warning("Sending to %s failed", target, exc_info=True)
+                async with asyncio.timeout(SEND_TIMEOUT):
+                    if domain == "notify" and self.hass.services.has_service("notify", name):
+                        data: dict[str, Any] = {"title": TITLE, "message": message}
+                        if actions and is_mobile_app_target(target):
+                            data["data"] = {"actions": actions}
+                        await self.hass.services.async_call("notify", name, data, blocking=True)
+                    elif domain == "notify" and self.hass.states.get(target) is not None:
+                        await self.hass.services.async_call(
+                            "notify",
+                            "send_message",
+                            {"entity_id": target, "title": TITLE, "message": message},
+                            blocking=True,
+                        )
+                    else:
+                        self._target_failed(target, "notify_target_missing", None)
+                        continue
+            except Exception as err:
+                self._target_failed(target, "notify_failed", err)
+                continue
+            delivered = True
+            self._target_works(target)
+        return delivered
+
+    @callback
+    def _target_failed(self, target: str, issue: str, err: Exception | None) -> None:
+        """Log a failing target once and raise a repair issue for it."""
+        if target not in self._failing:
+            self._failing.add(target)
+            if err is None:
+                _LOGGER.warning("Notify target %s does not exist; skipping it", target)
+            else:
+                _LOGGER.warning("Sending to %s failed", target, exc_info=err)
+        other = "notify_failed" if issue == "notify_target_missing" else "notify_target_missing"
+        ir.async_delete_issue(self.hass, DOMAIN, f"{other}_{target}")
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            f"{issue}_{target}",
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=issue,
+            translation_placeholders={
+                "target": target,
+                # A timeout has no message of its own; its name says enough.
+                "error": (str(err) or type(err).__name__) if err is not None else "",
+            },
+        )
+
+    @callback
+    def _clear_stale_repairs(self) -> None:
+        """Remove repair issues for targets no longer in the options.
+
+        Taking a broken target out of the options is a fix too, and the
+        issue says it goes away once resolved.
+        """
+        configured = set(self.targets)
+        registry = ir.async_get(self.hass)
+        for domain, issue_id in list(registry.issues):
+            if domain != DOMAIN:
+                continue
+            for prefix in REPAIR_PREFIXES:
+                if issue_id.startswith(prefix) and issue_id[len(prefix) :] not in configured:
+                    ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+
+    @callback
+    def _target_works(self, target: str) -> None:
+        """A target accepted a message: clear what `_target_failed` raised."""
+        if target in self._failing:
+            self._failing.discard(target)
+            _LOGGER.info("Notify target %s works again", target)
+        for issue in ("notify_target_missing", "notify_failed"):
+            ir.async_delete_issue(self.hass, DOMAIN, f"{issue}_{target}")

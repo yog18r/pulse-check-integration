@@ -39,7 +39,7 @@ src/
 └── index.ts                registers the elements and the card picker entry
 ```
 
-The custom element owns a shadow root and a React root. `useSnapshot` subscribes once per websocket connection and unsubscribes on unmount; `useHistory` fetches sparkline points for the batteries on screen and refreshes them every six hours.
+The custom element owns a shadow root and a React root. `useSnapshot` subscribes once per websocket connection and unsubscribes on unmount; `useHistory` fetches sparkline points for the batteries on screen in one request, refreshes them every six hours, and in between fetches only batteries that newly appear.
 
 Text comes from `src/i18n`: the card and the editor each create the translator for `hass.locale.language` and hand it down through a React context (`useT()`); plain functions take it as a parameter that defaults to English. To add a language, copy `en.ts`, translate it, and register it in `index.ts`; the type checker lists anything missing and `test/i18n/catalogs.test.ts` checks plural forms and placeholders. `?lang=de` on the demo page previews a language.
 

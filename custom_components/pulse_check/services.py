@@ -20,6 +20,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_MAINTENANCE_HOURS,
+    DATA_COORDINATOR,
     DEFAULT_MAINTENANCE_HOURS,
     DOMAIN,
     MAX_MAINTENANCE_HOURS,
@@ -100,10 +101,10 @@ MAINTENANCE_SCHEMA = probatio.Schema(
 
 def _coordinator(hass: HomeAssistant) -> PulseCheckCoordinator:
     """The one running coordinator, or a user-facing error."""
-    for entry in hass.config_entries.async_loaded_entries(DOMAIN):
-        coordinator: PulseCheckCoordinator = entry.runtime_data
-        return coordinator
-    raise ServiceValidationError(translation_domain=DOMAIN, translation_key="not_loaded")
+    coordinator = hass.data.get(DATA_COORDINATOR)
+    if coordinator is None:
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="not_loaded")
+    return coordinator
 
 
 def resolve_device_id(coordinator: PulseCheckCoordinator, raw: str) -> str:

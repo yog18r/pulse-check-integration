@@ -7,6 +7,7 @@ from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_capture_events
 
 from custom_components.pulse_check.const import (
@@ -17,7 +18,15 @@ from custom_components.pulse_check.const import (
     DEFAULT_RESTART_TIMEOUT_MINUTES,
     EVENT_TRANSITION,
 )
-from tests.test_notify import OPTIONS, TEMPERATURE, _messages, _ready, _set_up, _tick
+from tests.test_notify import (
+    OPTIONS,
+    TEMPERATURE,
+    _messages,
+    _ready,
+    _restart,
+    _set_up,
+    _tick,
+)
 
 # The timeout as shipped, instead of the shared test options' 0.
 TIMEOUT = {**OPTIONS, CONF_RESTART_TIMEOUT_MINUTES: DEFAULT_RESTART_TIMEOUT_MINUTES}
@@ -77,8 +86,7 @@ async def test_a_restart_keeps_an_offline_device_offline(
     await _tick(hass, freezer, timedelta(seconds=5))  # the store's save delay
 
     # Restart while it is still down; well past the timeout.
-    await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done(wait_background_tasks=True)
+    await _restart(hass, entry, freezer, dt_util.utcnow())
     await _ready(hass, freezer)
     await _tick(hass, freezer, timedelta(minutes=DEFAULT_RESTART_TIMEOUT_MINUTES + 10))
     kitchen = [e for e in events if e.data["name"] == "Kitchen H&T"]
@@ -113,8 +121,7 @@ async def test_a_problem_still_waiting_for_confirmation_is_dropped(
     await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     await _tick(hass, freezer, timedelta(seconds=5))
 
-    await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done(wait_background_tasks=True)
+    await _restart(hass, entry, freezer, dt_util.utcnow())
     await _ready(hass, freezer)
     await _tick(hass, freezer, timedelta(minutes=DEFAULT_CONFIRM_MINUTES + 1))
     assert calls == []

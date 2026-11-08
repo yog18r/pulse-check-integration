@@ -63,6 +63,7 @@ async def test_attention_sensor_matches_the_golden_output(
     assert device_dicts(hass) == _with_real_ids(expected["devices"], device_ids)
     # The device list itself is not a state attribute any more.
     assert "devices" not in state.attributes
+    assert state.attributes["shopping"] == expected["actions"]["shopping"]
     for key, value in expected["summary"].items():
         assert state.attributes[ATTR_SUMMARY][key] == value
 

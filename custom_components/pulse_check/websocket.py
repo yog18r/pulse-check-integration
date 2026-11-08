@@ -30,7 +30,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
-from .const import DATA_VERSION, DOMAIN, SIGNAL_SNAPSHOT
+from .const import DATA_COORDINATOR, DATA_VERSION, SIGNAL_SNAPSHOT
 from .core.models import to_iso
 
 if TYPE_CHECKING:
@@ -53,8 +53,7 @@ def _coordinator(hass: HomeAssistant) -> PulseCheckCoordinator | None:
     Subscriptions must not hold on to the old one, so nothing here keeps a
     reference between calls.
     """
-    coordinator: PulseCheckCoordinator | None = hass.data.get(DOMAIN)
-    return coordinator
+    return hass.data.get(DATA_COORDINATOR)
 
 
 def _worth_showing(device: DeviceHealth) -> bool:
@@ -74,8 +73,21 @@ def _worth_showing(device: DeviceHealth) -> bool:
 
 
 def snapshot_payload(coordinator: PulseCheckCoordinator) -> dict[str, Any]:
-    """Everything the card needs, JSON-ready."""
+    """Everything the card needs, JSON-ready.
+
+    Built once per recompute and shared by every subscriber (each open
+    dashboard), instead of once per subscriber.
+    """
     data: PulseCheckData = coordinator.data
+    cached = coordinator.payload_cache
+    if cached is not None and cached[0] is data:
+        return cached[1]
+    payload = _build_payload(coordinator, data)
+    coordinator.payload_cache = (data, payload)
+    return payload
+
+
+def _build_payload(coordinator: PulseCheckCoordinator, data: PulseCheckData) -> dict[str, Any]:
     store = coordinator.store
     until = store.maintenance_until if store.in_maintenance(dt_util.utcnow()) else None
     return {

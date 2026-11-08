@@ -508,6 +508,19 @@ export async function loadHistories(
 export type PulseCheckService =
   'snooze' | 'unsnooze' | 'mark_replaced' | 'mark_charged' | 'undo_mark' | 'set_device_settings';
 
+/**
+ * The readable part of a failed call, if there is one. Home Assistant
+ * rejects service calls with a plain `{ code, message }` object rather
+ * than an `Error`, so `String(err)` would print "[object Object]".
+ */
+export function errorMessage(err: unknown): string | undefined {
+  let text: string | undefined;
+  if (err instanceof Error) text = err.message;
+  else if (typeof err === 'string') text = err;
+  else if (isRecord(err)) text = str(err.message) ?? str(err.code);
+  return text === '' ? undefined : text;
+}
+
 /** Call one of the integration's services, if hass can. */
 export async function callPulseCheck(
   hass: HassLike | undefined,

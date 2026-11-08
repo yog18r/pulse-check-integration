@@ -4,6 +4,44 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Fixed
+- **Per-device battery sensors no longer hide problems.** With that option
+  on, Pulse Check's own sensors on a device counted as the device
+  reporting, so it never went quiet, and a device with a single battery
+  entity could drop out of monitoring altogether. Pulse Check's own
+  entities are now ignored when judging a device.
+- **No more duplicate notifications** when a recompute started while a
+  slow notification was still being sent.
+- **Notifications that fail are retried**, every 15 minutes up to four
+  times, instead of being counted as sent; so are the grouped messages of
+  the per-integration limit and the maintenance summary. A notify target
+  that does not exist or keeps failing appears under Settings, Repairs,
+  and the repair clears once a message gets through or the target is
+  taken out of the options.
+- **Saving the options no longer pauses notifications for five minutes**,
+  and a snooze or Done made just before saving is no longer lost.
+- **A restart timeout shorter than the quiet period after start** no
+  longer silently does nothing.
+- **A battery reporting 100 % once is not a new battery.** A rise in level
+  now has to hold for an hour before it counts as a replacement or charge,
+  and Undo can take back one that was detected automatically.
+- **The shopping-list example in the README works**: the attention sensor
+  now has the `shopping` attribute it relied on.
+- Devices that Home Assistant 2026.10 registers as child devices are
+  treated as devices instead of loose entities, and a YAML entity removed
+  from the configuration (an automation deleted from `automations.yaml`,
+  say) reads as *not provided* rather than as a critical "unavailable".
+- Removing Pulse Check deletes its saved data and repair issues.
+- The card says when a snooze, Done or Undo fails, shows Undo only once
+  the mark is recorded, and warns when its data is more than 15 minutes
+  old. Its editor can now pick services and entities with no device.
+
+### Changed
+- Battery history is read from the recorder once per refresh instead of
+  twice, and sparklines only fetch the batteries they don't have yet.
+
 ## 0.2.9 - 2026-11-08
 
 ### Added

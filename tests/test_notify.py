@@ -29,7 +29,7 @@ from custom_components.pulse_check.const import (
     DOMAIN,
     EVENT_TRANSITION,
 )
-from custom_components.pulse_check.notify import last_digest_slot
+from custom_components.pulse_check.notify import DATA_RUNTIME, last_digest_slot
 from tests.conftest import load_fixture_into_hass
 
 OPTIONS = {
@@ -270,7 +270,7 @@ async def test_saving_options_does_not_announce_anything(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    """The reload after an options save starts from a fresh baseline."""
+    """The reload after an options save records a fresh baseline, without a new grace period."""
     entry, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
     await _ready(hass, freezer)
     events = async_capture_events(hass, EVENT_TRANSITION)
@@ -387,6 +387,8 @@ async def _restart(
     await _tick(hass, freezer, timedelta(seconds=5))  # the store's save delay
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
+    # A new run of Home Assistant: what a reload keeps in memory is gone.
+    hass.data.pop(DATA_RUNTIME, None)
     freezer.move_to(at)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)

@@ -25,16 +25,22 @@ from typing import TYPE_CHECKING
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers import (
+    config_validation as cv,
+    entity_registry as er,
+    issue_registry as ir,
+)
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.loader import async_get_integration
 
 from .card import async_remove_card_resource, async_serve_card, async_setup_card
-from .const import DATA_VERSION, DOMAIN, SIGNAL_SNAPSHOT
+from .const import DATA_COORDINATOR, DATA_VERSION, DOMAIN, SIGNAL_SNAPSHOT
 from .coordinator import PulseCheckCoordinator
+from .history import DATA_INSIGHTS
 from .messages import async_load_messages
-from .notify import Notifier
+from .notify import DATA_RUNTIME, Notifier
 from .services import async_setup_services
+from .storage import PulseCheckStore
 from .websocket import async_setup_websocket
 
 if TYPE_CHECKING:
@@ -84,9 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -
     # Compute once before the entities exist, so they never start empty.
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
-    # The websocket commands find the current coordinator here, so a reload
-    # (which is how saved options take effect) swaps it under them.
-    hass.data[DOMAIN] = coordinator
+    hass.data[DATA_COORDINATOR] = coordinator
     _remove_maintenance_binary_sensor(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -137,10 +141,20 @@ async def async_unload_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) 
     """
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        hass.data.pop(DOMAIN, None)
+        hass.data.pop(DATA_COORDINATOR, None)
+        # A change saved with a delay (a snooze a second ago) must be on disk
+        # before the reload's new store reads the file.
+        await entry.runtime_data.store.async_save_now()
     return unloaded
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -> None:
     """Clean up when the integration is deleted (not on reload or restart)."""
     await async_remove_card_resource(hass)
+    # Its saved state, what it kept in memory, and its repair issues.
+    await PulseCheckStore(hass).async_remove()
+    hass.data.pop(DATA_RUNTIME, None)
+    hass.data.pop(DATA_INSIGHTS, None)
+    for domain, issue_id in list(ir.async_get(hass).issues):
+        if domain == DOMAIN:
+            ir.async_delete_issue(hass, DOMAIN, issue_id)

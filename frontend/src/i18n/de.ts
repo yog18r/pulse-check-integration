@@ -18,9 +18,16 @@ export const de: Catalog = {
   'app.updated':
     'Pulse Check wurde auf {version} aktualisiert. Neu laden, um die neue Karte zu verwenden.',
   'app.refresh': 'Neu laden',
+  'app.stale':
+    'Pulse Check wurde zuletzt {time} aktualisiert; die Daten unten sind womöglich veraltet.',
   'undo.replaced': '{name} als ersetzt markiert.',
   'undo.charged': '{name} als geladen markiert.',
   'undo.undo': 'Rückgängig',
+  'failed.snooze': '{name} konnte nicht pausiert werden.',
+  'failed.unsnooze': 'Pause für {name} konnte nicht beendet werden.',
+  'failed.replaced': '{name} konnte nicht als ersetzt markiert werden.',
+  'failed.charged': '{name} konnte nicht als geladen markiert werden.',
+  'failed.undo': 'Markierung von {name} konnte nicht rückgängig gemacht werden.',
 
   'tab.batteries': 'Batterien',
   'tab.connectivity': 'Verbindung',

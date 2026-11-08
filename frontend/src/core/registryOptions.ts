@@ -8,13 +8,16 @@
  */
 import { ORPHAN_PREFIX, type HassDeviceRegistryEntry, type HassLike } from './types';
 
+/** Pulse Check's own platform. Its entities are never watched, so never offered. */
+export const OWN_INTEGRATION = 'pulse_check';
+
 /**
- * Devices we never offer:
- *  - "service" devices are virtual (Sun, Forecast, Backup...)
- *  - disabled devices were switched off deliberately by the user
+ * Disabled devices were switched off deliberately by the user, and the
+ * integration skips them. "Service" devices (Sun, AdGuard Home, Backup)
+ * are watched like any other, so they are offered too.
  */
-export function isIgnorableDevice(device: HassDeviceRegistryEntry): boolean {
-  return device.entry_type === 'service' || device.disabled_by !== null;
+export function isDisabledDevice(device: HassDeviceRegistryEntry): boolean {
+  return device.disabled_by !== null;
 }
 
 export interface IntegrationOption {
@@ -44,7 +47,11 @@ export function listIntegrations(hass: HassLike): IntegrationOption[] {
     .sort((a, b) => b.entityCount - a.entityCount || a.id.localeCompare(b.id));
 }
 
-/** Every real device (no service or disabled ones), alphabetical by display name. */
+/**
+ * Every device the integration can watch, services included, alphabetical
+ * by display name. Left out: disabled devices, and Pulse Check's own
+ * device (a service device whose entities are all Pulse Check's).
+ */
 export function listDevices(hass: HassLike): DeviceOption[] {
   // One pass over entities to learn each device's integration.
   const platforms = new Map<string, Map<string, number>>();
@@ -60,16 +67,24 @@ export function listDevices(hass: HassLike): DeviceOption[] {
 
   const options: DeviceOption[] = [];
   for (const device of Object.values(hass.devices)) {
-    if (isIgnorableDevice(device)) continue;
+    if (isDisabledDevice(device)) continue;
+    const counts = platforms.get(device.id);
+    // Only Pulse Check's own sensors: the integration ignores those, so
+    // this is Pulse Check's own device. (It also attaches sensors to the
+    // devices it watches; those have entities of their own too.)
+    if (counts?.size === 1 && counts.has(OWN_INTEGRATION)) continue;
     const name = device.name_by_user ?? device.name ?? device.id;
     const option: DeviceOption = { id: device.id, name };
 
     const area = device.area_id ? hass.areas[device.area_id]?.name : undefined;
     if (area) option.area = area;
 
-    const counts = platforms.get(device.id);
     if (counts) {
-      const [best] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+      // Pulse Check's own sensors never decide which integration a device is:
+      // a device with one battery sensor and both of them would read as ours.
+      const [best] = [...counts.entries()]
+        .filter(([platform]) => platform !== OWN_INTEGRATION)
+        .sort((a, b) => b[1] - a[1]);
       if (best) option.integration = best[0];
     }
     options.push(option);
@@ -82,22 +97,24 @@ export function listDevices(hass: HassLike): DeviceOption[] {
 }
 
 /**
- * Battery sensors that have no device (template, cloud and some custom
- * integrations). The card shows them as pseudo-devices keyed
- * `entity:<entity_id>`, so the picker offers them under that id.
+ * Entities that have no device: template sensors, automations, scripts,
+ * cloud and some custom integrations' entities. The integration watches
+ * each as a pseudo-device keyed `entity:<entity_id>` (for its battery, or
+ * for being unavailable), so the picker offers them under that id.
  *
  * Entities without a `unique_id` (YAML template sensors, some MQTT ones)
  * never reach the registry at all and exist only in `hass.states`; they
- * count as device-less too.
+ * count as device-less too. Disabled entities are not offered: Home
+ * Assistant leaves them out of `hass.entities` and they have no state.
+ * Config entities (settings
+ * such as an inverter's minimum charge) are left out: the integration
+ * draws no conclusion from them.
  */
-export function listOrphanBatteryEntities(hass: HassLike): DeviceOption[] {
+export function listOrphanEntities(hass: HassLike): DeviceOption[] {
   const options: DeviceOption[] = [];
   const offer = (entityId: string, platform?: string) => {
     const state = hass.states[entityId];
     if (!state) return;
-    const isBattery =
-      state.attributes.device_class === 'battery' || 'battery_level' in state.attributes;
-    if (!isBattery) return;
     const friendly = state.attributes.friendly_name;
     const option: DeviceOption = {
       id: ORPHAN_PREFIX + entityId,
@@ -109,12 +126,16 @@ export function listOrphanBatteryEntities(hass: HassLike): DeviceOption[] {
 
   for (const entity of Object.values(hass.entities)) {
     if (entity.device_id !== undefined || entity.entity_category === 'config') continue;
+    if (entity.platform === OWN_INTEGRATION) continue;
     offer(entity.entity_id, entity.platform);
   }
   for (const entityId of Object.keys(hass.states)) {
     if (!(entityId in hass.entities)) offer(entityId);
   }
-  return options.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  return options.sort(
+    (a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) || a.id.localeCompare(b.id),
+  );
 }
 
 /** "Front Door Lock (Hallway · zwave_js)" style label for a dropdown. */

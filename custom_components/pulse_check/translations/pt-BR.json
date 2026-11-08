@@ -229,7 +229,7 @@
     },
     "undo_mark": {
       "name": "Desfazer troca ou carga da bateria",
-      "description": "Remove a última troca ou carga registrada manualmente, junto com o ciclo que ela encerrou. As detectadas automaticamente por um salto de nível não podem ser desfeitas.",
+      "description": "Remove a última troca ou carga, com o ciclo que ela encerrou: registrada à mão, ou detectada a partir de uma subida do nível que afinal não era uma bateria nova.",
       "fields": {
         "device_id": {
           "name": "Dispositivo",
@@ -304,6 +304,16 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "notify_target_missing": {
+      "title": "O Pulse Check não encontra {target}",
+      "description": "O Pulse Check deve enviar notificações para `{target}`, mas não existe nenhum serviço ou entidade notify com esse nome, então nada chega. Escolha o destino correto em Configurações → Dispositivos e serviços → Pulse Check → Configurar → Notificações. Isto some sozinho assim que uma mensagem chegar."
+    },
+    "notify_failed": {
+      "title": "O Pulse Check não consegue enviar para {target}",
+      "description": "O envio de uma notificação para `{target}` falhou: {error}\n\nO Pulse Check tenta de novo algumas vezes cada mensagem não entregue. Verifique se o destino funciona, por exemplo chamando você mesmo a ação notify. Isto some sozinho assim que uma mensagem chegar."
     }
   }
 }

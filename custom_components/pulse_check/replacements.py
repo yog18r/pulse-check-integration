@@ -11,6 +11,9 @@ All of it is kept in the store under `history[device_id]`:
 
     events:  [{at, kind, battery_type, level_before, level_after, auto}]
     cycles:  [{start, end, kind, days, rate_per_day}]
+
+A rise waiting to be confirmed is kept with the device's latest level,
+under `levels[device_id]["jump"]`: {from, at, charging}.
 """
 
 from __future__ import annotations
@@ -29,8 +32,12 @@ if TYPE_CHECKING:
 type EventKind = Literal["replaced", "charged"]
 
 # A level that rises by at least this much in one step is a new battery or
-# a charge, whatever the device says.
+# a charge, whatever the device says...
 JUMP_POINTS = 20
+# ...once it has held for this long. Zigbee and Z-Wave devices sometimes
+# report 100 % once, on rejoining or from a bad read; a level that falls
+# straight back was a glitch, not a new battery.
+JUMP_CONFIRM_SECONDS = 3600
 # A level that falls by at least this much in one step is suspicious.
 SUDDEN_DROP_POINTS = 20
 # Cycles shorter than this are too noisy to learn a rate from.
@@ -38,6 +45,10 @@ MIN_CYCLE_DAYS = 1.0
 # After a manual "replaced", wait this long for the sensor to show the new
 # battery before accepting whatever level it reports as the cycle's start.
 SETTLE_SECONDS = 6 * 3600
+
+
+def _at(iso: str) -> datetime:
+    return as_utc(datetime.fromisoformat(iso))
 
 
 class ReplacementTracker:
@@ -60,10 +71,14 @@ class ReplacementTracker:
         auto: bool = False,
     ) -> None:
         """Add an event and close the cycle that ended with it."""
+        observed = self.store.levels.get(device_id, {})
+        # Recorded by hand: a rise still waiting to be confirmed is this one,
+        # and the level before it is where the old battery ended.
+        pending = observed.pop("jump", None) if not auto else None
         entry = self._entry(device_id)
         events: list[dict[str, Any]] = entry["events"]
         if level_before is None:
-            level_before = self.store.levels.get(device_id, {}).get("level")
+            level_before = pending["from"] if pending else observed.get("level")
         if events:
             previous = events[-1]
             start = as_utc(datetime.fromisoformat(previous["at"]))
@@ -99,16 +114,15 @@ class ReplacementTracker:
         self.store.async_save()
 
     def undo_last(self, device_id: str) -> bool:
-        """Remove the most recent manual replacement or charge, and the cycle it closed.
+        """Remove the most recent replacement or charge, and the cycle it closed.
 
-        For a mistaken tap on "Done", or a service call made too soon.
-        False when there is nothing to undo: no events, or the latest was
-        detected automatically from a jump in level, which only another
-        jump can explain.
+        For a mistaken tap on "Done", a service call made too soon, or a
+        rise in level that was not a new battery after all. False when
+        there is nothing to undo.
         """
         entry = self.store.history.get(device_id)
         events: list[dict[str, Any]] = entry["events"] if entry else []
-        if not events or events[-1].get("auto"):
+        if not events:
             return False
         removed = events.pop()
         cycles: list[dict[str, Any]] = entry["cycles"] if entry else []
@@ -138,6 +152,36 @@ class ReplacementTracker:
             "average_rate_per_day": self.average_rate(device_id),
         }
 
+    def _follow_jump(
+        self, device_id: str, previous: dict[str, Any] | None, level: int, now: datetime
+    ) -> tuple[dict[str, Any] | None, bool, bool]:
+        """A big rise means a new battery, or a charge for rechargeables, once it holds.
+
+        Returns the pending jump to keep (None when there is none), whether
+        the level just fell back from a glitch, and whether an event was
+        recorded.
+        """
+        previous_level = previous.get("level") if previous else None
+        jump: dict[str, Any] | None = previous.get("jump") if previous else None
+        if (
+            jump is None
+            and previous is not None
+            and isinstance(previous_level, int | float)
+            and level - previous_level >= JUMP_POINTS
+        ):
+            charging = bool(previous.get("charging"))
+            jump = {"from": int(previous_level), "at": to_iso(now), "charging": charging}
+        if jump is None:
+            return None, False, False
+        if level - jump["from"] < JUMP_POINTS:
+            return None, True, False  # fell back: a glitch, not a new battery
+        if (as_utc(now) - _at(jump["at"])).total_seconds() < JUMP_CONFIRM_SECONDS:
+            return jump, False, False
+        rechargeable = bool(self.store.device_settings.get(device_id, {}).get("rechargeable"))
+        kind: EventKind = "charged" if rechargeable or jump["charging"] else "replaced"
+        self.record(device_id, kind, _at(jump["at"]), None, jump["from"], auto=True)
+        return None, False, True
+
     def observe(self, devices: Iterable[DeviceHealth], now: datetime) -> bool:
         """Look at the latest levels: detect jumps, finish events, flag unusual drain.
 
@@ -145,6 +189,7 @@ class ReplacementTracker:
         """
         changed = False
         levels = self.store.levels
+        devices = list(devices)
         for device in devices:
             battery = device.battery
             if battery is None or battery.level is None:
@@ -152,16 +197,8 @@ class ReplacementTracker:
             level = battery.level
             previous = levels.get(device.device_id)
             previous_level = previous.get("level") if previous else None
-            was_charging = bool(previous.get("charging")) if previous else False
-
-            # A big rise means a new battery, or a charge for rechargeables.
-            if isinstance(previous_level, int | float) and level - previous_level >= JUMP_POINTS:
-                rechargeable = bool(
-                    self.store.device_settings.get(device.device_id, {}).get("rechargeable")
-                )
-                kind: EventKind = "charged" if rechargeable or was_charging else "replaced"
-                self.record(device.device_id, kind, now, None, int(previous_level), auto=True)
-                changed = True
+            jump, glitch, recorded = self._follow_jump(device.device_id, previous, level, now)
+            changed |= recorded
 
             last = self.last_event(device.device_id)
             if last is not None and last.get("level_after") is None:
@@ -180,12 +217,16 @@ class ReplacementTracker:
                     changed = True
 
             sudden_drop = (
-                isinstance(previous_level, int | float)
+                not glitch
+                and isinstance(previous_level, int | float)
                 and previous_level - level >= SUDDEN_DROP_POINTS
                 and level > 0
             )
-            if previous_level != level or (
-                previous and previous.get("charging") != battery.is_charging
+            previous_jump = previous.get("jump") if previous else None
+            if (
+                previous_level != level
+                or (previous and previous.get("charging") != battery.is_charging)
+                or previous_jump != jump
             ):
                 charging_seen = (previous or {}).get("charging_seen_at")
                 if battery.is_charging:
@@ -201,10 +242,13 @@ class ReplacementTracker:
                     # the battery as one that gets charged (core/cycles.py).
                     "charging_seen_at": charging_seen,
                 }
+                if jump is not None:
+                    levels[device.device_id]["jump"] = jump
                 changed = True
 
+        watched = {d.device_id for d in devices}
         for device_id in list(levels):
-            if device_id not in {d.device_id for d in devices}:
+            if device_id not in watched:
                 del levels[device_id]
                 changed = True
         if changed:

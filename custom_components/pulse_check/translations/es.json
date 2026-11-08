@@ -229,7 +229,7 @@
     },
     "undo_mark": {
       "name": "Deshacer cambio o carga de batería",
-      "description": "Elimina el último cambio o carga registrado a mano, junto con el ciclo que cerró. Los detectados automáticamente por un salto de nivel no se pueden deshacer.",
+      "description": "Elimina el último cambio o carga, con el ciclo que cerró: uno registrado a mano o uno detectado por una subida del nivel que al final no era una pila nueva.",
       "fields": {
         "device_id": {
           "name": "Dispositivo",
@@ -304,6 +304,16 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "notify_target_missing": {
+      "title": "Pulse Check no encuentra {target}",
+      "description": "Pulse Check debe enviar notificaciones a `{target}`, pero no existe ningún servicio ni entidad notify con ese nombre, así que no llega nada. Elige el destino correcto en Ajustes → Dispositivos y servicios → Pulse Check → Configurar → Notificaciones. Esto desaparece solo en cuanto llegue un mensaje."
+    },
+    "notify_failed": {
+      "title": "Pulse Check no puede enviar a {target}",
+      "description": "El envío de una notificación a `{target}` ha fallado: {error}\n\nPulse Check vuelve a intentar varias veces cada mensaje no entregado. Comprueba que el destino funciona, por ejemplo llamando tú mismo a la acción notify. Esto desaparece solo en cuanto llegue un mensaje."
     }
   }
 }

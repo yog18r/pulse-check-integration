@@ -5,11 +5,12 @@
  * themselves are the integration's; these tests check that its data
  * reaches the screen and that clicks do what the labels promise.
  */
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { DEFAULT_CONFIG, type ResolvedConfig } from '../../src/card/config';
-import type { HassBox } from '../../src/core/types';
+import type { Snapshot } from '../../src/card/snapshot';
+import type { HassBox, HassLike } from '../../src/core/types';
 import { translator } from '../../src/i18n';
 import { CARD_VERSION } from '../../src/version';
 import { App } from '../../src/ui/App';
@@ -18,6 +19,7 @@ import {
   deviceEntry,
   fakeHass,
   SNAPSHOT_PAYLOAD,
+  type FakeHass,
   type FakeHassOptions,
 } from '../fixtures/snapshot';
 
@@ -402,5 +404,129 @@ describe('App, snooze menu keyboard', () => {
     await user().keyboard('{Escape}');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(toggle).toHaveFocus();
+  });
+});
+
+/** Script the fake's next service call (typed like Home Assistant's `callService`). */
+function nextServiceCall(callService: FakeHass['callService'], answer: () => Promise<unknown>) {
+  (callService as Mock<NonNullable<HassLike['callService']>>).mockImplementationOnce(answer);
+}
+
+/** A refused call, as Home Assistant sends it: often a plain object, not an Error. */
+function refuse(reason: unknown): () => Promise<never> {
+  // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+  return () => Promise.reject(reason);
+}
+
+describe('App, when a row action fails', () => {
+  const refusal = { code: 'service_validation_error', message: 'Unknown device.' };
+
+  it('says so when a snooze is refused', async () => {
+    const { callService } = renderApp({ show_tabs: ['connectivity'] });
+    nextServiceCall(callService, refuse(refusal));
+    await screen.findByText(/devices need attention/);
+
+    await user().click(screen.getByRole('button', { name: 'Snooze Front Door Lock' }));
+    await user().click(screen.getByRole('menuitem', { name: /7 days/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not snooze Front Door Lock. Unknown device.',
+    );
+  });
+
+  it('offers Undo only once the mark is recorded', async () => {
+    const { callService } = renderApp({ show_tabs: ['actions'], default_tab: 'actions' });
+    // Hold the mark_replaced call open until the test says it is recorded.
+    let record: () => void = () => undefined;
+    nextServiceCall(
+      callService,
+      () =>
+        new Promise<void>((resolve) => {
+          record = resolve;
+        }),
+    );
+    await screen.findByText(/To buy/);
+    await user().click(screen.getByRole('button', { name: 'Mark Living Room Motion done' }));
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+
+    act(() => {
+      record();
+    });
+    expect(await screen.findByText('Marked Living Room Motion as replaced.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+  });
+
+  it('shows the error instead of Undo when the mark is refused', async () => {
+    const { callService } = renderApp({ show_tabs: ['actions'], default_tab: 'actions' });
+    nextServiceCall(callService, refuse(refusal));
+    await screen.findByText(/To buy/);
+    await user().click(screen.getByRole('button', { name: 'Mark Living Room Motion done' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not mark Living Room Motion as replaced. Unknown device.',
+    );
+    expect(screen.queryByText('Marked Living Room Motion as replaced.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+  });
+
+  it('says so when the undo is refused', async () => {
+    const { callService } = renderApp({ show_tabs: ['actions'], default_tab: 'actions' });
+    await screen.findByText(/To buy/);
+    await user().click(screen.getByRole('button', { name: 'Mark Living Room Motion done' }));
+    await screen.findByText('Marked Living Room Motion as replaced.');
+
+    nextServiceCall(callService, refuse(new Error('Not allowed')));
+    await user().click(screen.getByRole('button', { name: 'Undo' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not undo marking Living Room Motion. Not allowed',
+    );
+  });
+});
+
+describe('App, when the integration stops updating', () => {
+  it('warns once the newest snapshot is more than 15 minutes old', async () => {
+    const { emit } = renderApp();
+    await screen.findByText('⚠️ 7 devices need attention');
+    expect(screen.queryByText(/may be out of date/)).not.toBeInTheDocument();
+
+    // Ten minutes old: within the integration's five-minute rhythm, plus slack.
+    emit({ ...SNAPSHOT_PAYLOAD, computed_at: '2026-10-15T09:50:00.000Z' });
+    await screen.findByText('⚠️ 7 devices need attention');
+    expect(screen.queryByText(/may be out of date/)).not.toBeInTheDocument();
+
+    // No new snapshot for another ten minutes: the card notices on its own.
+    act(() => {
+      vi.advanceTimersByTime(10 * 60_000);
+    });
+    expect(
+      await screen.findByText(
+        /Pulse Check last updated 20m ago; the data below may be out of date\./,
+      ),
+    ).toBeInTheDocument();
+
+    // A fresh snapshot clears it.
+    emit({ ...SNAPSHOT_PAYLOAD, computed_at: '2026-10-15T10:10:00.000Z' });
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/may be out of date/)).not.toBeInTheDocument();
+    });
+  });
+});
+
+describe('App, onSnapshot', () => {
+  it('hands each new snapshot to the element once', async () => {
+    const fake = fakeHass();
+    const onSnapshot = vi.fn();
+    render(<App hassBox={{ latest: fake.hass }} config={DEFAULT_CONFIG} onSnapshot={onSnapshot} />);
+    await screen.findByText(/devices need attention/);
+    expect(onSnapshot).toHaveBeenCalledOnce();
+    const first = onSnapshot.mock.calls[0]?.[0] as Snapshot | undefined;
+    expect(first?.devices.length).toBeGreaterThan(0);
+
+    // Re-renders that bring no new snapshot (a tab click) do not call it again.
+    await user().click(screen.getByRole('tab', { name: /Connectivity/ }));
+    expect(onSnapshot).toHaveBeenCalledOnce();
+    fake.emit(SNAPSHOT_PAYLOAD);
+    await vi.waitFor(() => {
+      expect(onSnapshot).toHaveBeenCalledTimes(2);
+    });
   });
 });

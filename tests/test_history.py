@@ -249,3 +249,24 @@ async def test_insights_survive_an_options_reload(
         await hass.config_entries.async_reload(config_entry.entry_id)
         await hass.async_block_till_done(wait_background_tasks=True)
     assert hass.states.get("sensor.pulse_check_next_to_run_out").state == "Living Room Motion"  # type: ignore[union-attr]
+
+
+async def test_raw_history_is_read_once_per_refresh(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+    recorder: dict[str, Any],
+) -> None:
+    """The expensive query feeds both the daily and the hourly means."""
+    freezer.move_to(fixed_now)
+    await load_fixture_into_hass(hass, fixture_snapshot)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    recorder["history"].clear()
+    await config_entry.runtime_data.async_refresh_history()
+    await hass.async_block_till_done()
+    read = [entity_id for entity_id, _ in recorder["history"]]
+    assert read, "some batteries have no statistics here"
+    assert len(read) == len(set(read))

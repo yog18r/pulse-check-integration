@@ -62,31 +62,31 @@ CHARGING_SIGNAL_MEMORY = timedelta(days=HISTORY_LONG_DAYS)
 DATA_INSIGHTS = f"{DOMAIN}_insights"
 
 
-def _history_points(
-    hass: HomeAssistant,
-    start: datetime,
-    entity_ids: Iterable[str],
-    attribute: str | None,
-    hourly: bool = False,
-) -> dict[str, list[DrainPoint]]:
-    """Daily (or hourly) means from raw state history. Runs in the recorder's thread.
+type Samples = list[tuple[datetime, float | None]]
+
+
+def _history_samples(
+    hass: HomeAssistant, start: datetime, entity_ids: Iterable[str], attribute: str | None
+) -> dict[str, Samples]:
+    """Levels from raw state history, one sample per row. Runs in the recorder's thread.
 
     With `attribute` set, the level is read from that attribute instead of
     the state; attributes are only stored when they change, so the last
-    seen value carries forward.
+    seen value carries forward. Reading attributes is the expensive part
+    (a tracker stores a row per location update), so callers read each
+    entity once and derive every window from the samples.
     """
-    points: dict[str, list[DrainPoint]] = {}
-    collapse = hourly_means if hourly else daily_means
+    samples: dict[str, Samples] = {}
     for entity_id in entity_ids:
         rows = state_changes_during_period(
             hass, start, None, entity_id, no_attributes=attribute is None
         ).get(entity_id, [])
-        points[entity_id] = collapse(_samples(rows, attribute))
-    return points
+        samples[entity_id] = _samples(rows, attribute)
+    return samples
 
 
-def _samples(states: Iterable[State], attribute: str | None) -> list[tuple[datetime, float | None]]:
-    samples: list[tuple[datetime, float | None]] = []
+def _samples(states: Iterable[State], attribute: str | None) -> Samples:
+    samples: Samples = []
     last_seen: object = None
     for state in states:
         if attribute is None:
@@ -112,6 +112,46 @@ class HistoryTracker:
         """The recorder is optional; without it there is simply no history."""
         return "recorder" in self.hass.config.components
 
+    async def _statistics(
+        self, sensor_ids: set[str], days: int, period: str
+    ) -> dict[str, list[DrainPoint]]:
+        """Recorder statistics (means) per sensor over the last `days`; empty when none."""
+        if not sensor_ids:
+            return {}
+        stats = await get_instance(self.hass).async_add_executor_job(
+            statistics_during_period,
+            self.hass,
+            dt_util.utcnow() - timedelta(days=days),
+            None,
+            sensor_ids,
+            period,
+            None,
+            {"mean"},
+        )
+        points = {entity_id: rows_to_points(rows) for entity_id, rows in stats.items()}
+        return {entity_id: found for entity_id, found in points.items() if found}
+
+    async def _raw(
+        self, sensor_ids: set[str], attribute_ids: set[str], days: int
+    ) -> dict[str, Samples]:
+        """Raw samples over the last `days` (at most the raw fallback window), read once."""
+        start = dt_util.utcnow() - timedelta(days=min(days, RAW_FALLBACK_DAYS))
+        recorder = get_instance(self.hass)
+        samples: dict[str, Samples] = {}
+        if sensor_ids:
+            samples.update(
+                await recorder.async_add_executor_job(
+                    _history_samples, self.hass, start, sensor_ids, None
+                )
+            )
+        if attribute_ids:
+            samples.update(
+                await recorder.async_add_executor_job(
+                    _history_samples, self.hass, start, attribute_ids, "battery_level"
+                )
+            )
+        return samples
+
     async def _means(
         self,
         sensor_ids: set[str],
@@ -121,36 +161,11 @@ class HistoryTracker:
         hourly: bool,
     ) -> dict[str, list[DrainPoint]]:
         """Means per entity over the last `days`: statistics first, raw history as fallback."""
-        now = dt_util.utcnow()
-        recorder = get_instance(self.hass)
-        points: dict[str, list[DrainPoint]] = {}
-        if sensor_ids:
-            stats = await recorder.async_add_executor_job(
-                statistics_during_period,
-                self.hass,
-                now - timedelta(days=days),
-                None,
-                sensor_ids,
-                period,
-                None,
-                {"mean"},
-            )
-            for entity_id, rows in stats.items():
-                points[entity_id] = rows_to_points(rows)
-        raw_start = now - timedelta(days=min(days, RAW_FALLBACK_DAYS))
-        without_stats = sensor_ids - {k for k, v in points.items() if v}
-        if without_stats:
-            points.update(
-                await recorder.async_add_executor_job(
-                    _history_points, self.hass, raw_start, without_stats, None, hourly
-                )
-            )
-        if attribute_ids:
-            points.update(
-                await recorder.async_add_executor_job(
-                    _history_points, self.hass, raw_start, attribute_ids, "battery_level", hourly
-                )
-            )
+        points = await self._statistics(sensor_ids, days, period)
+        raw = await self._raw(sensor_ids - points.keys(), attribute_ids, days)
+        collapse = hourly_means if hourly else daily_means
+        for entity_id, samples in raw.items():
+            points[entity_id] = collapse(samples)
         return points
 
     async def async_refresh(
@@ -175,12 +190,23 @@ class HistoryTracker:
             (sensor_ids if battery.source == "sensor" else attribute_ids).add(battery.entity_id)
         if not batteries:
             self.insights = {}
+            self.hass.data[DATA_INSIGHTS] = {}
             return
 
-        daily = await self._means(sensor_ids, attribute_ids, HISTORY_LONG_DAYS, "day", False)
-        hourly = await self._means(sensor_ids, attribute_ids, HISTORY_FINE_DAYS, "hour", True)
-
+        # Statistics for both windows; raw history only for what they lack,
+        # read once and collapsed into both (it is the expensive query).
+        daily = await self._statistics(sensor_ids, HISTORY_LONG_DAYS, "day")
+        hourly = await self._statistics(sensor_ids, HISTORY_FINE_DAYS, "hour")
+        lacking = (sensor_ids - daily.keys()) | (sensor_ids - hourly.keys())
+        raw = await self._raw(lacking, attribute_ids, HISTORY_LONG_DAYS)
         now = dt_util.utcnow()
+        fine_start = now - timedelta(days=HISTORY_FINE_DAYS)
+        for entity_id, samples in raw.items():
+            if entity_id not in daily:
+                daily[entity_id] = daily_means(samples)
+            if entity_id not in hourly:
+                hourly[entity_id] = hourly_means([s for s in samples if s[0] >= fine_start])
+
         insights: dict[str, BatteryInsight] = {}
         for entity_id, device in batteries.items():
             battery = device.battery

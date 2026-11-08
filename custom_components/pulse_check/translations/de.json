@@ -229,7 +229,7 @@
     },
     "undo_mark": {
       "name": "Batteriewechsel oder Ladung rückgängig machen",
-      "description": "Entfernt den zuletzt manuell erfassten Batteriewechsel oder Ladevorgang samt dem damit abgeschlossenen Zyklus. Automatisch an einem Pegelsprung erkannte lassen sich nicht rückgängig machen.",
+      "description": "Entfernt den letzten Batteriewechsel oder Ladevorgang samt dem Zyklus, den er abgeschlossen hat: einen von Hand erfassten oder einen, der aus einem Anstieg des Füllstands erkannt wurde, der doch keine neue Batterie war.",
       "fields": {
         "device_id": {
           "name": "Gerät",
@@ -304,6 +304,16 @@
           }
         }
       }
+    }
+  },
+  "issues": {
+    "notify_target_missing": {
+      "title": "Pulse Check findet {target} nicht",
+      "description": "Pulse Check soll Benachrichtigungen an `{target}` senden, aber es gibt keinen solchen Notify-Dienst und keine solche Entität, daher kommt nichts an. Wähle das richtige Ziel unter Einstellungen → Geräte & Dienste → Pulse Check → Konfigurieren → Benachrichtigungen. Dies verschwindet von selbst, sobald eine Nachricht ankommt."
+    },
+    "notify_failed": {
+      "title": "Pulse Check kann nicht an {target} senden",
+      "description": "Das Senden einer Benachrichtigung an `{target}` ist fehlgeschlagen: {error}\n\nPulse Check versucht jede nicht zugestellte Nachricht noch einige Male. Prüfe, ob das Ziel funktioniert, zum Beispiel indem du die Notify-Aktion selbst aufrufst. Dies verschwindet von selbst, sobald eine Nachricht ankommt."
     }
   }
 }

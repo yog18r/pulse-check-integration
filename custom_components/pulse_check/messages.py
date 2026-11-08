@@ -107,11 +107,17 @@ class Messages:
     def __init__(self, catalogs: Mapping[str, Mapping[str, Template]]) -> None:
         """Keep the catalogs by language code."""
         self._catalogs = catalogs
+        # One Catalog per language asked for: the notifier asks per message.
+        self._cache: dict[str, Catalog] = {}
 
     def catalog(self, language: str) -> Catalog:
         """The messages for a Home Assistant language code."""
-        code = pick_language(language, self._catalogs)
-        return Catalog(code, self._catalogs[code], self._catalogs[FALLBACK])
+        found = self._cache.get(language)
+        if found is None:
+            code = pick_language(language, self._catalogs)
+            found = Catalog(code, self._catalogs[code], self._catalogs[FALLBACK])
+            self._cache[language] = found
+        return found
 
     @property
     def languages(self) -> list[str]:

@@ -27,10 +27,10 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import EntityCategory, UnitOfTime
 from homeassistant.core import callback
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTR_SUMMARY, CONF_PER_DEVICE_SENSORS
+from .const import ATTR_SHOPPING, ATTR_SUMMARY, CONF_PER_DEVICE_SENSORS
 from .coordinator import PulseCheckCoordinator
 from .entity import PulseCheckEntity
 
@@ -85,6 +85,22 @@ COUNT_SENSORS: tuple[PulseCheckCountDescription, ...] = (
 )
 
 
+# Translation keys of the per-device sensors.
+PER_DEVICE_KEYS = frozenset({"device_days_left", "device_last_replaced"})
+
+
+@callback
+def _remove_per_device_sensors(hass: HomeAssistant, entry: PulseCheckConfigEntry) -> None:
+    """With the option off, remove the per-device sensors made while it was on.
+
+    Otherwise they linger on every device page as entities nobody provides.
+    """
+    registry = er.async_get(hass)
+    for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if entity.domain == "sensor" and entity.translation_key in PER_DEVICE_KEYS:
+            registry.async_remove(entity.entity_id)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: PulseCheckConfigEntry,
@@ -101,6 +117,7 @@ async def async_setup_entry(
     )
 
     if not entry.options.get(CONF_PER_DEVICE_SENSORS, False):
+        _remove_per_device_sensors(hass, entry)
         return
 
     # Per-device sensors: one pair per battery device that has a registry
@@ -117,7 +134,10 @@ async def async_setup_entry(
                 continue
             entry_in_registry = registry.async_get(device.device_id)
             if not isinstance(entry_in_registry, dr.DeviceEntry):
-                continue  # an entity:<id> orphan has no device page
+                # An entity:<id> orphan has no device page, and a child device
+                # (a `ChildDeviceEntry`) cannot carry another integration's
+                # entities this way.
+                continue
             known.add(device.device_id)
             target = entry_in_registry
             new.append(DeviceDaysLeftSensor(coordinator, entry, device.device_id, target))
@@ -130,12 +150,12 @@ async def async_setup_entry(
 
 
 class AttentionSensor(PulseCheckEntity, SensorEntity):
-    """How many devices need attention, with the summary counts as attributes."""
+    """How many devices need attention, with the summary and shopping list as attributes."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:heart-pulse"
     # Only the count is worth keeping as history.
-    _unrecorded_attributes = frozenset({ATTR_SUMMARY})
+    _unrecorded_attributes = frozenset({ATTR_SUMMARY, ATTR_SHOPPING})
 
     def __init__(self, coordinator: PulseCheckCoordinator, entry: PulseCheckConfigEntry) -> None:
         """Create the attention sensor."""
@@ -148,9 +168,12 @@ class AttentionSensor(PulseCheckEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """The summary counts, for automations that want more than the state."""
+        """The summary counts and the batteries to buy, for automations."""
         data = self.coordinator.data
-        return {ATTR_SUMMARY: data.summary.to_dict()}
+        return {
+            ATTR_SUMMARY: data.summary.to_dict(),
+            ATTR_SHOPPING: data.actions.to_dict()["shopping"],
+        }
 
 
 class CountSensor(PulseCheckEntity, SensorEntity):
@@ -233,10 +256,7 @@ class PerDeviceSensor(CoordinatorEntity[PulseCheckCoordinator], SensorEntity):
     @property
     def device(self) -> DeviceHealth | None:
         """This device's latest analysis, if it is still watched."""
-        for device in self.coordinator.data.devices:
-            if device.device_id == self.device_id:
-                return device
-        return None
+        return self.coordinator.data.by_id.get(self.device_id)
 
     @property
     def available(self) -> bool:
