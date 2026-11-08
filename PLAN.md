@@ -130,7 +130,7 @@ past cycles like for like, or on a sudden 20-point drop.
 ## What the integration owns
 
 - **Storage** (`.storage`, shared by every browser and user): per-device
-  settings (`name`, `area`, `quiet_threshold_hours`, `battery_type`,
+  settings (edited under Configure → Per-device settings, not in the card) (`name`, `area`, `quiet_threshold_hours`, `battery_type`,
   `battery_count`, `rechargeable`, `notify_policy`, `sparkline_days`),
   snoozes, notification state, and replacement/charge history with cycle
   statistics.

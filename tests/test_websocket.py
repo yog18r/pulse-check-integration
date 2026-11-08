@@ -15,7 +15,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, async_
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.pulse_check.const import DEBOUNCE_SECONDS, DOMAIN, SIGNAL_SNAPSHOT
-from tests.conftest import load_fixture_into_hass
+from tests.conftest import load_fixture_into_hass, open_general_options
 
 BATTERY = {"device_class": "battery", "unit_of_measurement": "%"}
 
@@ -118,7 +118,7 @@ async def test_a_subscription_survives_saving_options(
     await hass.async_block_till_done()
 
     # The Configure dialog excludes phones. OptionsFlowWithReload reloads the entry.
-    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result = await open_general_options(hass, config_entry.entry_id)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"filters": {"exclude_integrations": ["mobile_app"]}}
     )

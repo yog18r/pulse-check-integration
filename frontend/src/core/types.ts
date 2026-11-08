@@ -6,7 +6,7 @@
  * `src/card/snapshot.ts`). These types describe two things:
  *
  *  1. The slice of Home Assistant's frontend `hass` object the card still
- *     reads: the registries (for the editor's device picker), the
+ *     reads: the registries (for the editor's area and integration lists), the
  *     websocket connection, and service calls. We define our own narrow
  *     interfaces rather than importing HA's, so the card has zero runtime
  *     dependencies on HA packages and the fixtures stay small.

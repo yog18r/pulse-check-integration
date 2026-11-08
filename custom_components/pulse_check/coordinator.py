@@ -30,18 +30,31 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import EVENT_STATE_CHANGED, STATE_UNAVAILABLE
-from homeassistant.core import Event, EventStateChangedData, HomeAssistant, State, callback
+from homeassistant.core import (
+    CALLBACK_TYPE,
+    Event,
+    EventStateChangedData,
+    HomeAssistant,
+    State,
+    callback,
+)
 from homeassistant.helpers import (
     area_registry as ar,
     device_registry as dr,
     entity_registry as er,
 )
 from homeassistant.helpers.debounce import Debouncer
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import async_call_later, async_track_time_interval
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
-from .const import DEBOUNCE_SECONDS, DOMAIN, HISTORY_INTERVAL, UPDATE_INTERVAL
+from .const import (
+    DEBOUNCE_SECONDS,
+    DOMAIN,
+    HISTORY_CATCH_UP_DELAY,
+    HISTORY_INTERVAL,
+    UPDATE_INTERVAL,
+)
 from .core import (
     ActionList,
     CoreConfig,
@@ -140,6 +153,10 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         # Entity ids that belong to an analysed device, from the last run.
         # State changes elsewhere cannot change the result and are ignored.
         self._watched: set[str] = set()
+        # True once a full history read has finished; a battery with a level
+        # but no insight after that has appeared since, and is caught up.
+        self._history_loaded = False
+        self._catch_up_cancel: CALLBACK_TYPE | None = None
 
     @callback
     def rebuild_config(self) -> None:
@@ -167,6 +184,7 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         self.config_entry.async_on_unload(
             async_track_time_interval(self.hass, self._handle_history_timer, HISTORY_INTERVAL)
         )
+        self.config_entry.async_on_unload(self._cancel_catch_up)
 
     @callback
     def _state_event_is_relevant(self, event_data: EventStateChangedData) -> bool:
@@ -211,7 +229,69 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         except Exception:
             _LOGGER.warning("Reading battery history from the recorder failed", exc_info=True)
             return
+        self._history_loaded = True
         await self.async_refresh()
+
+    async def async_catch_up_history(self, entity_ids: set[str]) -> None:
+        """Read history for batteries that got a reading after the last full read.
+
+        A cloud integration slow to start after a restart, a device paired
+        today, a sensor that woke up late: without this they would wait up
+        to six hours for the next full read. Only these batteries are read.
+        """
+        _LOGGER.debug("Reading history for batteries that appeared since: %s", entity_ids)
+        try:
+            await self.history.async_refresh(
+                self.data.devices, self.store, self.core_config, only=entity_ids
+            )
+        except Exception:
+            _LOGGER.warning("Reading battery history from the recorder failed", exc_info=True)
+            return
+        await self.async_refresh()
+
+    @callback
+    def _schedule_catch_up(self, devices: list[DeviceHealth]) -> None:
+        """After a full read, read soon for any battery it did not cover.
+
+        At most one catch-up waits at a time, so a restart bringing devices
+        back one by one costs a read every few minutes, not one per device.
+        """
+        if (
+            not self._history_loaded
+            or self._catch_up_cancel is not None
+            or not self.history.available
+        ):
+            return
+        if not self._uncovered(devices):
+            return
+        self._catch_up_cancel = async_call_later(
+            self.hass, HISTORY_CATCH_UP_DELAY, self._handle_catch_up
+        )
+
+    def _uncovered(self, devices: list[DeviceHealth]) -> set[str]:
+        """Battery entities with a level that no history read has covered yet."""
+        return {
+            device.battery.entity_id
+            for device in devices
+            if device.battery is not None
+            and device.battery.level is not None
+            and device.battery.entity_id not in self.history.insights
+        }
+
+    @callback
+    def _cancel_catch_up(self) -> None:
+        if self._catch_up_cancel is not None:
+            self._catch_up_cancel()
+            self._catch_up_cancel = None
+
+    @callback
+    def _handle_catch_up(self, _now: datetime) -> None:
+        self._catch_up_cancel = None
+        uncovered = self._uncovered(self.data.devices)
+        if uncovered:
+            self.config_entry.async_create_background_task(
+                self.hass, self.async_catch_up_history(uncovered), "pulse_check history catch-up"
+            )
 
     async def _async_update_data(self) -> PulseCheckData:
         """Build a snapshot in the event loop, then analyse it in a worker thread.
@@ -231,6 +311,7 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         self._watched = {entity_id for device in devices for entity_id in device.entity_ids}
         self.replacements.observe(devices, now)
         next_to_run_out = self._attach_drain_estimates(devices, now)
+        self._schedule_catch_up(devices)
         _LOGGER.debug(
             "Analysed %d entities into %d devices in %.1f ms",
             len(snapshot["entities"]),

@@ -12,7 +12,8 @@
  *   pulse_check/histories   the same for many batteries in one request
  *
  * and the services `pulse_check.snooze`, `unsnooze`, `mark_replaced`,
- * `mark_charged` and `set_device_settings`.
+ * `mark_charged` and `undo_mark`. Per-device settings are edited in the
+ * integration's own Configure dialog; the card only reads them.
  *
  * Everything that arrives is parsed defensively: the payload comes from
  * outside, so a malformed entry is skipped rather than crashing the card.
@@ -508,7 +509,7 @@ export async function loadHistories(
 /* ---- services ---------------------------------------------------------- */
 
 export type PulseCheckService =
-  'snooze' | 'unsnooze' | 'mark_replaced' | 'mark_charged' | 'undo_mark' | 'set_device_settings';
+  'snooze' | 'unsnooze' | 'mark_replaced' | 'mark_charged' | 'undo_mark';
 
 /**
  * The readable part of a failed call, if there is one. Home Assistant

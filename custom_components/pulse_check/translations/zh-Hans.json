@@ -13,6 +13,13 @@
   "options": {
     "step": {
       "init": {
+        "title": "Pulse Check",
+        "menu_options": {
+          "general": "阈值、筛选和通知",
+          "device": "单个设备设置"
+        }
+      },
+      "general": {
         "title": "Pulse Check 选项",
         "sections": {
           "thresholds": {
@@ -93,10 +100,46 @@
             }
           }
         }
+      },
+      "device": {
+        "title": "单个设备设置",
+        "description": "选择一个设备、服务或实体。⚙ 表示已有保存的设置；⚠ 表示为已找不到的对象保存的设置，可以清除。这些设置适用于所有 Pulse Check 卡片和通知。",
+        "data": {
+          "device": "设备"
+        }
+      },
+      "device_settings": {
+        "title": "{device} 的设置",
+        "description": "留空则使用默认值。这些设置适用于所有卡片和通知。",
+        "data": {
+          "name": "显示名称",
+          "area": "区域",
+          "battery_type": "电池型号",
+          "battery_count": "电池数量",
+          "rechargeable": "可充电",
+          "quiet_threshold_hours": "静默时长",
+          "notify_policy": "通知",
+          "sparkline_days": "趋势天数",
+          "clear": "移除此设备的所有设置"
+        },
+        "data_description": {
+          "name": "在卡片和通知中代替设备本身的名称显示。",
+          "area": "在卡片和区域筛选中替换设备的区域。",
+          "battery_type": "用于“操作”标签页的购物清单。可选择或自行输入。",
+          "battery_count": "需要几节电池。",
+          "rechargeable": "需要充电而不是更换：“操作”标签页会显示充电而不是更换。",
+          "quiet_threshold_hours": "多少小时没有上报后此设备视为静默，代替通用设置。",
+          "notify_policy": "留空则按问题的严重程度使用默认方式。",
+          "sparkline_days": "卡片上此设备的趋势线显示多少天。",
+          "clear": "勾选后，提交时会清除上面的所有设置。"
+        }
       }
     },
     "error": {
       "critical_above_warning": "严重电量不能高于警告电量。"
+    },
+    "abort": {
+      "not_loaded": "Pulse Check 尚未运行。请在其启动后重试。"
     }
   },
   "selector": {

@@ -13,6 +13,13 @@
   "options": {
     "step": {
       "init": {
+        "title": "Pulse Check",
+        "menu_options": {
+          "general": "Prahy, filtry a oznámení",
+          "device": "Nastavení zařízení"
+        }
+      },
+      "general": {
         "title": "Možnosti Pulse Check",
         "sections": {
           "thresholds": {
@@ -93,10 +100,46 @@
             }
           }
         }
+      },
+      "device": {
+        "title": "Nastavení zařízení",
+        "description": "Vyberte zařízení, službu nebo entitu. ⚙ označuje uložená nastavení; ⚠ označuje nastavení uložená pro něco, co už nelze najít, a lze je vymazat. Tato nastavení platí pro každou kartu Pulse Check i pro oznámení.",
+        "data": {
+          "device": "Zařízení"
+        }
+      },
+      "device_settings": {
+        "title": "Nastavení pro {device}",
+        "description": "Prázdné pole použije výchozí hodnotu. Tato nastavení platí pro každou kartu i pro oznámení.",
+        "data": {
+          "name": "Zobrazovaný název",
+          "area": "Oblast",
+          "battery_type": "Typ baterie",
+          "battery_count": "Počet baterií",
+          "rechargeable": "Nabíjecí",
+          "quiet_threshold_hours": "Tiché po",
+          "notify_policy": "Oznámení",
+          "sparkline_days": "Dny trendu",
+          "clear": "Odebrat všechna nastavení tohoto zařízení"
+        },
+        "data_description": {
+          "name": "Zobrazuje se na kartě a v oznámeních místo názvu zařízení.",
+          "area": "Nahrazuje oblast zařízení na kartě a ve filtrech oblastí.",
+          "battery_type": "Pro nákupní seznam na kartě Akce. Vyberte nebo napište vlastní.",
+          "battery_count": "Kolik baterií potřebuje.",
+          "rechargeable": "Nabíjí se místo výměny: karta Akce říká nabít místo vyměnit.",
+          "quiet_threshold_hours": "Hodiny bez hlášení, po kterých je zařízení tiché, místo obecného nastavení.",
+          "notify_policy": "Prázdné použije výchozí hodnotu podle závažnosti problému.",
+          "sparkline_days": "Kolik dní ukazuje čára trendu na kartě pro toto zařízení.",
+          "clear": "Je-li zaškrtnuto, po odeslání se všechna nastavení výše vymažou."
+        }
       }
     },
     "error": {
       "critical_above_warning": "Kritická úroveň nesmí být vyšší než úroveň varování."
+    },
+    "abort": {
+      "not_loaded": "Pulse Check zatím neběží. Zkuste to znovu, až se spustí."
     }
   },
   "selector": {

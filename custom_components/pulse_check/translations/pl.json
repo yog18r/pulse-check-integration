@@ -13,6 +13,13 @@
   "options": {
     "step": {
       "init": {
+        "title": "Pulse Check",
+        "menu_options": {
+          "general": "Progi, filtry i powiadomienia",
+          "device": "Ustawienia urządzeń"
+        }
+      },
+      "general": {
         "title": "Opcje Pulse Check",
         "sections": {
           "thresholds": {
@@ -93,10 +100,46 @@
             }
           }
         }
+      },
+      "device": {
+        "title": "Ustawienia urządzeń",
+        "description": "Wybierz urządzenie, usługę lub encję. ⚙ oznacza zapisane ustawienia; ⚠ oznacza ustawienia zapisane dla czegoś, czego już nie ma, i można je wyczyścić. Ustawienia dotyczą każdej karty Pulse Check i powiadomień.",
+        "data": {
+          "device": "Urządzenie"
+        }
+      },
+      "device_settings": {
+        "title": "Ustawienia: {device}",
+        "description": "Puste pole oznacza wartość domyślną. Ustawienia dotyczą każdej karty i powiadomień.",
+        "data": {
+          "name": "Wyświetlana nazwa",
+          "area": "Obszar",
+          "battery_type": "Typ baterii",
+          "battery_count": "Liczba baterii",
+          "rechargeable": "Ładowalna",
+          "quiet_threshold_hours": "Cichy po",
+          "notify_policy": "Powiadomienia",
+          "sparkline_days": "Dni trendu",
+          "clear": "Usuń wszystkie ustawienia tego urządzenia"
+        },
+        "data_description": {
+          "name": "Pokazywana na karcie i w powiadomieniach zamiast nazwy urządzenia.",
+          "area": "Zastępuje obszar urządzenia na karcie i w filtrach obszarów.",
+          "battery_type": "Do listy zakupów na karcie Działania. Wybierz lub wpisz własny.",
+          "battery_count": "Ile baterii używa.",
+          "rechargeable": "Ładowana zamiast wymieniana: karta Działania mówi naładuj zamiast wymień.",
+          "quiet_threshold_hours": "Godziny bez zgłoszenia, po których to urządzenie jest ciche, zamiast ustawienia ogólnego.",
+          "notify_policy": "Puste oznacza wartość domyślną dla wagi problemu.",
+          "sparkline_days": "Ile dni pokazuje linia trendu na karcie dla tego urządzenia.",
+          "clear": "Zaznaczone: po zatwierdzeniu wszystkie ustawienia powyżej zostaną wyczyszczone."
+        }
       }
     },
     "error": {
       "critical_above_warning": "Poziom krytyczny nie może być wyższy niż poziom ostrzeżenia."
+    },
+    "abort": {
+      "not_loaded": "Pulse Check jeszcze nie działa. Spróbuj ponownie po jego uruchomieniu."
     }
   },
   "selector": {

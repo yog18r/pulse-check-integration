@@ -111,7 +111,7 @@ A regional variant uses its base language (`de-CH` reads German, `pt` reads Braz
 
 ## Options
 
-Open **Settings → Devices & services → Pulse Check → Configure**. Everything has a sensible default; the first thing most people change is the filters.
+Open **Settings → Devices & services → Pulse Check → Configure** and choose **Thresholds, filters and notifications** for the options below, or **Per-device settings** for one device. Everything has a sensible default; the first thing most people change is the filters.
 
 **Thresholds**
 
@@ -153,13 +153,19 @@ The option keys match the card's YAML (`battery_warning`, `exclude_entities`, `i
 | Offline if not back after a restart | 30 min | Minutes after the start. A device not seen working by then counts as offline, "offline since the restart", so one that died while Home Assistant was off is still reported. Never earlier than a minute after the quiet period. 0 waits for ever |
 | Maintenance mode length | 2 h | How long `pulse_check.maintenance_mode` holds notifications back when it is called without `hours` |
 
-A device's own `notify_policy` (set with the `set_device_settings` service) overrides the defaults: `instant`, `daily`, `weekly` or `none`. A leak detector can be instant while the blinds wait for the weekly digest.
+A device's own notification policy (under **Per-device settings**, or the `set_device_settings` service) overrides the defaults: `instant`, `daily`, `weekly` or `none`. A leak detector can be instant while the blinds wait for the weekly digest.
 
 **Entities** (collapsed by default)
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | Per-device battery sensors | off | Adds "Battery days left" and "Battery last replaced" diagnostic sensors to every battery device's own page |
+
+### Per-device settings
+
+**Configure → Per-device settings** asks for a device, service (such as Sun) or entity with no device, then shows its settings: display name, area, battery type and count, rechargeable, quiet threshold, notification policy and how many days its trend line shows. Leave a field empty for the default; **Remove all settings for this device** clears them all. They are stored by the integration, not in any card, so every card on every dashboard and every notification uses them, and saving them does not reload Pulse Check.
+
+In the list, ⚙ marks a device with saved settings and ⚠ marks settings saved for something that is no longer found, so they can be cleared. When an entity saved by its own id is later given a device by its integration, its settings, snooze and replacement history move to that device, unless the device has settings of its own. The `pulse_check.set_device_settings` action does the same from an automation.
 
 ## The card
 
@@ -205,7 +211,7 @@ sparkline_days: 14 # 1 to 365
 
 The integration's filters decide what is monitored at all; a card's `areas`, `integrations` and `device_types` only decide what *that* card shows, so one integration can feed a hallway card, a locks-only card and a whole-house card. The header counts follow the card's filters.
 
-The visual editor also has a **Per-device settings** panel: display name, area, battery type and count, rechargeable, quiet threshold, notification policy and sparkline window for any device, service (such as Sun) or entity with no device. Each change is saved at once through `pulse_check.set_device_settings`, not into the card's YAML, so it applies to every card and to notifications. Each device with saved settings shows as a chip; **Clear settings** removes them all, and its chip with them. Settings saved for something that is no longer found show as "(no longer found)" so they can be cleared too. When an entity saved by its own id is later given a device by its integration, its settings, snooze and replacement history move to that device, unless the device has settings of its own.
+Per-device settings (display name, battery type, notification policy and so on) are not card options: they belong to the integration and apply to every card. The visual editor links to them with **Open Pulse Check settings**; see [Per-device settings](#per-device-settings).
 
 The YAML in the code editor holds only what differs from the defaults: an untouched option, or every area, integration and device type still ticked, is left out.
 
@@ -388,7 +394,7 @@ Entities without a `unique_id`, such as YAML template sensors and some MQTT enti
 
 **Enhancers.** Optional, integration-specific extras that never break the core: Z-Wave JS node status, Zigbee2MQTT link quality and `last_seen`, ZHA LQI and RSSI.
 
-**Days left: cycles, kinds and bases.** Every six hours the integration reads up to a year of daily battery means from the recorder's long-term statistics, plus hourly means for the last fortnight (raw state history as the fallback for sensors without statistics, attribute history for batteries that only exist as a `battery_level` attribute). It cuts each battery's history into *cycles*: a new cycle starts at a rise of 15 points or more within 48 hours (a charge or a new battery), at a `mark_replaced` or `mark_charged` call, or when a charging signal turns on. A lone reading far below both its neighbours is a glitch, not a cycle, so a lock that read 42 % for a day and then 61 % again keeps its estimate.
+**Days left: cycles, kinds and bases.** Every six hours (and, for a battery that first reports after that, such as a cloud integration slow to start, about two minutes after it does) the integration reads up to a year of daily battery means from the recorder's long-term statistics, plus hourly means for the last fortnight (raw state history as the fallback for sensors without statistics, attribute history for batteries that only exist as a `battery_level` attribute). It cuts each battery's history into *cycles*: a new cycle starts at a rise of 15 points or more within 48 hours (a charge or a new battery), at a `mark_replaced` or `mark_charged` call, or when a charging signal turns on. A lone reading far below both its neighbours is a glitch, not a cycle, so a lock that read 42 % for a day and then 61 % again keeps its estimate.
 
 From the cycles each battery gets a *kind*, published as `batteryKind`:
 

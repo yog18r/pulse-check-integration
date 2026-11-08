@@ -169,7 +169,11 @@ class HistoryTracker:
         return points
 
     async def async_refresh(
-        self, devices: Iterable[DeviceHealth], store: PulseCheckStore, config: CoreConfig
+        self,
+        devices: Iterable[DeviceHealth],
+        store: PulseCheckStore,
+        config: CoreConfig,
+        only: set[str] | None = None,
     ) -> None:
         """Re-read history for every battery device with a numeric level.
 
@@ -186,11 +190,14 @@ class HistoryTracker:
             battery = device.battery
             if battery is None or battery.level is None:
                 continue
+            if only is not None and battery.entity_id not in only:
+                continue
             batteries[battery.entity_id] = device
             (sensor_ids if battery.source == "sensor" else attribute_ids).add(battery.entity_id)
         if not batteries:
-            self.insights = {}
-            self.hass.data[DATA_INSIGHTS] = {}
+            if only is None:
+                self.insights = {}
+                self.hass.data[DATA_INSIGHTS] = {}
             return
 
         # Statistics for both windows; raw history only for what they lack,
@@ -234,8 +241,9 @@ class HistoryTracker:
                 charging_signal=charging_signal,
                 marks=marks,
             )
-        self.insights = insights
-        self.hass.data[DATA_INSIGHTS] = insights
+        # A catch-up read (`only`) adds to what the last full read found.
+        self.insights = {**self.insights, **insights} if only is not None else insights
+        self.hass.data[DATA_INSIGHTS] = self.insights
         estimated = sum(1 for i in insights.values() if i.estimate is not None)
         kinds = sorted(i.kind for i in insights.values())
         counts = {kind: kinds.count(kind) for kind in dict.fromkeys(kinds)}

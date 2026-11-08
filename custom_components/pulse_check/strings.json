@@ -13,6 +13,13 @@
   "options": {
     "step": {
       "init": {
+        "title": "Pulse Check",
+        "menu_options": {
+          "general": "Thresholds, filters and notifications",
+          "device": "Per-device settings"
+        }
+      },
+      "general": {
         "title": "Pulse Check options",
         "sections": {
           "thresholds": {
@@ -93,10 +100,46 @@
             }
           }
         }
+      },
+      "device": {
+        "title": "Per-device settings",
+        "description": "Choose a device, service or entity. ⚙ marks one with saved settings; ⚠ marks settings saved for something no longer found, which you can clear. These settings apply to every Pulse Check card and to notifications.",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "device_settings": {
+        "title": "Settings for {device}",
+        "description": "Leave a field empty to use the default. These settings apply to every card and to notifications.",
+        "data": {
+          "name": "Display name",
+          "area": "Area",
+          "battery_type": "Battery type",
+          "battery_count": "Battery count",
+          "rechargeable": "Rechargeable",
+          "quiet_threshold_hours": "Quiet after",
+          "notify_policy": "Notifications",
+          "sparkline_days": "Trend days",
+          "clear": "Remove all settings for this device"
+        },
+        "data_description": {
+          "name": "Shown on the card and in notifications instead of the device's own name.",
+          "area": "Replaces the device's area on the card and in the area filters.",
+          "battery_type": "Feeds the shopping list on the Actions tab. Pick one or type your own.",
+          "battery_count": "How many batteries it takes.",
+          "rechargeable": "Charged rather than replaced: the Actions tab says charge instead of replace.",
+          "quiet_threshold_hours": "Hours without a report before this device is quiet, instead of the general setting.",
+          "notify_policy": "Empty uses the default for the problem's severity.",
+          "sparkline_days": "How many days of history the card's trend line shows for this device.",
+          "clear": "When ticked, every setting above is cleared on submit."
+        }
       }
     },
     "error": {
       "critical_above_warning": "The critical level must not be higher than the warning level."
+    },
+    "abort": {
+      "not_loaded": "Pulse Check is not running yet. Try again once it has started."
     }
   },
   "selector": {

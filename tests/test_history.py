@@ -17,9 +17,13 @@ import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import CoreState, HomeAssistant, State
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from custom_components.pulse_check.const import DOMAIN
+from custom_components.pulse_check.const import (
+    DEBOUNCE_SECONDS,
+    DOMAIN,
+    HISTORY_CATCH_UP_DELAY,
+)
 from custom_components.pulse_check.core.cycles import BatteryInsight, Estimate
 from tests.conftest import device_dicts, load_fixture_into_hass
 
@@ -314,3 +318,40 @@ async def test_next_to_replace_skips_charged_batteries_and_keeps_long_ones(
     # Both locks-like sensors read "more than a year"; the lower level goes first.
     assert state.state == "Living Room Motion"
     assert state.attributes["more_than_a_year"] is True
+
+
+async def test_a_battery_that_reports_late_is_read_soon_after(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+    recorder: dict[str, Any],
+) -> None:
+    """A cloud battery still unknown at the history read is read when it reports."""
+    freezer.move_to(fixed_now)
+    await load_fixture_into_hass(hass, fixture_snapshot)
+    late = "sensor.window_sensor_battery"
+    attributes = dict(hass.states.get(late).attributes)  # type: ignore[union-attr]
+    hass.states.async_set(late, "unknown", attributes)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = config_entry.runtime_data
+    await coordinator.async_refresh_history()
+    await hass.async_block_till_done()
+    assert late not in coordinator.history.insights
+
+    recorder["statistics"].clear()
+    hass.states.async_set(late, "40", attributes)
+    freezer.tick(timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert recorder["statistics"] == []  # not straight away
+    freezer.tick(HISTORY_CATCH_UP_DELAY + timedelta(seconds=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    assert late in coordinator.history.insights
+    # Only the late battery was read, and the others kept their insights.
+    assert {ids == {late} for _, ids in recorder["statistics"]} == {True}
+    assert "sensor.living_room_motion_battery" in coordinator.history.insights

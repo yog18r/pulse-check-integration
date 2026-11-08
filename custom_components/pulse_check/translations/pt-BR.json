@@ -13,6 +13,13 @@
   "options": {
     "step": {
       "init": {
+        "title": "Pulse Check",
+        "menu_options": {
+          "general": "Limites, filtros e notificações",
+          "device": "Configurações por dispositivo"
+        }
+      },
+      "general": {
         "title": "Opções do Pulse Check",
         "sections": {
           "thresholds": {
@@ -93,10 +100,46 @@
             }
           }
         }
+      },
+      "device": {
+        "title": "Configurações por dispositivo",
+        "description": "Escolha um dispositivo, serviço ou entidade. ⚙ marca um com configurações salvas; ⚠ marca configurações salvas para algo que não é mais encontrado, que você pode limpar. Essas configurações valem para todos os cards do Pulse Check e para as notificações.",
+        "data": {
+          "device": "Dispositivo"
+        }
+      },
+      "device_settings": {
+        "title": "Configurações de {device}",
+        "description": "Deixe um campo vazio para usar o padrão. Essas configurações valem para todos os cards e para as notificações.",
+        "data": {
+          "name": "Nome exibido",
+          "area": "Área",
+          "battery_type": "Tipo de bateria",
+          "battery_count": "Quantidade de baterias",
+          "rechargeable": "Recarregável",
+          "quiet_threshold_hours": "Silencioso após",
+          "notify_policy": "Notificações",
+          "sparkline_days": "Dias de tendência",
+          "clear": "Remover todas as configurações deste dispositivo"
+        },
+        "data_description": {
+          "name": "Exibido no card e nas notificações no lugar do nome do dispositivo.",
+          "area": "Substitui a área do dispositivo no card e nos filtros de área.",
+          "battery_type": "Alimenta a lista de compras da aba Ações. Escolha um ou digite o seu.",
+          "battery_count": "Quantas baterias ele usa.",
+          "rechargeable": "É carregado em vez de trocado: a aba Ações diz carregar em vez de trocar.",
+          "quiet_threshold_hours": "Horas sem relatório antes de este dispositivo ficar silencioso, em vez da configuração geral.",
+          "notify_policy": "Vazio usa o padrão para a gravidade do problema.",
+          "sparkline_days": "Quantos dias a linha de tendência do card mostra para este dispositivo.",
+          "clear": "Se marcado, todas as configurações acima são limpas ao enviar."
+        }
       }
     },
     "error": {
       "critical_above_warning": "O nível crítico não pode ser maior que o nível de aviso."
+    },
+    "abort": {
+      "not_loaded": "O Pulse Check ainda não está em execução. Tente de novo quando ele tiver iniciado."
     }
   },
   "selector": {

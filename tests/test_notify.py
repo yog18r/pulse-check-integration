@@ -30,7 +30,7 @@ from custom_components.pulse_check.const import (
     EVENT_TRANSITION,
 )
 from custom_components.pulse_check.notify import DATA_RUNTIME, last_digest_slot
-from tests.conftest import load_fixture_into_hass
+from tests.conftest import load_fixture_into_hass, open_general_options
 
 OPTIONS = {
     CONF_NOTIFY_TARGETS: ["notify.mobile_app_test"],
@@ -275,7 +275,7 @@ async def test_saving_options_does_not_announce_anything(
     await _ready(hass, freezer)
     events = async_capture_events(hass, EVENT_TRANSITION)
 
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await open_general_options(hass, entry.entry_id)
     await hass.config_entries.options.async_configure(
         result["flow_id"],
         {"thresholds": {"battery_warning": 60, "battery_critical": 50}, "notifications": OPTIONS},

@@ -4,6 +4,27 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Upgrading
+- Per-device settings have moved from the card editor to the integration:
+  **Settings → Devices & services → Pulse Check → Configure → Per-device
+  settings**. Everything saved before is still there. The card editor links
+  to it with **Open Pulse Check settings**.
+
+### Changed
+- **Per-device settings are in the integration's Configure dialog.** They
+  were never card settings: every card and every notification uses them.
+  Configure now opens with a choice between the general options and
+  per-device settings; a device is picked from a list where ⚙ marks saved
+  settings and ⚠ marks settings for something no longer found.
+
+### Fixed
+- **A battery that reports late gets its history read soon after.** One
+  still unknown when Home Assistant started (a cloud integration such as
+  FoxESS) waited up to six hours for its estimate and usual low; now it is
+  read about two minutes after its first reading, on its own.
+
 ## 0.2.12 - 2026-11-09
 
 ### Added

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import (
@@ -147,3 +148,11 @@ async def load_fixture_into_hass(hass: HomeAssistant, snapshot: dict[str, Any]) 
         )
     await hass.async_block_till_done()
     return device_ids
+
+
+async def open_general_options(hass: HomeAssistant, entry_id: str) -> ConfigFlowResult:
+    """Open Configure and choose its general options (thresholds, filters...)."""
+    result = await hass.config_entries.options.async_init(entry_id)
+    return await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "general"}
+    )

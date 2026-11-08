@@ -139,8 +139,7 @@ function dressed(raw: Record<string, unknown>): Record<string, unknown> {
 /**
  * A fake subscription: sends the snapshot now and again whenever a service
  * call changes it (snooze, mark replaced), the way the integration does.
- * Several subscribers at once (the card and the editor's settings panel)
- * each get every event, as they would from Home Assistant.
+ * Every subscriber gets every event, as it would from Home Assistant.
  */
 function fakeConnection(scenario: Scenario): {
   connection: HassConnection;
@@ -282,11 +281,6 @@ function mount(scenario: Scenario) {
         device.lastReplaced = new Date().toISOString();
       } else if (service === 'undo_mark') {
         delete device.lastReplaced;
-      } else if (service === 'set_device_settings') {
-        const settings = s.device_settings as Record<string, Record<string, unknown>>;
-        const rest = { ...data };
-        delete rest.device_id;
-        settings[id] = { ...settings[id], ...rest };
       }
     });
     return Promise.resolve();

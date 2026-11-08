@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CardConfig } from '../../src/card/config';
-import type { HassBox } from '../../src/core/types';
+import type { HassLike } from '../../src/core/types';
 import { translator } from '../../src/i18n';
-import { EditorForm } from '../../src/ui/EditorForm';
-import { fakeHass, SNAPSHOT_PAYLOAD, type FakeHassOptions } from '../fixtures/snapshot';
+import { EditorForm, INTEGRATION_PAGE } from '../../src/ui/EditorForm';
+import { fakeHass } from '../fixtures/snapshot';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 /**
  * Home Assistant owns the config and re-renders the editor with every
@@ -19,18 +22,17 @@ afterEach(cleanup);
 function Harness({
   initial,
   onEmit,
-  hassBox,
+  hass,
 }: {
   initial: CardConfig;
   onEmit: (c: CardConfig) => void;
-  hassBox: HassBox;
+  hass: HassLike;
 }) {
   const [config, setConfig] = useState(initial);
   return (
     <EditorForm
       config={config}
-      hass={hassBox.latest}
-      hassBox={hassBox}
+      hass={hass}
       onChange={(next) => {
         setConfig(next);
         onEmit(next);
@@ -39,14 +41,10 @@ function Harness({
   );
 }
 
-function renderEditor(
-  initial: CardConfig = { type: 'custom:pulse-check-card' },
-  options: FakeHassOptions = {},
-) {
-  const fake = fakeHass(options);
-  const hassBox: HassBox = { latest: fake.hass };
+function renderEditor(initial: CardConfig = { type: 'custom:pulse-check-card' }) {
+  const fake = fakeHass();
   const onEmit = vi.fn();
-  render(<Harness initial={initial} onEmit={onEmit} hassBox={hassBox} />);
+  render(<Harness initial={initial} onEmit={onEmit} hass={fake.hass} />);
   const latest = () => onEmit.mock.lastCall?.[0] as CardConfig;
   return { ...fake, onEmit, latest };
 }
@@ -55,19 +53,18 @@ describe('EditorForm: language', () => {
   it("labels every field in the user's language", () => {
     const fake = fakeHass();
     fake.hass.locale = { language: 'fr' };
-    const hassBox: HassBox = { latest: fake.hass };
-    render(<Harness initial={{}} onEmit={vi.fn()} hassBox={hassBox} />);
+    render(<Harness initial={{}} onEmit={vi.fn()} hass={fake.hass} />);
     const fr = translator('fr');
     expect(screen.getByLabelText(fr.t('editor.title'))).toBeInTheDocument();
-    expect(screen.getByText(fr.t('settings.legend'))).toBeInTheDocument();
+    expect(screen.getByText(fr.t('editor.device_settings'))).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: fr.t('editor.device_settings_link') })).toBeVisible();
     expect(screen.getByRole('checkbox', { name: fr.t('tab.actions') })).toBeInTheDocument();
   });
 
   it('shows config errors in that language too', () => {
     const fake = fakeHass();
     fake.hass.locale = { language: 'de' };
-    const hassBox: HassBox = { latest: fake.hass };
-    render(<Harness initial={{ max_rows: 0 }} onEmit={vi.fn()} hassBox={hassBox} />);
+    render(<Harness initial={{ max_rows: 0 }} onEmit={vi.fn()} hass={fake.hass} />);
     expect(screen.getByRole('alert')).toHaveTextContent(translator('de').t('config.max_rows'));
   });
 });
@@ -145,146 +142,6 @@ describe('EditorForm: presentation options', () => {
     expect(screen.queryByLabelText(/Battery warning/)).not.toBeInTheDocument();
     expect(screen.getByText('Areas shown on this card')).toBeInTheDocument();
   });
-});
-
-describe('EditorForm: per-device settings', () => {
-  it('picks a device and saves each change through set_device_settings', async () => {
-    const { callService } = renderEditor();
-    const user = userEvent.setup();
-    await screen.findByPlaceholderText('Search devices to edit…');
-
-    const picker = screen.getByRole('combobox', { name: 'Device' });
-    await user.click(picker);
-    await user.type(picker, 'kitchen');
-    expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(1);
-    await user.keyboard('{Enter}');
-
-    // The area select is pre-filled from the registry.
-    expect(screen.getByLabelText('Area')).toHaveValue('Kitchen');
-
-    await user.selectOptions(screen.getByLabelText('Battery type'), 'AA');
-    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
-      device_id: 'dev_shelly_ht',
-      battery_type: 'AA',
-    });
-
-    await user.type(screen.getByLabelText('Battery count'), '2');
-    await user.tab(); // leaving the field saves it
-    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
-      device_id: 'dev_shelly_ht',
-      battery_count: 2,
-    });
-
-    await user.click(screen.getByLabelText('Rechargeable'));
-    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
-      device_id: 'dev_shelly_ht',
-      rechargeable: true,
-    });
-
-    await user.selectOptions(screen.getByLabelText('Area'), 'Garage');
-    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
-      device_id: 'dev_shelly_ht',
-      area: 'Garage',
-    });
-    // Back to the registry's own area clears the override.
-    await user.selectOptions(screen.getByLabelText('Area'), 'Kitchen');
-    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
-      device_id: 'dev_shelly_ht',
-      area: '',
-    });
-
-    await user.type(screen.getByLabelText('Trend days'), '3');
-    await user.tab();
-    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
-      device_id: 'dev_shelly_ht',
-      sparkline_days: 3,
-    });
-
-    await user.selectOptions(screen.getByLabelText('Notification policy'), 'weekly');
-    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
-      device_id: 'dev_shelly_ht',
-      notify_policy: 'weekly',
-    });
-
-    await user.type(screen.getByLabelText('Display name'), 'Kitchen climate{Enter}');
-    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
-      device_id: 'dev_shelly_ht',
-      name: 'Kitchen climate',
-    });
-  });
-
-  it('shows the settings the integration already has, including device-less batteries', async () => {
-    const { callService } = renderEditor(
-      { type: 'custom:pulse-check-card' },
-      {
-        payload: {
-          ...SNAPSHOT_PAYLOAD,
-          device_settings: {
-            dev_zha_temp: { battery_type: 'CR2450', battery_count: 2, notify_policy: 'none' },
-            'entity:sensor.remote_battery_template': { name: 'TV Remote' },
-          },
-        },
-      },
-    );
-    const user = userEvent.setup();
-    const chips = await screen.findByLabelText('Devices with settings');
-    await user.click(within(chips).getByRole('button', { name: 'Bedroom Temp & Humidity' }));
-    expect(screen.getByLabelText('Battery type')).toHaveValue('CR2450');
-    expect(screen.getByLabelText('Battery count')).toHaveValue(2);
-    expect(screen.getByLabelText('Notification policy')).toHaveValue('none');
-
-    await user.click(within(chips).getByRole('button', { name: 'TV Remote Battery' }));
-    expect(screen.getByLabelText('Display name')).toHaveValue('TV Remote');
-    await user.click(screen.getByLabelText('Rechargeable'));
-    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
-      device_id: 'entity:sensor.remote_battery_template',
-      rechargeable: true,
-    });
-  });
-
-  it('clears every setting of a device, and shows stale ones so they can go', async () => {
-    const { callService } = renderEditor(
-      { type: 'custom:pulse-check-card' },
-      {
-        payload: {
-          ...SNAPSHOT_PAYLOAD,
-          device_settings: {
-            dev_zha_temp: { battery_type: 'CR2450', notify_policy: 'none' },
-            // Saved when this sensor had no device; it has one now.
-            'entity:sensor.foxess_bat_soc': { rechargeable: true },
-          },
-        },
-      },
-    );
-    const user = userEvent.setup();
-    const chips = await screen.findByLabelText('Devices with settings');
-    const stale = within(chips).getByRole('button', {
-      name: 'entity:sensor.foxess_bat_soc (no longer found)',
-    });
-
-    await user.click(within(chips).getByRole('button', { name: 'Bedroom Temp & Humidity' }));
-    await user.click(screen.getByRole('button', { name: 'Clear settings' }));
-    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
-      device_id: 'dev_zha_temp',
-      name: '',
-      area: '',
-      quiet_threshold_hours: '',
-      battery_type: '',
-      battery_count: '',
-      rechargeable: '',
-      notify_policy: '',
-      sparkline_days: '',
-    });
-    expect(await screen.findByText(/Settings cleared/)).toBeInTheDocument();
-
-    await user.click(stale);
-    await user.click(screen.getByRole('button', { name: 'Clear settings' }));
-    expect(callService).toHaveBeenLastCalledWith(
-      'pulse_check',
-      'set_device_settings',
-      expect.objectContaining({ device_id: 'entity:sensor.foxess_bat_soc', rechargeable: '' }),
-    );
-  });
 
   it('switches the older battery_sort spelling to sort when it opens', async () => {
     const { latest } = renderEditor({
@@ -297,32 +154,56 @@ describe('EditorForm: per-device settings', () => {
     expect(screen.getByLabelText('Sort order')).toHaveValue('replace_soon');
     expect(screen.getByRole('option', { name: 'Soonest to replace first' })).toBeInTheDocument();
   });
+});
 
-  it('confirms each save inline, and reports a failure', async () => {
-    const { callService } = renderEditor();
-    const user = userEvent.setup();
-    await screen.findByPlaceholderText('Search devices to edit…');
-    const picker = screen.getByRole('combobox', { name: 'Device' });
-    await user.click(picker);
-    await user.type(picker, 'kitchen');
-    await user.keyboard('{Enter}');
-
-    await user.click(screen.getByLabelText('Rechargeable'));
-    expect(await screen.findByRole('status')).toHaveTextContent('Saved to Pulse Check');
-
-    callService.mockRejectedValueOnce(new Error('Pulse Check does not know a device "x"'));
-    await user.click(screen.getByLabelText('Rechargeable'));
-    expect(await screen.findByRole('status')).toHaveTextContent(/Not saved: Pulse Check does not/);
-
-    // The hint explains why the dialog's own Save button stays disabled.
-    expect(screen.getByText(/Save button only applies to the card/)).toBeInTheDocument();
+describe('EditorForm: per-device settings', () => {
+  it('points to the integration instead of editing them here', () => {
+    renderEditor();
+    expect(screen.getByRole('heading', { name: 'Per-device settings' })).toBeInTheDocument();
+    expect(screen.getByText(/Configure → Per-device settings/)).toBeInTheDocument();
+    // The old panel is gone: no device search, no fields that save to Pulse Check.
+    expect(screen.queryByRole('combobox', { name: 'Device' })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Search devices/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Battery type')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Rechargeable')).not.toBeInTheDocument();
   });
 
-  it('says so when the integration is missing', async () => {
-    renderEditor(
-      { type: 'custom:pulse-check-card' },
-      { reject: { code: 'not_loaded', message: 'Pulse Check is not set up' } },
-    );
-    expect(await screen.findByText(/integration is not set up/)).toBeInTheDocument();
+  it("opens the integration's page the way Home Assistant navigates", async () => {
+    const { callService } = renderEditor();
+    const pushState = vi.spyOn(history, 'pushState').mockImplementation(() => undefined);
+    const dispatch = vi.spyOn(window, 'dispatchEvent');
+    const user = userEvent.setup();
+
+    const link = screen.getByRole('link', { name: 'Open Pulse Check settings' });
+    // A real href, so middle-click and "open in new tab" still work.
+    expect(link).toHaveAttribute('href', '/config/integrations/integration/pulse_check');
+    await user.click(link);
+
+    expect(pushState).toHaveBeenCalledWith(null, '', INTEGRATION_PAGE);
+    const event = dispatch.mock.calls.map(([e]) => e).find((e) => e.type === 'location-changed');
+    expect(event).toBeInstanceOf(CustomEvent);
+    expect((event as CustomEvent).detail).toEqual({ replace: false });
+    // Nothing is saved through the integration's services from the editor.
+    expect(callService).not.toHaveBeenCalled();
+  });
+
+  it('leaves a Ctrl+click to the browser (new tab)', async () => {
+    renderEditor();
+    const pushState = vi.spyOn(history, 'pushState').mockImplementation(() => undefined);
+    // Note whether the card cancelled the click, then cancel it ourselves:
+    // jsdom cannot open a new tab and would only log "not implemented".
+    let cancelledByCard: boolean | undefined;
+    const browser = (e: MouseEvent) => {
+      cancelledByCard = e.defaultPrevented;
+      e.preventDefault();
+    };
+    document.addEventListener('click', browser);
+    const user = userEvent.setup();
+    await user.keyboard('{Control>}');
+    await user.click(screen.getByRole('link', { name: 'Open Pulse Check settings' }));
+    await user.keyboard('{/Control}');
+    document.removeEventListener('click', browser);
+    expect(cancelledByCard).toBe(false);
+    expect(pushState).not.toHaveBeenCalled();
   });
 });

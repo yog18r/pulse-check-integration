@@ -13,6 +13,13 @@
   "options": {
     "step": {
       "init": {
+        "title": "Pulse Check",
+        "menu_options": {
+          "general": "Umbrales, filtros y notificaciones",
+          "device": "Ajustes por dispositivo"
+        }
+      },
+      "general": {
         "title": "Opciones de Pulse Check",
         "sections": {
           "thresholds": {
@@ -93,10 +100,46 @@
             }
           }
         }
+      },
+      "device": {
+        "title": "Ajustes por dispositivo",
+        "description": "Elige un dispositivo, servicio o entidad. ⚙ marca uno con ajustes guardados; ⚠ marca ajustes guardados para algo que ya no se encuentra, que puedes borrar. Estos ajustes se aplican a todas las tarjetas de Pulse Check y a las notificaciones.",
+        "data": {
+          "device": "Dispositivo"
+        }
+      },
+      "device_settings": {
+        "title": "Ajustes de {device}",
+        "description": "Deja un campo vacío para usar el valor predeterminado. Estos ajustes se aplican a todas las tarjetas y a las notificaciones.",
+        "data": {
+          "name": "Nombre mostrado",
+          "area": "Área",
+          "battery_type": "Tipo de pila",
+          "battery_count": "Número de pilas",
+          "rechargeable": "Recargable",
+          "quiet_threshold_hours": "Silencioso tras",
+          "notify_policy": "Notificaciones",
+          "sparkline_days": "Días de tendencia",
+          "clear": "Quitar todos los ajustes de este dispositivo"
+        },
+        "data_description": {
+          "name": "Se muestra en la tarjeta y en las notificaciones en lugar del nombre del dispositivo.",
+          "area": "Sustituye el área del dispositivo en la tarjeta y en los filtros de área.",
+          "battery_type": "Alimenta la lista de compra de la pestaña Acciones. Elige uno o escribe el tuyo.",
+          "battery_count": "Cuántas pilas usa.",
+          "rechargeable": "Se carga en vez de cambiarse: la pestaña Acciones dice cargar en lugar de cambiar.",
+          "quiet_threshold_hours": "Horas sin informes antes de que este dispositivo quede silencioso, en lugar del ajuste general.",
+          "notify_policy": "Vacío usa el valor predeterminado según la gravedad del problema.",
+          "sparkline_days": "Cuántos días muestra la línea de tendencia de la tarjeta para este dispositivo.",
+          "clear": "Si está marcado, todos los ajustes de arriba se borran al enviar."
+        }
       }
     },
     "error": {
       "critical_above_warning": "El nivel crítico no puede ser mayor que el nivel de aviso."
+    },
+    "abort": {
+      "not_loaded": "Pulse Check aún no está en marcha. Inténtalo de nuevo cuando haya arrancado."
     }
   },
   "selector": {

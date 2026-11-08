@@ -11,6 +11,10 @@
  */
 import { ORPHAN_PREFIX, type DeviceHealth } from '../core/types';
 
+/**
+ * Go to a page of Home Assistant without reloading it, the way HA's own
+ * frontend does: change the URL, then tell HA's router to look at it.
+ */
 export function navigateTo(path: string): void {
   history.pushState(null, '', path);
   window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: false } }));

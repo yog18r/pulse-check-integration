@@ -27,7 +27,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import area_registry as ar, entity_registry as er
 from homeassistant.helpers.selector import (
     AreaSelector,
     AreaSelectorConfig,
@@ -41,9 +41,11 @@ from homeassistant.helpers.selector import (
     NumberSelectorMode,
     ObjectSelector,
     ObjectSelectorConfig,
+    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
     TimeSelector,
 )
 
@@ -76,6 +78,7 @@ from .const import (
     CONF_STARTUP_GRACE_MINUTES,
     CONF_WATCH_NON_DEVICES,
     CONF_WEEKLY_ALL_CLEAR,
+    DATA_COORDINATOR,
     DEFAULT_BATTERY_CRITICAL,
     DEFAULT_BATTERY_WARNING,
     DEFAULT_CONFIRM_MINUTES,
@@ -103,6 +106,8 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from homeassistant.core import HomeAssistant
+
+    from .coordinator import PulseCheckCoordinator
 
 # The options form is split into two collapsible sections. The form
 # submits them nested (`{"thresholds": {...}, "filters": {...}}`); the
@@ -378,11 +383,132 @@ def flatten_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
     return flat
 
 
+# Battery sizes offered in the per-device form; any other can be typed in.
+COMMON_BATTERY_TYPES = [
+    "AA",
+    "AAA",
+    "CR2032",
+    "CR2450",
+    "CR2477",
+    "CR2016",
+    "CR2025",
+    "CR123A",
+    "CR2",
+    "9V",
+    "LR44",
+    "ER14250",
+    "ER14505",
+]
+# The form's fields, in the store's names. Leaving one empty clears it.
+DEVICE_FIELDS = (
+    "name",
+    "area",
+    "battery_type",
+    "battery_count",
+    "rechargeable",
+    "quiet_threshold_hours",
+    "notify_policy",
+    "sparkline_days",
+)
+CONF_DEVICE = "device"
+CONF_CLEAR = "clear"
+# Marks in the device list: a device with saved settings, and settings
+# saved for something that is no longer watched (so they can be cleared).
+HAS_SETTINGS = "\u2699 "
+NOT_FOUND = "\u26a0 "
+
+
+def _device_options(coordinator: PulseCheckCoordinator) -> list[SelectOptionDict]:
+    """Every watched device, service and lone entity, those with settings first."""
+    saved = coordinator.store.device_settings
+    options: list[tuple[int, str, SelectOptionDict]] = []
+    for device in coordinator.data.devices:
+        context = " · ".join(part for part in (device.area, device.integration) if part)
+        label = f"{device.name} ({context})" if context else device.name
+        has = device.device_id in saved
+        shown = (HAS_SETTINGS if has else "") + label
+        options.append(
+            (0 if has else 1, label.lower(), {"value": device.device_id, "label": shown})
+        )
+    watched = {device.device_id for device in coordinator.data.devices}
+    for device_id in saved:
+        if device_id not in watched:
+            label = NOT_FOUND + device_id
+            options.append((0, label.lower(), {"value": device_id, "label": label}))
+    return [option for _, _, option in sorted(options, key=lambda o: (o[0], o[1]))]
+
+
+def _device_schema(hass: HomeAssistant) -> probatio.Schema:
+    areas = sorted(area.name for area in ar.async_get(hass).areas.values())
+    return probatio.Schema(
+        {
+            probatio.Optional("name"): TextSelector(),
+            probatio.Optional("area"): SelectSelector(
+                SelectSelectorConfig(
+                    options=areas, custom_value=True, mode=SelectSelectorMode.DROPDOWN
+                )
+            ),
+            probatio.Optional("battery_type"): SelectSelector(
+                SelectSelectorConfig(
+                    options=COMMON_BATTERY_TYPES,
+                    custom_value=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            probatio.Optional("battery_count"): NumberSelector(
+                NumberSelectorConfig(min=1, max=20, step=1, mode=NumberSelectorMode.BOX)
+            ),
+            probatio.Optional("rechargeable"): BooleanSelector(),
+            probatio.Optional("quiet_threshold_hours"): _hours(),
+            probatio.Optional("notify_policy"): _policy(),
+            probatio.Optional("sparkline_days"): NumberSelector(
+                NumberSelectorConfig(
+                    min=1, max=365, step=1, unit_of_measurement="d", mode=NumberSelectorMode.BOX
+                )
+            ),
+            probatio.Optional(CONF_CLEAR, default=False): BooleanSelector(),
+        }
+    )
+
+
+def _device_updates(user_input: Mapping[str, Any]) -> dict[str, Any]:
+    """The form's answer as store updates: an empty field, or unticked rechargeable, clears."""
+    if user_input.get(CONF_CLEAR):
+        return dict.fromkeys(DEVICE_FIELDS, "")
+    updates: dict[str, Any] = {}
+    for key in DEVICE_FIELDS:
+        value = user_input.get(key)
+        if value in (None, "", False):
+            updates[key] = ""
+        elif key in ("battery_count", "sparkline_days"):
+            updates[key] = int(value)
+        elif key == "quiet_threshold_hours":
+            updates[key] = float(value)
+        elif isinstance(value, str):
+            updates[key] = value.strip()
+        else:
+            updates[key] = value
+    return updates
+
+
 class PulseCheckOptionsFlow(OptionsFlowWithReload):
-    """The Configure dialog: thresholds and filters."""
+    """The Configure dialog: general options, or one device's settings.
+
+    Per-device settings live in the integration's store, not in the
+    options: every card and every notification reads them. Saving them
+    leaves the options as they are, so nothing reloads.
+    """
+
+    _device_id: str | None = None
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Show the form, validate, and save."""
+        """Choose what to configure."""
+        return self.async_show_menu(step_id="init", menu_options=["general", "device"])
+
+    async def async_step_general(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Thresholds, filters, notifications and entities: show the form, validate, save."""
         errors: dict[str, str] = {}
         if user_input is not None:
             flat = flatten_options(user_input)
@@ -394,7 +520,51 @@ class PulseCheckOptionsFlow(OptionsFlowWithReload):
         schema = _options_schema(_known_platforms(self.hass), _notify_targets(self.hass))
         current = user_input if user_input is not None else nest_options(self.config_entry.options)
         return self.async_show_form(
-            step_id="init",
+            step_id="general",
             data_schema=self.add_suggested_values_to_schema(schema, current),
             errors=errors,
+        )
+
+    async def async_step_device(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Choose the device, service or entity to edit."""
+        coordinator = self.hass.data.get(DATA_COORDINATOR)
+        if coordinator is None or coordinator.data is None:
+            return self.async_abort(reason="not_loaded")
+        if user_input is not None:
+            self._device_id = user_input[CONF_DEVICE]
+            return await self.async_step_device_settings()
+        schema = probatio.Schema(
+            {
+                probatio.Required(CONF_DEVICE): SelectSelector(
+                    SelectSelectorConfig(
+                        options=_device_options(coordinator), mode=SelectSelectorMode.DROPDOWN
+                    )
+                )
+            }
+        )
+        return self.async_show_form(step_id="device", data_schema=schema)
+
+    async def async_step_device_settings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """One device's settings, saved to the integration's store."""
+        coordinator = self.hass.data.get(DATA_COORDINATOR)
+        device_id = self._device_id
+        if coordinator is None or device_id is None:
+            return self.async_abort(reason="not_loaded")
+        if user_input is not None:
+            coordinator.store.update_device_settings(device_id, _device_updates(user_input))
+            coordinator.rebuild_config()
+            await coordinator.async_refresh()
+            # The options are unchanged, so Home Assistant does not reload.
+            return self.async_create_entry(data=dict(self.config_entry.options))
+
+        device = coordinator.data.by_id.get(device_id)
+        name = device.name if device is not None else device_id
+        return self.async_show_form(
+            step_id="device_settings",
+            data_schema=self.add_suggested_values_to_schema(
+                _device_schema(self.hass), coordinator.store.device_settings.get(device_id, {})
+            ),
+            description_placeholders={"device": name},
         )

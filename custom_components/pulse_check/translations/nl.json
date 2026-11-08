@@ -13,6 +13,13 @@
   "options": {
     "step": {
       "init": {
+        "title": "Pulse Check",
+        "menu_options": {
+          "general": "Drempels, filters en meldingen",
+          "device": "Instellingen per apparaat"
+        }
+      },
+      "general": {
         "title": "Pulse Check-opties",
         "sections": {
           "thresholds": {
@@ -93,10 +100,46 @@
             }
           }
         }
+      },
+      "device": {
+        "title": "Instellingen per apparaat",
+        "description": "Kies een apparaat, dienst of entiteit. ⚙ markeert opgeslagen instellingen; ⚠ markeert instellingen voor iets dat niet meer gevonden wordt, die je kunt wissen. Deze instellingen gelden voor elke Pulse Check-kaart en voor meldingen.",
+        "data": {
+          "device": "Apparaat"
+        }
+      },
+      "device_settings": {
+        "title": "Instellingen voor {device}",
+        "description": "Laat een veld leeg voor de standaardwaarde. Deze instellingen gelden voor elke kaart en voor meldingen.",
+        "data": {
+          "name": "Weergavenaam",
+          "area": "Ruimte",
+          "battery_type": "Batterijtype",
+          "battery_count": "Aantal batterijen",
+          "rechargeable": "Oplaadbaar",
+          "quiet_threshold_hours": "Stil na",
+          "notify_policy": "Meldingen",
+          "sparkline_days": "Trenddagen",
+          "clear": "Alle instellingen voor dit apparaat verwijderen"
+        },
+        "data_description": {
+          "name": "Getoond op de kaart en in meldingen in plaats van de naam van het apparaat.",
+          "area": "Vervangt de ruimte van het apparaat op de kaart en in de ruimtefilters.",
+          "battery_type": "Voor de boodschappenlijst op het tabblad Acties. Kies er een of typ je eigen.",
+          "battery_count": "Hoeveel batterijen het gebruikt.",
+          "rechargeable": "Wordt opgeladen in plaats van vervangen: het tabblad Acties zegt opladen in plaats van vervangen.",
+          "quiet_threshold_hours": "Uren zonder melding voordat dit apparaat stil is, in plaats van de algemene instelling.",
+          "notify_policy": "Leeg gebruikt de standaard voor de ernst van het probleem.",
+          "sparkline_days": "Hoeveel dagen de trendlijn op de kaart voor dit apparaat toont.",
+          "clear": "Aangevinkt worden bij opslaan alle instellingen hierboven gewist."
+        }
       }
     },
     "error": {
       "critical_above_warning": "Het kritieke niveau mag niet hoger zijn dan het waarschuwingsniveau."
+    },
+    "abort": {
+      "not_loaded": "Pulse Check draait nog niet. Probeer het opnieuw zodra het gestart is."
     }
   },
   "selector": {

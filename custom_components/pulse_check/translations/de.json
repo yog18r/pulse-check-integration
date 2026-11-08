@@ -13,6 +13,13 @@
   "options": {
     "step": {
       "init": {
+        "title": "Pulse Check",
+        "menu_options": {
+          "general": "Schwellen, Filter und Benachrichtigungen",
+          "device": "Einstellungen pro Gerät"
+        }
+      },
+      "general": {
         "title": "Pulse Check-Optionen",
         "sections": {
           "thresholds": {
@@ -93,10 +100,46 @@
             }
           }
         }
+      },
+      "device": {
+        "title": "Einstellungen pro Gerät",
+        "description": "Wähle ein Gerät, einen Dienst oder eine Entität. ⚙ kennzeichnet gespeicherte Einstellungen; ⚠ kennzeichnet Einstellungen für etwas, das nicht mehr gefunden wird und gelöscht werden kann. Die Einstellungen gelten für jede Pulse-Check-Karte und für Benachrichtigungen.",
+        "data": {
+          "device": "Gerät"
+        }
+      },
+      "device_settings": {
+        "title": "Einstellungen für {device}",
+        "description": "Leere Felder verwenden die Voreinstellung. Die Einstellungen gelten für jede Karte und für Benachrichtigungen.",
+        "data": {
+          "name": "Anzeigename",
+          "area": "Bereich",
+          "battery_type": "Batterietyp",
+          "battery_count": "Anzahl Batterien",
+          "rechargeable": "Wiederaufladbar",
+          "quiet_threshold_hours": "Stumm nach",
+          "notify_policy": "Benachrichtigungen",
+          "sparkline_days": "Verlaufstage",
+          "clear": "Alle Einstellungen für dieses Gerät entfernen"
+        },
+        "data_description": {
+          "name": "Wird auf der Karte und in Benachrichtigungen statt des Gerätenamens angezeigt.",
+          "area": "Ersetzt den Bereich des Geräts auf der Karte und in den Bereichsfiltern.",
+          "battery_type": "Für die Einkaufsliste im Tab Aktionen. Auswählen oder selbst eingeben.",
+          "battery_count": "Wie viele Batterien es braucht.",
+          "rechargeable": "Wird geladen statt gewechselt: Der Tab Aktionen sagt laden statt wechseln.",
+          "quiet_threshold_hours": "Stunden ohne Meldung, bis dieses Gerät als stumm gilt, statt der allgemeinen Einstellung.",
+          "notify_policy": "Leer verwendet die Voreinstellung für den Schweregrad des Problems.",
+          "sparkline_days": "Wie viele Tage die Verlaufslinie der Karte für dieses Gerät zeigt.",
+          "clear": "Wenn angehakt, werden beim Absenden alle Einstellungen oben gelöscht."
+        }
       }
     },
     "error": {
       "critical_above_warning": "Die kritische Stufe darf nicht höher als die Warnstufe sein."
+    },
+    "abort": {
+      "not_loaded": "Pulse Check läuft noch nicht. Versuche es erneut, sobald es gestartet ist."
     }
   },
   "selector": {

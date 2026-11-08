@@ -1,16 +1,15 @@
 /**
  * The visual config editor's form.
  *
- * Two halves:
- *  - Presentation options edit the *raw* CardConfig (what ends up in the
- *    user's YAML), so leaving a field blank means "use the default" and the
- *    YAML stays minimal. Every change is reported upward immediately; Home
- *    Assistant shows a live preview of the card as the user types.
- *  - Per-device settings (DeviceSettingsPanel) are saved by the integration
- *    through its services and never touch the YAML.
+ * It edits the *raw* CardConfig (what ends up in the user's YAML), so
+ * leaving a field blank means "use the default" and the YAML stays
+ * minimal. Every change is reported upward immediately; Home Assistant
+ * shows a live preview of the card as the user types.
  *
- * Thresholds, quiet rules and filters are not here at all: they live in
- * the integration's own Configure dialog.
+ * Thresholds, quiet rules, notifications and per-device settings (names,
+ * battery types, ...) are not here at all: they apply to every card, so
+ * they live in the integration's own Configure dialog. The form ends with
+ * a link there.
  *
  * React note: these are "controlled inputs". The input's value comes from
  * props, and typing calls `onChange` to produce a new config object, which
@@ -27,22 +26,24 @@ import {
   type SortOrder,
   type TabId,
 } from '../card/config';
+import { navigateTo } from '../card/navigation';
 import { DEVICE_TYPES, deviceTypeLabel } from '../core/deviceType';
 import { GROUP_BYS, type GroupBy } from '../core/grouping';
 import { listIntegrations } from '../core/registryOptions';
-import type { HassBox, HassLike } from '../core/types';
+import type { HassLike } from '../core/types';
 import { languageOf, translator } from '../i18n';
-import { DeviceSettingsPanel } from './DeviceSettingsPanel';
 import { I18nContext } from './i18n';
 import { KeepList } from './KeepList';
 
 interface Props {
   config: CardConfig;
   onChange: (config: CardConfig) => void;
-  /** Lets the device picker offer real device names. */
+  /** Lets the filters offer the instance's real areas and integrations. */
   hass?: HassLike | undefined;
-  hassBox: HassBox;
 }
+
+/** The Pulse Check integration's page; its Configure dialog has per-device settings. */
+export const INTEGRATION_PAGE = '/config/integrations/integration/pulse_check';
 
 function parseNumber(text: string): number | undefined {
   if (text.trim() === '') return undefined;
@@ -50,7 +51,7 @@ function parseNumber(text: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-export function EditorForm({ config, onChange, hass, hassBox }: Props) {
+export function EditorForm({ config, onChange, hass }: Props) {
   const t = translator(languageOf(hass));
   /** Set one key, dropping it entirely when the value is undefined. */
   function set<K extends keyof CardConfig>(key: K, value: CardConfig[K] | undefined) {
@@ -288,7 +289,25 @@ export function EditorForm({ config, onChange, hass, hassBox }: Props) {
 
         <p className="note">{t.t('editor.note')}</p>
 
-        <DeviceSettingsPanel hass={hass} hassBox={hassBox} />
+        <section className="field">
+          <h3 className="heading">{t.t('editor.device_settings')}</h3>
+          <p className="hint">{t.t('editor.device_settings_hint')}</p>
+          {/* A real link, so middle-click, Ctrl+click and "open in new tab"
+              still work. A plain click stays in the page instead (see
+              navigateTo): a normal link would reload the whole HA frontend. */}
+          <a
+            className="settingslink"
+            href={INTEGRATION_PAGE}
+            onClick={(e) => {
+              // Modified clicks open a new tab or window: leave those to the browser.
+              if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              navigateTo(INTEGRATION_PAGE);
+            }}
+          >
+            {t.t('editor.device_settings_link')}
+          </a>
+        </section>
 
         {error && (
           <p className="error" role="alert">

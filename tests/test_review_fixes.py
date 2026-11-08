@@ -33,6 +33,7 @@ from custom_components.pulse_check.const import (
 from custom_components.pulse_check.coordinator import build_snapshot
 from custom_components.pulse_check.core import CoreConfig, Snapshot, analyse_devices
 from custom_components.pulse_check.notify import DATA_RUNTIME, SEND_RETRY
+from tests.conftest import open_general_options
 from tests.test_integration_limit import _ht_offline, _plug_offline
 from tests.test_notify import (
     BATTERY,
@@ -161,7 +162,7 @@ async def test_saving_options_keeps_watching(
     """A device that fails just after an options save is still announced."""
     entry, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
     await _ready(hass, freezer)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await open_general_options(hass, entry.entry_id)
     await hass.config_entries.options.async_configure(
         result["flow_id"],
         {

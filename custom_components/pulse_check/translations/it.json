@@ -13,6 +13,13 @@
   "options": {
     "step": {
       "init": {
+        "title": "Pulse Check",
+        "menu_options": {
+          "general": "Soglie, filtri e notifiche",
+          "device": "Impostazioni per dispositivo"
+        }
+      },
+      "general": {
         "title": "Opzioni di Pulse Check",
         "sections": {
           "thresholds": {
@@ -93,10 +100,46 @@
             }
           }
         }
+      },
+      "device": {
+        "title": "Impostazioni per dispositivo",
+        "description": "Scegli un dispositivo, un servizio o un'entità. ⚙ indica impostazioni salvate; ⚠ indica impostazioni salvate per qualcosa che non si trova più, che puoi cancellare. Queste impostazioni valgono per ogni scheda Pulse Check e per le notifiche.",
+        "data": {
+          "device": "Dispositivo"
+        }
+      },
+      "device_settings": {
+        "title": "Impostazioni di {device}",
+        "description": "Lascia un campo vuoto per usare il valore predefinito. Queste impostazioni valgono per ogni scheda e per le notifiche.",
+        "data": {
+          "name": "Nome visualizzato",
+          "area": "Area",
+          "battery_type": "Tipo di batteria",
+          "battery_count": "Numero di batterie",
+          "rechargeable": "Ricaricabile",
+          "quiet_threshold_hours": "Silenzioso dopo",
+          "notify_policy": "Notifiche",
+          "sparkline_days": "Giorni di tendenza",
+          "clear": "Rimuovi tutte le impostazioni di questo dispositivo"
+        },
+        "data_description": {
+          "name": "Mostrato sulla scheda e nelle notifiche al posto del nome del dispositivo.",
+          "area": "Sostituisce l'area del dispositivo sulla scheda e nei filtri per area.",
+          "battery_type": "Alimenta la lista della spesa nella scheda Azioni. Scegline uno o scrivi il tuo.",
+          "battery_count": "Quante batterie usa.",
+          "rechargeable": "Si ricarica invece di sostituirla: la scheda Azioni dice ricaricare invece di sostituire.",
+          "quiet_threshold_hours": "Ore senza segnalazioni prima che il dispositivo sia silenzioso, invece dell'impostazione generale.",
+          "notify_policy": "Vuoto usa il valore predefinito per la gravità del problema.",
+          "sparkline_days": "Quanti giorni mostra la linea di tendenza della scheda per questo dispositivo.",
+          "clear": "Se spuntato, all'invio tutte le impostazioni sopra vengono cancellate."
+        }
       }
     },
     "error": {
       "critical_above_warning": "Il livello critico non deve essere superiore al livello di avviso."
+    },
+    "abort": {
+      "not_loaded": "Pulse Check non è ancora in funzione. Riprova quando sarà avviato."
     }
   },
   "selector": {

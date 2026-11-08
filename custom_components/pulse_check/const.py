@@ -30,6 +30,10 @@ UPDATE_INTERVAL = timedelta(minutes=5)
 # Battery history is re-read from the recorder this often. Drain rates move
 # slowly, and the recorder's daily statistics only change once a day.
 HISTORY_INTERVAL = timedelta(hours=6)
+# A battery that first reports after the history read (a cloud integration
+# slow to start, a device paired today) has its history read this long
+# after it appears, instead of waiting for the next HISTORY_INTERVAL.
+HISTORY_CATCH_UP_DELAY = timedelta(minutes=2)
 # Days of history the drain estimate is fitted over.
 HISTORY_DAYS = 14
 

@@ -21,7 +21,7 @@ from custom_components.pulse_check.const import (
     CONF_QUIET_THRESHOLD_HOURS,
     CONF_WATCH_NON_DEVICES,
 )
-from tests.conftest import load_fixture_into_hass
+from tests.conftest import load_fixture_into_hass, open_general_options
 
 ATTENTION = "sensor.pulse_check_attention"
 
@@ -63,9 +63,9 @@ async def test_options_form_rejects_critical_above_warning(
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result = await open_general_options(hass, config_entry.entry_id)
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "init"
+    assert result["step_id"] == "general"
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
@@ -99,7 +99,7 @@ async def test_options_are_stored_flat_and_applied(
     before = int(hass.states.get(ATTENTION).state)  # type: ignore[union-attr]
     assert before == golden["cases"][0]["summary"]["attention"]
 
-    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result = await open_general_options(hass, config_entry.entry_id)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
@@ -150,5 +150,96 @@ async def test_options_are_stored_flat_and_applied(
     assert after == 1
 
     # Reopening the form offers the stored values back, in sections.
-    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result = await open_general_options(hass, config_entry.entry_id)
     assert result["type"] is FlowResultType.FORM
+
+
+async def test_configure_opens_with_a_menu(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    assert result["type"] is FlowResultType.MENU
+    assert result["menu_options"] == ["general", "device"]
+
+
+async def test_per_device_settings_are_saved_to_the_store_without_a_reload(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """Every card and notification reads them; the options stay as they were."""
+    freezer.move_to(fixed_now)
+    device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = config_entry.runtime_data
+    kitchen = device_ids["dev_shelly_ht"]
+    coordinator.store.update_device_settings("entity:sensor.gone", {"name": "Old"})
+    coordinator.store.update_device_settings(kitchen, {"battery_type": "CR2032"})
+
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "device"}
+    )
+    assert result["step_id"] == "device"
+    options = result["data_schema"].schema["device"].config["options"]  # type: ignore[union-attr]
+    labels = {o["value"]: o["label"] for o in options}
+    # Saved settings first: the watched device, and the stale entry to clear.
+    assert {options[0]["value"], options[1]["value"]} == {kitchen, "entity:sensor.gone"}
+    assert labels[kitchen].startswith("⚙ Kitchen H&T")
+    assert labels["entity:sensor.gone"] == "⚠ entity:sensor.gone"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"device": kitchen}
+    )
+    assert result["step_id"] == "device_settings"
+    assert result["description_placeholders"] == {"device": "Kitchen H&T"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "name": " Kitchen sensor ",
+            "battery_type": "CR2450",
+            "battery_count": 2.0,
+            "rechargeable": False,
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert coordinator.store.device_settings[kitchen] == {
+        "name": "Kitchen sensor",
+        "battery_type": "CR2450",
+        "battery_count": 2,
+    }
+    # No reload: the same coordinator still runs, and the change is live.
+    assert config_entry.runtime_data is coordinator
+    assert config_entry.options == {}
+    assert any(s.name == "Kitchen sensor" for s in coordinator.core_config.device_settings)
+
+
+async def test_per_device_settings_can_be_cleared(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    freezer.move_to(fixed_now)
+    await load_fixture_into_hass(hass, fixture_snapshot)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    store = config_entry.runtime_data.store
+    store.update_device_settings("entity:sensor.gone", {"name": "Old", "rechargeable": True})
+
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "device"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"device": "entity:sensor.gone"}
+    )
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"clear": True})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert "entity:sensor.gone" not in store.device_settings
