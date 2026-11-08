@@ -1,6 +1,8 @@
 {
   "issue_offline": "{name} : hors ligne",
+  "issue_offline_restart": "{name} : hors ligne depuis le redémarrage",
   "issue_unavailable": "{name} : indisponible",
+  "issue_unavailable_restart": "{name} : indisponible depuis le redémarrage",
   "issue_quiet": "{name} : aucune nouvelle depuis {hours} h",
   "issue_not_provided": "{name} : n’est plus fourni par {integration}",
   "issue_battery_critical": "{name} : batterie critique ({level})",

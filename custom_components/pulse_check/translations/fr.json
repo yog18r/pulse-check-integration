@@ -66,6 +66,7 @@
               "weekly_all_clear": "« Tout va bien » hebdomadaire quand il n'y a rien à signaler",
               "startup_grace_minutes": "Délai de grâce après le démarrage",
               "confirm_minutes": "Confirmer hors ligne ou silencieux après",
+              "restart_timeout_minutes": "Hors ligne si absent après un redémarrage",
               "maintenance_hours": "Durée du mode maintenance"
             },
             "data_description": {
@@ -77,6 +78,7 @@
               "integration_limit": "Au plus ce nombre de messages hors ligne ou sans nouvelles par intégration et par heure, pour qu’une panne comme une mise à jour du réseau n’envoie pas un message par appareil. Le reste suit une heure plus tard en un seul message listant ceux encore non résolus. Les messages de batterie ne sont jamais retenus. 0 signifie aucune limite.",
               "startup_grace_minutes": "Minutes après le démarrage de Home Assistant avant toute évaluation ; les intégrations se chargent une à une et la plupart des appareils semblent indisponibles entre-temps. Ce qui ne va pas à la fin de ce délai est enregistré, pas annoncé.",
               "confirm_minutes": "Minutes pendant lesquelles un état hors ligne ou silencieux doit persister avant d'être pris en compte. Une interrogation manquée qui se rétablit dans ce délai n'envoie rien. Les niveaux de batterie comptent immédiatement.",
+              "restart_timeout_minutes": "Minutes après le démarrage de Home Assistant. Un appareil qui n'a pas fonctionné d'ici là compte comme hors ligne, pour signaler aussi celui qui a lâché pendant que Home Assistant était éteint. 0 attend indéfiniment.",
               "maintenance_hours": "Durée pendant laquelle pulse_check.maintenance_mode suspend les notifications lorsqu'il est appelé sans heures."
             }
           },

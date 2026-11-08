@@ -66,6 +66,7 @@
               "weekly_all_clear": "\"Todo bien\" semanal cuando no hay nada que informar",
               "startup_grace_minutes": "Periodo de gracia tras el inicio",
               "confirm_minutes": "Confirmar desconectado o silencioso tras",
+              "restart_timeout_minutes": "Desconectado si no vuelve tras un reinicio",
               "maintenance_hours": "Duración del modo mantenimiento"
             },
             "data_description": {
@@ -77,6 +78,7 @@
               "integration_limit": "Como máximo este número de mensajes de desconexión o sin noticias por integración en una hora, para que una caída como una actualización de red no envíe uno por dispositivo. El resto llega una hora después en un solo mensaje con los que siguen sin resolver. Los mensajes de batería nunca se retienen. 0 significa sin límite.",
               "startup_grace_minutes": "Minutos tras el inicio de Home Assistant antes de evaluar nada; las integraciones se cargan una a una y mientras tanto la mayoría de dispositivos parecen no disponibles. Lo que falle al final de este periodo se registra, no se anuncia.",
               "confirm_minutes": "Minutos que un estado desconectado o silencioso debe mantenerse antes de contar. Un sondeo perdido que se recupera dentro de este tiempo no envía nada. Los niveles de batería cuentan al instante.",
+              "restart_timeout_minutes": "Minutos después de que Home Assistant arranque. Un dispositivo que no haya funcionado para entonces cuenta como desconectado, para avisar también de uno que falló mientras Home Assistant estaba apagado. 0 espera indefinidamente.",
               "maintenance_hours": "Cuánto tiempo silencia pulse_check.maintenance_mode las notificaciones cuando se llama sin horas."
             }
           },

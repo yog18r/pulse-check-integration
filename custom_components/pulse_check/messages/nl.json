@@ -1,6 +1,8 @@
 {
   "issue_offline": "{name}: offline",
+  "issue_offline_restart": "{name}: offline sinds de herstart",
   "issue_unavailable": "{name}: niet beschikbaar",
+  "issue_unavailable_restart": "{name}: niet beschikbaar sinds de herstart",
   "issue_quiet": "{name}: al {hours} u niets van gehoord",
   "issue_not_provided": "{name}: wordt niet meer geleverd door {integration}",
   "issue_battery_critical": "{name}: batterij kritiek ({level})",

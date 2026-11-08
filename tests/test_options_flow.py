@@ -42,6 +42,16 @@ def test_nest_and_flatten_round_trip() -> None:
     assert flatten_options(nested) == flat
 
 
+def test_every_form_field_is_offered_back() -> None:
+    """A field missing from its section would show its default again and be saved over."""
+    timings = {
+        "startup_grace_minutes": 10,
+        "confirm_minutes": 2,
+        "restart_timeout_minutes": 45,
+    }
+    assert nest_options(timings)["notifications"] == timings
+
+
 def test_flatten_drops_empty_values() -> None:
     nested = {"thresholds": {CONF_BATTERY_WARNING: 30}, "filters": {CONF_EXCLUDE_ENTITIES: []}}
     assert flatten_options(nested) == {CONF_BATTERY_WARNING: 30}

@@ -66,6 +66,7 @@
               "weekly_all_clear": "Týdenní „vše v pořádku“, když není co hlásit",
               "startup_grace_minutes": "Klidová doba po spuštění",
               "confirm_minutes": "Potvrdit offline nebo neozývání po",
+              "restart_timeout_minutes": "Offline, pokud se po restartu nevrátí",
               "maintenance_hours": "Délka režimu údržby"
             },
             "data_description": {
@@ -77,6 +78,7 @@
               "integration_limit": "Nejvýše tolik zpráv offline nebo bez ozvy na integraci za hodinu, aby výpadek, například aktualizace sítě, neposlal jednu zprávu za každé zařízení. Zbytek přijde o hodinu později v jedné zprávě se zařízeními, která jsou stále nevyřešená. Zprávy o baterii se nikdy nezadržují. 0 znamená bez omezení.",
               "startup_grace_minutes": "Minuty po spuštění Home Assistant, než se cokoli vyhodnotí; integrace se načítají postupně a většina zařízení mezitím vypadá nedostupně. Co je na konci špatně, se zaznamená, ale neohlásí.",
               "confirm_minutes": "Minuty, po které musí stav offline nebo neozývání trvat, než se započítá. Zmeškané dotazování, které se v této době napraví, nic neodešle. Úrovně baterie se počítají hned.",
+              "restart_timeout_minutes": "Minuty po spuštění Home Assistantu. Zařízení, které do té doby nefungovalo, se počítá jako offline, takže se nahlásí i to, které selhalo, když byl Home Assistant vypnutý. 0 čeká neomezeně.",
               "maintenance_hours": "Jak dlouho pulse_check.maintenance_mode zadržuje oznámení, když je volán bez hodin."
             }
           },

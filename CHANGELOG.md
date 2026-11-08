@@ -4,6 +4,26 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Added
+- **Devices that don't come back after a restart are reported.** Until
+  now a device had to work once after a restart before it could count as
+  offline, so one that died while Home Assistant was off was never
+  reported. Thirty minutes after the start, one still not seen working
+  counts as offline, "offline since the restart". Change the wait under
+  Configure, Notifications, "Offline if not back after a restart"; 0
+  waits for ever, as before.
+
+### Fixed
+- **A restart no longer forgets devices that were already offline.** One
+  still down after the restart was treated as fixed: a false "resolved"
+  event (a message, with the blueprint's resolved option), and no more
+  reminders or digest entries. It now stays offline until it comes back.
+- **The startup timings in Configure keep their values.** "Quiet period
+  after start" and "Confirm offline or quiet after" showed their defaults
+  when the dialog was opened again, so saving it put them back.
+
 ## 0.2.8 - 2026-11-08
 
 ### Added

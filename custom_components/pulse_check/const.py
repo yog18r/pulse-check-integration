@@ -68,6 +68,9 @@ CONF_WEEKLY_ALL_CLEAR = "weekly_all_clear"
 CONF_STARTUP_GRACE_MINUTES = "startup_grace_minutes"
 # Minutes an offline or quiet state must persist before it is a transition.
 CONF_CONFIRM_MINUTES = "confirm_minutes"
+# Minutes after the start by which a device must have come up; one that
+# has not counts as offline. 0 waits for ever.
+CONF_RESTART_TIMEOUT_MINUTES = "restart_timeout_minutes"
 
 # Default length of maintenance mode, when the service is called without hours.
 CONF_MAINTENANCE_HOURS = "maintenance_hours"
@@ -82,6 +85,7 @@ WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", 
 DEFAULT_DIGEST_WEEKDAY = "monday"
 DEFAULT_STARTUP_GRACE_MINUTES = 5
 DEFAULT_CONFIRM_MINUTES = 5
+DEFAULT_RESTART_TIMEOUT_MINUTES = 30
 DEFAULT_MAINTENANCE_HOURS = 2
 # At most this many offline or quiet messages per integration within
 # INTEGRATION_LIMIT_WINDOW; the rest wait and go out together as one

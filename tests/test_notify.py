@@ -21,6 +21,7 @@ from custom_components.pulse_check.const import (
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_WARNING,
     CONF_REMINDER_DAYS,
+    CONF_RESTART_TIMEOUT_MINUTES,
     CONF_WEEKLY_ALL_CLEAR,
     DEBOUNCE_SECONDS,
     DEFAULT_CONFIRM_MINUTES,
@@ -35,6 +36,10 @@ OPTIONS = {
     CONF_NOTIFY_TARGETS: ["notify.mobile_app_test"],
     CONF_DIGEST_TIME: "09:00:00",
     CONF_DIGEST_WEEKDAY: "thursday",  # 2026-10-15 is a Thursday
+    # The fixture's dead lock is never seen working, so after the restart
+    # timeout it would count as offline in every test that runs that long.
+    # The tests of that timeout turn it back on.
+    CONF_RESTART_TIMEOUT_MINUTES: 0,
 }
 # The test instance runs in US/Pacific: the fixture's 10:00 UTC is 03:00 local.
 BATTERY = {"device_class": "battery", "unit_of_measurement": "%"}

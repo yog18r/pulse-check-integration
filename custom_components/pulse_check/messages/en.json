@@ -1,6 +1,8 @@
 {
   "issue_offline": "{name}: offline",
+  "issue_offline_restart": "{name}: offline since the restart",
   "issue_unavailable": "{name}: unavailable",
+  "issue_unavailable_restart": "{name}: unavailable since the restart",
   "issue_quiet": "{name}: not heard from for {hours} h",
   "issue_not_provided": "{name}: no longer provided by {integration}",
   "issue_battery_critical": "{name}: battery critical ({level})",

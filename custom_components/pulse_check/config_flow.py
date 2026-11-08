@@ -72,6 +72,7 @@ from .const import (
     CONF_QUIET_THRESHOLD_HOURS,
     CONF_REMINDER_DAYS,
     CONF_REMINDER_MAX,
+    CONF_RESTART_TIMEOUT_MINUTES,
     CONF_STARTUP_GRACE_MINUTES,
     CONF_WATCH_NON_DEVICES,
     CONF_WEEKLY_ALL_CLEAR,
@@ -88,6 +89,7 @@ from .const import (
     DEFAULT_QUIET_THRESHOLD_HOURS,
     DEFAULT_REMINDER_DAYS,
     DEFAULT_REMINDER_MAX,
+    DEFAULT_RESTART_TIMEOUT_MINUTES,
     DEFAULT_STARTUP_GRACE_MINUTES,
     DEFAULT_WATCH_NON_DEVICES,
     DOMAIN,
@@ -135,6 +137,9 @@ NOTIFICATION_KEYS = (
     CONF_DIGEST_TIME,
     CONF_DIGEST_WEEKDAY,
     CONF_WEEKLY_ALL_CLEAR,
+    CONF_STARTUP_GRACE_MINUTES,
+    CONF_CONFIRM_MINUTES,
+    CONF_RESTART_TIMEOUT_MINUTES,
     CONF_MAINTENANCE_HOURS,
 )
 ENTITY_KEYS = (CONF_PER_DEVICE_SENSORS,)
@@ -325,6 +330,9 @@ def _options_schema(platforms: list[str], notify_targets: list[str]) -> probatio
                 CONF_STARTUP_GRACE_MINUTES, default=DEFAULT_STARTUP_GRACE_MINUTES
             ): _minutes(),
             probatio.Required(CONF_CONFIRM_MINUTES, default=DEFAULT_CONFIRM_MINUTES): _minutes(),
+            probatio.Required(
+                CONF_RESTART_TIMEOUT_MINUTES, default=DEFAULT_RESTART_TIMEOUT_MINUTES
+            ): _minutes(),
             probatio.Required(
                 CONF_MAINTENANCE_HOURS, default=DEFAULT_MAINTENANCE_HOURS
             ): NumberSelector(

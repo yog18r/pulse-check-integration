@@ -19,7 +19,13 @@ Two guards keep restarts and hiccups quiet:
   least once since Home Assistant started. An integration that takes ten
   minutes to come up after a restart leaves its devices unavailable well
   past the confirmation window; those devices are "not loaded yet", not
-  offline, until they have appeared once.
+  offline, until they have appeared once. What was already known about
+  such a device before the restart is kept as it was: a device that was
+  offline then is not "resolved" by a restart, and its reminders carry on.
+- "Not loaded yet" has a limit, the restart timeout (30 minutes after the
+  start by default). A device still not seen working by then counts as
+  offline, worded "offline since the restart": it died while Home
+  Assistant was off, or its integration never came up.
 
 Per device, a *policy* decides how a notification is delivered:
 
@@ -89,6 +95,7 @@ from .const import (
     CONF_NOTIFY_WARNING,
     CONF_REMINDER_DAYS,
     CONF_REMINDER_MAX,
+    CONF_RESTART_TIMEOUT_MINUTES,
     CONF_STARTUP_GRACE_MINUTES,
     CONF_WEEKLY_ALL_CLEAR,
     DEFAULT_CONFIRM_MINUTES,
@@ -99,6 +106,7 @@ from .const import (
     DEFAULT_NOTIFY_WARNING,
     DEFAULT_REMINDER_DAYS,
     DEFAULT_REMINDER_MAX,
+    DEFAULT_RESTART_TIMEOUT_MINUTES,
     DEFAULT_STARTUP_GRACE_MINUTES,
     EVENT_TRANSITION,
     INTEGRATION_LIMIT_WINDOW,
@@ -259,6 +267,8 @@ class Notifier:
         self._missing_targets: set[str] = set()
         # When evaluation may begin: Home Assistant started + the grace period.
         self.ready_at: datetime | None = None
+        # When a device not yet seen working counts as offline after all.
+        self.overdue_at: datetime | None = None
         # True until the first evaluation after `ready_at` has recorded the baseline.
         self.baseline_pending = True
         # Devices seen online (not offline) at least once in this run.
@@ -319,6 +329,14 @@ class Notifier:
             self.entry.options.get(CONF_STARTUP_GRACE_MINUTES, DEFAULT_STARTUP_GRACE_MINUTES)
         )
         return timedelta(minutes=minutes)
+
+    @property
+    def restart_timeout(self) -> timedelta | None:
+        """How long after the start a device may take to come up; None waits forever."""
+        minutes = float(
+            self.entry.options.get(CONF_RESTART_TIMEOUT_MINUTES, DEFAULT_RESTART_TIMEOUT_MINUTES)
+        )
+        return timedelta(minutes=minutes) if minutes > 0 else None
 
     @property
     def confirm_window(self) -> timedelta:
@@ -389,16 +407,31 @@ class Notifier:
     @callback
     def _mark_started(self) -> None:
         """Start the grace period, and evaluate once when it ends."""
-        self.ready_at = dt_util.utcnow() + self.startup_grace
+        started = dt_util.utcnow()
+        self.ready_at = started + self.startup_grace
         self.entry.async_on_unload(
             async_call_later(self.hass, self.startup_grace, self._handle_grace_over)
         )
+        timeout = self.restart_timeout
+        if timeout is not None:
+            # Recompute when the time is up, so the overdue are judged then.
+            self.overdue_at = started + timeout
+            self.entry.async_on_unload(
+                async_call_later(self.hass, timeout, self._handle_restart_timeout)
+            )
 
     @callback
     def _handle_grace_over(self, _now: datetime) -> None:
         """The grace period is over: recompute now, which records the baseline."""
         self.entry.async_create_background_task(
             self.hass, self.coordinator.async_refresh(), "pulse_check baseline"
+        )
+
+    @callback
+    def _handle_restart_timeout(self, _now: datetime) -> None:
+        """Devices still not up count as offline from now: recompute."""
+        self.entry.async_create_background_task(
+            self.hass, self.coordinator.async_refresh(), "pulse_check restart timeout"
         )
 
     @callback
@@ -479,11 +512,10 @@ class Notifier:
         for device in data.devices:
             stored: dict[str, dict[str, Any]] = state.get(device.device_id, {})
             current = self._issues(device, data.config, now)
+            frozen: set[str] = set()
             if device.device_id not in self._seen_online:
-                # Not loaded yet: its battery can still be judged, but
-                # offline and quiet mean nothing until it has come up once.
-                current = {k: v for k, v in current.items() if k not in CONFIRMED_ISSUES}
-            changed |= await self._process_device(device, current, stored, now, baseline)
+                current, frozen = self._not_up_yet(device, current, stored, now)
+            changed |= await self._process_device(device, current, stored, now, baseline, frozen)
             if stored:
                 state[device.device_id] = stored
             elif device.device_id in state:
@@ -510,6 +542,37 @@ class Notifier:
         if baseline:
             await self._catch_up_digests(now)
 
+    def _not_up_yet(
+        self,
+        device: DeviceHealth,
+        current: dict[str, Issue],
+        stored: dict[str, dict[str, Any]],
+        now: datetime,
+    ) -> tuple[dict[str, Issue], set[str]]:
+        """The issues of a device not seen working since the start, and those to leave alone.
+
+        Its battery can be judged at once. Offline, quiet and not provided
+        mean nothing until it has come up, so new ones wait, while those
+        confirmed before the restart stay as they were (still current, or
+        frozen when they no longer apply). Past the restart timeout it has
+        had its chance: it counts as offline, "since the restart".
+        """
+        if self.overdue_at is not None and as_utc(now) >= self.overdue_at:
+            issue = current.get("offline")
+            # Worded "since the restart" until announced; one already known
+            # (from before the restart, or announced since) keeps the usual words.
+            known = stored.get("offline", {}).get("confirmed", False)
+            if issue is not None and not known:
+                key = f"issue_{wording('offline', device)}_restart"
+                message = self.text(key, name=device.name)
+                current = {**current, "offline": Issue("offline", issue.severity, message)}
+            return current, set()
+        kept = {
+            key for key in CONFIRMED_ISSUES if key in stored and stored[key].get("confirmed", True)
+        }
+        current = {k: v for k, v in current.items() if k not in CONFIRMED_ISSUES or k in kept}
+        return current, kept - current.keys()
+
     async def _process_device(
         self,
         device: DeviceHealth,
@@ -517,8 +580,12 @@ class Notifier:
         stored: dict[str, dict[str, Any]],
         now: datetime,
         baseline: bool,
+        frozen: set[str] | None = None,
     ) -> bool:
-        """Update one device's records in place. Returns True when they changed."""
+        """Update one device's records in place. Returns True when they changed.
+
+        Records named in `frozen` are left exactly as they are.
+        """
         changed = False
         for key, issue in current.items():
             record = stored.get(key)
@@ -541,7 +608,7 @@ class Notifier:
                 changed |= await self._maybe_remind(device, issue, record, now)
 
         for key in list(stored):
-            if key in current:
+            if key in current or (frozen and key in frozen):
                 continue
             record = stored.pop(key)
             changed = True

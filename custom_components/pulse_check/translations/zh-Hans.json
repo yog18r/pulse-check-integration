@@ -66,6 +66,7 @@
               "weekly_all_clear": "无事可报时每周发送“一切正常”",
               "startup_grace_minutes": "启动后的静候期",
               "confirm_minutes": "确认离线或久未上报的等待时间",
+              "restart_timeout_minutes": "重启后未恢复则视为离线",
               "maintenance_hours": "维护模式时长"
             },
             "data_description": {
@@ -77,6 +78,7 @@
               "integration_limit": "每个集成每小时最多发送这么多条离线或未上报消息，这样网络更新等故障不会为每个设备各发一条。其余的在一小时后合并为一条消息，列出仍未解决的设备。电池消息从不延后。0 表示不限制。",
               "startup_grace_minutes": "Home Assistant 启动后等待多少分钟才开始判断；集成会逐个加载，期间大多数设备看起来不可用。此期间结束时存在的问题只会被记录，不会通知。",
               "confirm_minutes": "离线或久未上报状态必须持续多少分钟才算数。在此时间内恢复的漏报不会发送任何通知。电池电量立即生效。",
+              "restart_timeout_minutes": "Home Assistant 启动后的分钟数。到那时仍未正常工作过的设备计为离线，这样在 Home Assistant 关闭期间失效的设备也会被报告。0 表示一直等待。",
               "maintenance_hours": "调用 pulse_check.maintenance_mode 且未指定小时数时，静默通知的时长。"
             }
           },

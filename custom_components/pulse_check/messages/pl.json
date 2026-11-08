@@ -1,6 +1,8 @@
 {
   "issue_offline": "{name}: offline",
+  "issue_offline_restart": "{name}: offline od restartu",
   "issue_unavailable": "{name}: niedostępne",
+  "issue_unavailable_restart": "{name}: niedostępne od restartu",
   "issue_quiet": "{name}: brak sygnału od {hours} h",
   "issue_not_provided": "{name}: nie jest już dostarczane przez {integration}",
   "issue_battery_critical": "{name}: krytyczny poziom baterii ({level})",

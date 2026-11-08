@@ -141,7 +141,11 @@ past cycles like for like, or on a sudden 20-point drop.
   blueprint. On startup: a baseline, a grace period, and a
   confirmation window; a device must have been seen online since startup
   before it can be reported offline, so slow-starting integrations do not
-  produce a flood of false alarms after a restart. Offline and quiet
+  produce a flood of false alarms after a restart. That waits until the
+  restart timeout (default 30 minutes, 0 for ever); then a device never
+  seen is offline "since the restart". Problems confirmed before a
+  restart are kept for a device not yet seen: no false resolved, and
+  reminders carry on. Offline and quiet
   messages are limited per integration (default 3 an hour); the rest wait
   an hour and go out as one message listing those still wrong. Maintenance mode holds
   messages back for a set time and ends with one summary.

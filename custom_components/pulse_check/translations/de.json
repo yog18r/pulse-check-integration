@@ -66,6 +66,7 @@
               "weekly_all_clear": "Wöchentlich „Alles in Ordnung“, wenn nichts zu melden ist",
               "startup_grace_minutes": "Ruhezeit nach dem Start",
               "confirm_minutes": "Offline oder stumm bestätigen nach",
+              "restart_timeout_minutes": "Offline, wenn nach einem Neustart nicht zurück",
               "maintenance_hours": "Dauer des Wartungsmodus"
             },
             "data_description": {
@@ -77,6 +78,7 @@
               "integration_limit": "Höchstens so viele Offline- oder Stumm-Meldungen pro Integration und Stunde, damit ein Ausfall wie ein Netzwerk-Update nicht eine Meldung pro Gerät auslöst. Der Rest folgt eine Stunde später als eine Nachricht mit den noch ungelösten Geräten. Batteriemeldungen werden nie zurückgehalten. 0 bedeutet kein Limit.",
               "startup_grace_minutes": "Minuten nach dem Start von Home Assistant, bevor etwas bewertet wird; Integrationen laden nacheinander und die meisten Geräte wirken so lange nicht verfügbar. Was danach nicht stimmt, wird erfasst, aber nicht gemeldet.",
               "confirm_minutes": "Minuten, die ein Offline- oder Stumm-Zustand anhalten muss, bevor er zählt. Eine verpasste Abfrage, die sich in dieser Zeit erholt, sendet nichts. Batteriestände zählen sofort.",
+              "restart_timeout_minutes": "Minuten nach dem Start von Home Assistant. Ein Gerät, das bis dahin nicht funktioniert hat, gilt als offline, damit auch eines gemeldet wird, das ausgefallen ist, während Home Assistant aus war. 0 wartet unbegrenzt.",
               "maintenance_hours": "Wie lange pulse_check.maintenance_mode Benachrichtigungen zurückhält, wenn es ohne Stunden aufgerufen wird."
             }
           },

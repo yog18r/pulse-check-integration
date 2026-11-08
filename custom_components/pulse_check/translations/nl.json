@@ -66,6 +66,7 @@
               "weekly_all_clear": "Wekelijks \"alles in orde\" als er niets te melden is",
               "startup_grace_minutes": "Rustperiode na het opstarten",
               "confirm_minutes": "Offline of stil bevestigen na",
+              "restart_timeout_minutes": "Offline als niet terug na een herstart",
               "maintenance_hours": "Duur van de onderhoudsmodus"
             },
             "data_description": {
@@ -77,6 +78,7 @@
               "integration_limit": "Hoogstens zoveel offline- of stil-meldingen per integratie per uur, zodat een storing zoals een netwerkupdate niet één melding per apparaat geeft. De rest volgt een uur later in één bericht met de apparaten die nog niet opgelost zijn. Batterijmeldingen worden nooit tegengehouden. 0 betekent geen limiet.",
               "startup_grace_minutes": "Minuten na het opstarten van Home Assistant voordat er iets wordt beoordeeld; integraties laden een voor een en de meeste apparaten lijken intussen onbeschikbaar. Wat daarna mis is, wordt vastgelegd maar niet gemeld.",
               "confirm_minutes": "Minuten dat een offline- of stilstatus moet aanhouden voordat die telt. Een gemiste poll die binnen deze tijd herstelt, verstuurt niets. Batterijniveaus tellen meteen.",
+              "restart_timeout_minutes": "Minuten nadat Home Assistant is gestart. Een apparaat dat tot dan niet heeft gewerkt, telt als offline, zodat ook een apparaat wordt gemeld dat uitviel terwijl Home Assistant uit stond. 0 wacht onbeperkt.",
               "maintenance_hours": "Hoe lang pulse_check.maintenance_mode meldingen tegenhoudt als het zonder uren wordt aangeroepen."
             }
           },

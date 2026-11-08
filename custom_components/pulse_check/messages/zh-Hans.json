@@ -1,6 +1,8 @@
 {
   "issue_offline": "{name}：离线",
+  "issue_offline_restart": "{name}：重启后一直离线",
   "issue_unavailable": "{name}：不可用",
+  "issue_unavailable_restart": "{name}：重启后一直不可用",
   "issue_quiet": "{name}：已 {hours} 小时未上报",
   "issue_not_provided": "{name}：{integration} 已不再提供",
   "issue_battery_critical": "{name}：电池电量严重不足（{level}）",

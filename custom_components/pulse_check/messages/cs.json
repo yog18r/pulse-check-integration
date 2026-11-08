@@ -1,6 +1,8 @@
 {
   "issue_offline": "{name}: offline",
+  "issue_offline_restart": "{name}: offline od restartu",
   "issue_unavailable": "{name}: nedostupné",
+  "issue_unavailable_restart": "{name}: nedostupné od restartu",
   "issue_quiet": "{name}: neozývá se {hours} h",
   "issue_not_provided": "{name}: už není poskytováno integrací {integration}",
   "issue_battery_critical": "{name}: kritická baterie ({level})",
