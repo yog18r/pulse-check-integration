@@ -4,7 +4,7 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
-## Unreleased
+## 0.2.12 - 2026-11-09
 
 ### Added
 - **Clear settings** in the card editor's per-device panel removes every
