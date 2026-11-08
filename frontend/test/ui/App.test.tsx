@@ -240,6 +240,50 @@ describe('App', () => {
     expect(flat).toHaveAttribute('title', 'flat for 120 days (low confidence)');
   });
 
+  it('shows a daily charger in hours, with its usual low', async () => {
+    renderApp(
+      {},
+      {
+        payload: {
+          ...SNAPSHOT_PAYLOAD,
+          devices: [
+            {
+              ...deviceEntry('Pixel 9'),
+              daysLeft: 0.25,
+              batteryKind: 'charged',
+              usualLow: 24,
+              estimate: {
+                daysLeft: 0.25,
+                basis: 'until charge needed',
+                confidence: 'low',
+                kind: 'charge',
+              },
+            },
+          ],
+        },
+      },
+    );
+    expect(await screen.findByText(/charge in ~6h/)).toBeInTheDocument();
+    expect(screen.getByText(/usually lowest 24%/)).toBeInTheDocument();
+  });
+
+  it('shows a home battery that never runs low by its usual low alone', async () => {
+    renderApp(
+      {},
+      {
+        payload: {
+          ...SNAPSHOT_PAYLOAD,
+          devices: [
+            { ...deviceEntry('Pixel 9'), name: 'FoxESS', batteryKind: 'charged', usualLow: 47 },
+          ],
+        },
+      },
+    );
+    const row = (await screen.findAllByRole('listitem'))[0]!;
+    expect(within(row).getByText(/usually lowest 47%/)).toBeInTheDocument();
+    expect(within(row).queryByText(/charge in/)).not.toBeInTheDocument();
+  });
+
   it('shows no days-left for devices without an estimate, charging or not', async () => {
     renderApp();
     await screen.findByText(/devices need attention/);

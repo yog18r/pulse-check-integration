@@ -5,8 +5,9 @@
   websocket (see websocket.py), not through state attributes.
 - `sensor.pulse_check_low_batteries`, `_critical_batteries`, `_offline`,
   `_quiet`: plain counts for automations that only care about one kind.
-- `sensor.pulse_check_next_to_run_out`: the battery device with the fewest
-  days left according to its drain estimate.
+- `sensor.pulse_check_next_to_replace` (`_next_to_run_out` on installs
+  from before 0.2.11): the replaceable battery with the fewest days left
+  according to its drain estimate.
 - Optionally, on every battery device itself (diagnostic category):
   "Battery days left" and "Battery last replaced". These are attached to
   the device's own registry entry, so they appear on its device page.
@@ -198,7 +199,12 @@ class CountSensor(PulseCheckEntity, SensorEntity):
 
 
 class NextToRunOutSensor(PulseCheckEntity, SensorEntity):
-    """The device whose battery will run out soonest, by drain estimate."""
+    """The replaceable battery that will need replacing soonest, by drain estimate.
+
+    Its key stays "next_to_run_out" so existing entities keep their id; only
+    the name changed, to "Next to replace", when charged batteries were
+    left out of it.
+    """
 
     _attr_icon = "mdi:battery-clock"
 
@@ -208,7 +214,7 @@ class NextToRunOutSensor(PulseCheckEntity, SensorEntity):
 
     @property
     def native_value(self) -> str | None:
-        """The device name, or unknown when no battery has an estimate yet."""
+        """The device name, or unknown when no replaceable battery has an estimate yet."""
         device = self.coordinator.data.next_to_run_out
         return device.name if device is not None else None
 
@@ -223,6 +229,8 @@ class NextToRunOutSensor(PulseCheckEntity, SensorEntity):
             "device_id": device.device_id,
             "entity_id": device.battery.entity_id,
             "level": device.battery.level,
+            # days_left is then a floor: "more than a year".
+            "more_than_a_year": bool(device.estimate and device.estimate.open_ended),
         }
 
 
@@ -285,9 +293,16 @@ class DeviceDaysLeftSensor(PerDeviceSensor):
 
     @property
     def native_value(self) -> float | None:
-        """Days left, or unknown without enough history."""
+        """Days left, or unknown without enough history.
+
+        Unknown for a battery charged every day too: its hours until the
+        warning level change all day long, and would write a new recorder
+        row every couple of hours for no use. The card shows them.
+        """
         device = self.device
-        return round(device.days_left, 1) if device and device.days_left is not None else None
+        if device is None or device.days_left is None or device.usual_low is not None:
+            return None
+        return round(device.days_left, 1)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

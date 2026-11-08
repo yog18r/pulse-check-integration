@@ -4,6 +4,36 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Added
+- **Batteries charged every day get a time and their usual low.** A phone
+  now shows how long until it reaches the warning level and the level
+  it usually falls to before a charge, such as "charge in ~6h · usually
+  lowest 24%". A home battery that never runs down to the warning level,
+  such as one topped up by solar, shows its usual low alone, such as
+  "usually lowest 47%". These used to show nothing. Nothing is notified
+  from them.
+
+### Changed
+- **"Next to run out" is now "Next to replace".** It only considers
+  batteries that get replaced, so a phone due a charge tonight never
+  takes it over, and it always names one, even when the soonest is
+  "more than a year". Existing installs keep the entity id
+  `sensor.pulse_check_next_to_run_out`; the card's "replace soon" sort
+  ignores charge estimates the same way.
+- **A battery charged every day is recognised as one** from its hourly
+  history, including a home battery that charges gradually. It used to
+  switch between "charged" and "unknown" through the day. A lock whose
+  reading glitches for a few hours is not mistaken for one, and robot
+  vacuums count as charged like phones.
+- **Estimates beyond a year read "more than a year" consistently**,
+  however they were worked out, instead of flipping between "~15
+  months" and "more than a year".
+- The README, the card's notes and the blueprint describe everything up
+  to 0.2.10, and the actions' device field says it takes any entity with
+  no device, not only a battery sensor, in every language.
+
 ## 0.2.10 - 2026-11-08
 
 ### Fixed

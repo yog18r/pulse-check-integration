@@ -139,7 +139,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "L'ID del dispositivo, o l'ID entità di un sensore della batteria senza dispositivo."
+          "description": "L'ID del dispositivo, o l'ID entità di un'entità senza dispositivo."
         },
         "days": {
           "name": "Giorni",
@@ -157,7 +157,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "L'ID del dispositivo, o l'ID entità di un sensore della batteria senza dispositivo."
+          "description": "L'ID del dispositivo, o l'ID entità di un'entità senza dispositivo."
         }
       }
     },
@@ -167,7 +167,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "L'ID del dispositivo, o l'ID entità di un sensore della batteria senza dispositivo."
+          "description": "L'ID del dispositivo, o l'ID entità di un'entità senza dispositivo."
         },
         "name": {
           "name": "Nome visualizzato",
@@ -209,7 +209,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "L'ID del dispositivo, o l'ID entità di un sensore della batteria senza dispositivo."
+          "description": "L'ID del dispositivo, o l'ID entità di un'entità senza dispositivo."
         },
         "battery_type": {
           "name": "Tipo di batteria",
@@ -223,7 +223,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "L'ID del dispositivo, o l'ID entità di un sensore della batteria senza dispositivo."
+          "description": "L'ID del dispositivo, o l'ID entità di un'entità senza dispositivo."
         }
       }
     },
@@ -233,7 +233,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "L'ID del dispositivo, o l'ID entità di un sensore della batteria senza dispositivo."
+          "description": "L'ID del dispositivo, o l'ID entità di un'entità senza dispositivo."
         }
       }
     },
@@ -286,7 +286,7 @@
         "name": "Silenziosi"
       },
       "next_to_run_out": {
-        "name": "Prossima a esaurirsi"
+        "name": "Prossima da sostituire"
       },
       "device_days_left": {
         "name": "Giorni di batteria rimanenti"

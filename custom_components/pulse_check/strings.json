@@ -139,7 +139,7 @@
       "fields": {
         "device_id": {
           "name": "Device",
-          "description": "The device id, or the entity id of a battery sensor that has no device."
+          "description": "The device id, or the entity id of an entity that has no device."
         },
         "days": {
           "name": "Days",
@@ -157,7 +157,7 @@
       "fields": {
         "device_id": {
           "name": "Device",
-          "description": "The device id, or the entity id of a battery sensor that has no device."
+          "description": "The device id, or the entity id of an entity that has no device."
         }
       }
     },
@@ -167,7 +167,7 @@
       "fields": {
         "device_id": {
           "name": "Device",
-          "description": "The device id, or the entity id of a battery sensor that has no device."
+          "description": "The device id, or the entity id of an entity that has no device."
         },
         "name": {
           "name": "Display name",
@@ -209,7 +209,7 @@
       "fields": {
         "device_id": {
           "name": "Device",
-          "description": "The device id, or the entity id of a battery sensor that has no device."
+          "description": "The device id, or the entity id of an entity that has no device."
         },
         "battery_type": {
           "name": "Battery type",
@@ -223,7 +223,7 @@
       "fields": {
         "device_id": {
           "name": "Device",
-          "description": "The device id, or the entity id of a battery sensor that has no device."
+          "description": "The device id, or the entity id of an entity that has no device."
         }
       }
     },
@@ -233,7 +233,7 @@
       "fields": {
         "device_id": {
           "name": "Device",
-          "description": "The device id, or the entity id of a battery sensor that has no device."
+          "description": "The device id, or the entity id of an entity that has no device."
         }
       }
     },
@@ -286,7 +286,7 @@
         "name": "Quiet"
       },
       "next_to_run_out": {
-        "name": "Next to run out"
+        "name": "Next to replace"
       },
       "device_days_left": {
         "name": "Battery days left"

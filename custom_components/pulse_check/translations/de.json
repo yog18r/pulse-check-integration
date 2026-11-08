@@ -139,7 +139,7 @@
       "fields": {
         "device_id": {
           "name": "Gerät",
-          "description": "Die Geräte-ID oder die Entitäts-ID eines Batteriesensors ohne Gerät."
+          "description": "Die Geräte-ID oder die Entitäts-ID einer Entität ohne Gerät."
         },
         "days": {
           "name": "Tage",
@@ -157,7 +157,7 @@
       "fields": {
         "device_id": {
           "name": "Gerät",
-          "description": "Die Geräte-ID oder die Entitäts-ID eines Batteriesensors ohne Gerät."
+          "description": "Die Geräte-ID oder die Entitäts-ID einer Entität ohne Gerät."
         }
       }
     },
@@ -167,7 +167,7 @@
       "fields": {
         "device_id": {
           "name": "Gerät",
-          "description": "Die Geräte-ID oder die Entitäts-ID eines Batteriesensors ohne Gerät."
+          "description": "Die Geräte-ID oder die Entitäts-ID einer Entität ohne Gerät."
         },
         "name": {
           "name": "Anzeigename",
@@ -209,7 +209,7 @@
       "fields": {
         "device_id": {
           "name": "Gerät",
-          "description": "Die Geräte-ID oder die Entitäts-ID eines Batteriesensors ohne Gerät."
+          "description": "Die Geräte-ID oder die Entitäts-ID einer Entität ohne Gerät."
         },
         "battery_type": {
           "name": "Batterietyp",
@@ -223,7 +223,7 @@
       "fields": {
         "device_id": {
           "name": "Gerät",
-          "description": "Die Geräte-ID oder die Entitäts-ID eines Batteriesensors ohne Gerät."
+          "description": "Die Geräte-ID oder die Entitäts-ID einer Entität ohne Gerät."
         }
       }
     },
@@ -233,7 +233,7 @@
       "fields": {
         "device_id": {
           "name": "Gerät",
-          "description": "Die Geräte-ID oder die Entitäts-ID eines Batteriesensors ohne Gerät."
+          "description": "Die Geräte-ID oder die Entitäts-ID einer Entität ohne Gerät."
         }
       }
     },
@@ -286,7 +286,7 @@
         "name": "Stumm"
       },
       "next_to_run_out": {
-        "name": "Als Nächstes leer"
+        "name": "Als Nächstes wechseln"
       },
       "device_days_left": {
         "name": "Batterie-Resttage"

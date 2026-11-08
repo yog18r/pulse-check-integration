@@ -149,6 +149,12 @@ export function DeviceRow({
                     </span>
                   </>
                 )}
+                {device.usualLow !== undefined && (
+                  <>
+                    {' · '}
+                    {t.t('row.usual_low', { level: Math.round(device.usualLow) })}
+                  </>
+                )}
               </span>
             </>
           ) : (

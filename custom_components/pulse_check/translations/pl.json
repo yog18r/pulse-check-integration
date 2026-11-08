@@ -139,7 +139,7 @@
       "fields": {
         "device_id": {
           "name": "Urządzenie",
-          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+          "description": "Identyfikator urządzenia lub identyfikator encji, która nie ma urządzenia."
         },
         "days": {
           "name": "Dni",
@@ -157,7 +157,7 @@
       "fields": {
         "device_id": {
           "name": "Urządzenie",
-          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+          "description": "Identyfikator urządzenia lub identyfikator encji, która nie ma urządzenia."
         }
       }
     },
@@ -167,7 +167,7 @@
       "fields": {
         "device_id": {
           "name": "Urządzenie",
-          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+          "description": "Identyfikator urządzenia lub identyfikator encji, która nie ma urządzenia."
         },
         "name": {
           "name": "Wyświetlana nazwa",
@@ -209,7 +209,7 @@
       "fields": {
         "device_id": {
           "name": "Urządzenie",
-          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+          "description": "Identyfikator urządzenia lub identyfikator encji, która nie ma urządzenia."
         },
         "battery_type": {
           "name": "Typ baterii",
@@ -223,7 +223,7 @@
       "fields": {
         "device_id": {
           "name": "Urządzenie",
-          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+          "description": "Identyfikator urządzenia lub identyfikator encji, która nie ma urządzenia."
         }
       }
     },
@@ -233,7 +233,7 @@
       "fields": {
         "device_id": {
           "name": "Urządzenie",
-          "description": "Identyfikator urządzenia lub identyfikator encji sensora baterii, który nie ma urządzenia."
+          "description": "Identyfikator urządzenia lub identyfikator encji, która nie ma urządzenia."
         }
       }
     },
@@ -286,7 +286,7 @@
         "name": "Milczące"
       },
       "next_to_run_out": {
-        "name": "Następna do wyczerpania"
+        "name": "Następna do wymiany"
       },
       "device_days_left": {
         "name": "Pozostałe dni baterii"

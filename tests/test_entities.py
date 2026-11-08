@@ -39,7 +39,7 @@ async def test_counts_match_the_golden_summary(
     assert state_of("sensor.pulse_check_critical_batteries") == "3"
     assert state_of("binary_sensor.pulse_check_problem") == "on"
     # No recorder in the test instance, so no drain estimates yet.
-    assert state_of("sensor.pulse_check_next_to_run_out") == "unknown"
+    assert state_of("sensor.pulse_check_next_to_replace") == "unknown"
 
 
 async def test_problem_is_off_when_all_is_well(

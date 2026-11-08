@@ -2,8 +2,9 @@ blueprint:
   name: Pulse Check transition notification
   description: >
     Send a notification when Pulse Check reports that a device entered or left a
-    state: went offline, went quiet, or its battery dropped to warning or
-    critical. Pulse Check fires a `pulse_check_transition` event for every such
+    state: went offline (or unavailable, for a service or an entity with no
+    device), went quiet, is no longer provided by its integration, or its
+    battery dropped to warning or critical. Pulse Check fires a `pulse_check_transition` event for every such
     change whatever its own notification settings, so this blueprint lets you
     route them however you like.
   domain: automation

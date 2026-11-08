@@ -139,7 +139,7 @@
       "fields": {
         "device_id": {
           "name": "Appareil",
-          "description": "L'ID de l'appareil, ou l'ID d'entité d'un capteur de batterie sans appareil."
+          "description": "L'ID de l'appareil, ou l'ID d'entité d'une entité sans appareil."
         },
         "days": {
           "name": "Jours",
@@ -157,7 +157,7 @@
       "fields": {
         "device_id": {
           "name": "Appareil",
-          "description": "L'ID de l'appareil, ou l'ID d'entité d'un capteur de batterie sans appareil."
+          "description": "L'ID de l'appareil, ou l'ID d'entité d'une entité sans appareil."
         }
       }
     },
@@ -167,7 +167,7 @@
       "fields": {
         "device_id": {
           "name": "Appareil",
-          "description": "L'ID de l'appareil, ou l'ID d'entité d'un capteur de batterie sans appareil."
+          "description": "L'ID de l'appareil, ou l'ID d'entité d'une entité sans appareil."
         },
         "name": {
           "name": "Nom affiché",
@@ -209,7 +209,7 @@
       "fields": {
         "device_id": {
           "name": "Appareil",
-          "description": "L'ID de l'appareil, ou l'ID d'entité d'un capteur de batterie sans appareil."
+          "description": "L'ID de l'appareil, ou l'ID d'entité d'une entité sans appareil."
         },
         "battery_type": {
           "name": "Type de batterie",
@@ -223,7 +223,7 @@
       "fields": {
         "device_id": {
           "name": "Appareil",
-          "description": "L'ID de l'appareil, ou l'ID d'entité d'un capteur de batterie sans appareil."
+          "description": "L'ID de l'appareil, ou l'ID d'entité d'une entité sans appareil."
         }
       }
     },
@@ -233,7 +233,7 @@
       "fields": {
         "device_id": {
           "name": "Appareil",
-          "description": "L'ID de l'appareil, ou l'ID d'entité d'un capteur de batterie sans appareil."
+          "description": "L'ID de l'appareil, ou l'ID d'entité d'une entité sans appareil."
         }
       }
     },
@@ -286,7 +286,7 @@
         "name": "Silencieux"
       },
       "next_to_run_out": {
-        "name": "Prochaine à s'épuiser"
+        "name": "Prochaine à remplacer"
       },
       "device_days_left": {
         "name": "Jours de batterie restants"

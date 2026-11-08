@@ -76,6 +76,7 @@ export const en = {
   'row.limit': 'limit {hours}',
   'row.left': '{days} left',
   'row.charge_in': 'charge in {days}',
+  'row.usual_low': 'usually lowest {level}%',
   'row.year_plus': 'more than a year left',
   'row.estimate_high': '{basis} (high confidence)',
   'row.estimate_medium': '{basis} (medium confidence)',
@@ -117,7 +118,6 @@ export const en = {
   'unit.days': '{n}d',
   'unit.weeks': '{n}w',
   'unit.months': '{n}mo',
-  'days_left.under_day': 'under a day',
   'days_left.year_plus': '1y+',
 
   // -- the Actions tab --------------------------------------------------------

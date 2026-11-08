@@ -67,6 +67,7 @@ export const nl: Catalog = {
   'row.limit': 'grens {hours}',
   'row.left': 'nog {days}',
   'row.charge_in': 'opladen over {days}',
+  'row.usual_low': 'meestal laagste {level}%',
   'row.year_plus': 'nog meer dan een jaar',
   'row.estimate_high': '{basis} (hoge betrouwbaarheid)',
   'row.estimate_medium': '{basis} (gemiddelde betrouwbaarheid)',
@@ -107,7 +108,6 @@ export const nl: Catalog = {
   'unit.days': '{n} d',
   'unit.weeks': '{n} wk',
   'unit.months': '{n} mnd',
-  'days_left.under_day': 'minder dan een dag',
   'days_left.year_plus': '1 jr+',
 
   // -- the Actions tab --------------------------------------------------------

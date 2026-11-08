@@ -26,7 +26,8 @@ export interface BatteryHistory {
 
 /** "~12d", "~3w", "~4mo": rough on purpose. */
 export function formatDaysLeft(days: number, t: Translator = EN): string {
-  if (days < 1) return t.t('days_left.under_day');
+  // A battery charged every day is due within hours.
+  if (days < 1) return `~${t.t('unit.hours', { n: Math.max(1, Math.round(days * 24)) })}`;
   if (days < 14) return `~${t.t('unit.days', { n: Math.round(days) })}`;
   if (days < 60) return `~${t.t('unit.weeks', { n: Math.round(days / 7) })}`;
   if (days < 365) return `~${t.t('unit.months', { n: Math.round(days / 30) })}`;

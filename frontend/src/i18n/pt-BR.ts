@@ -65,6 +65,7 @@ export const ptBR: Catalog = {
   'row.limit': 'limite {hours}',
   'row.left': 'restam {days}',
   'row.charge_in': 'carregar em {days}',
+  'row.usual_low': 'normalmente chega a {level}%',
   'row.year_plus': 'mais de um ano restante',
   'row.estimate_high': '{basis} (confiança alta)',
   'row.estimate_medium': '{basis} (confiança média)',
@@ -104,7 +105,6 @@ export const ptBR: Catalog = {
   'unit.days': '{n}d',
   'unit.weeks': '{n}sem',
   'unit.months': '{n}mês',
-  'days_left.under_day': 'menos de um dia',
   'days_left.year_plus': '1a+',
 
   'actions.to_buy': 'Comprar:',

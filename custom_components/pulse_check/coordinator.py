@@ -102,7 +102,7 @@ class PulseCheckData:
     actions: ActionList
     config: CoreConfig
     computed_at: datetime
-    # The battery device with the fewest days left, when any has an estimate.
+    # The replaceable battery with the fewest days left, when any has an estimate.
     next_to_run_out: DeviceHealth | None = None
     # The devices by id, for entities that look up their own.
     by_id: dict[str, DeviceHealth] = field(default_factory=dict)
@@ -247,8 +247,14 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
     def _attach_drain_estimates(
         self, devices: list[DeviceHealth], now: datetime
     ) -> DeviceHealth | None:
-        """Copy the battery insight onto each device; return the soonest to run out."""
+        """Copy the battery insight onto each device; return the next to replace.
+
+        That is the replaceable battery with the fewest days left, "more than
+        a year" included, the lowest level breaking a tie. Batteries that get
+        charged are left out: a phone needing a charge tonight is not news.
+        """
         soonest: DeviceHealth | None = None
+        soonest_key: tuple[float, float] | None = None
         for device in devices:
             battery = device.battery
             if battery is None:
@@ -257,6 +263,7 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             if insight is not None:
                 device.battery_kind = insight.kind
                 device.unusual = insight.unusual
+                device.usual_low = insight.usual_low
                 estimate = insight.estimate
                 if estimate is not None:
                     device.days_left = estimate.days_left
@@ -267,9 +274,9 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
                         kind=estimate.kind,
                         open_ended=estimate.open_ended,
                     )
-                    sooner = soonest is None or (soonest.days_left or 0) > estimate.days_left
-                    if not estimate.open_ended and sooner:
-                        soonest = device
+                    key = (estimate.days_left, battery.level if battery.level is not None else 100)
+                    if estimate.kind == "replace" and (soonest_key is None or key < soonest_key):
+                        soonest, soonest_key = device, key
             self.replacements.annotate(device, now)
         return soonest
 

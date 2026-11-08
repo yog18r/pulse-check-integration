@@ -91,6 +91,7 @@ export const pl: Catalog = {
   'row.limit': 'limit {hours}',
   'row.left': 'zostało {days}',
   'row.charge_in': 'ładowanie za {days}',
+  'row.usual_low': 'zwykle najniżej {level}%',
   'row.year_plus': 'ponad rok',
   'row.estimate_high': '{basis} (wysoka pewność)',
   'row.estimate_medium': '{basis} (średnia pewność)',
@@ -142,7 +143,6 @@ export const pl: Catalog = {
   'unit.days': '{n} d',
   'unit.weeks': '{n} tydz.',
   'unit.months': '{n} mies.',
-  'days_left.under_day': 'poniżej dnia',
   'days_left.year_plus': '1 rok+',
 
   'actions.to_buy': 'Do kupienia:',

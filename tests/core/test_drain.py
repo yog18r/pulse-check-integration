@@ -11,7 +11,6 @@ from custom_components.pulse_check.core.drain import (
     DrainPoint,
     daily_means,
     estimate_drain,
-    format_days_left,
     rows_to_points,
 )
 
@@ -72,14 +71,6 @@ def test_never_returns_negative_days_left() -> None:
     estimate = estimate_drain(series(5, 10, -2), 0)
     assert estimate is not None
     assert estimate.days_left == 0
-
-
-def test_format_days_left_rounds_to_a_friendly_unit() -> None:
-    assert format_days_left(0.4) == "under a day"
-    assert format_days_left(3.6) == "~4d"
-    assert format_days_left(20) == "~3w"
-    assert format_days_left(100) == "~3mo"
-    assert format_days_left(900) == "1y+"
 
 
 def test_rows_to_points_reads_recorder_statistics() -> None:

@@ -6,7 +6,7 @@ The dashboard card for Pulse Check, in TypeScript and React. Vite builds it into
 
 ## How it talks to the integration
 
-The integration registers two websocket commands. The card subscribes to `pulse_check/subscribe` and receives a full snapshot immediately and again after every recompute (about ten seconds after a relevant state change, and at least every five minutes): one entry per device with its battery, offline, quiet and severity facts, days left, the summary counts, the action list, the thresholds in force and the per-device settings. Sparklines come from `pulse_check/history`, which reads the recorder on the server. Snooze, unsnooze, Done and the editor's per-device settings are service calls; the next snapshot shows the result.
+The integration registers three websocket commands. The card subscribes to `pulse_check/subscribe` and receives a full snapshot immediately and again after every recompute (about ten seconds after a relevant state change, and at least every five minutes): one entry per device with its battery, offline, quiet and severity facts, days left, the summary counts, the action list, the thresholds in force and the per-device settings. Sparklines come from `pulse_check/histories`, many batteries in one request, which reads the recorder on the server (`pulse_check/history` does one). Snooze, unsnooze, Done, Undo and the editor's per-device settings are service calls; the next snapshot shows the result, and a refused call shows a short notice instead. The subscription retries while Home Assistant starts and subscribes again when the connection comes back.
 
 The browser never queries the recorder or analyses entities. A new `hass` object from Home Assistant does not re-render the card; only a new snapshot does.
 

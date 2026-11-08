@@ -139,7 +139,7 @@
       "fields": {
         "device_id": {
           "name": "Apparaat",
-          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+          "description": "De apparaat-ID, of de entiteits-ID van een entiteit zonder apparaat."
         },
         "days": {
           "name": "Dagen",
@@ -157,7 +157,7 @@
       "fields": {
         "device_id": {
           "name": "Apparaat",
-          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+          "description": "De apparaat-ID, of de entiteits-ID van een entiteit zonder apparaat."
         }
       }
     },
@@ -167,7 +167,7 @@
       "fields": {
         "device_id": {
           "name": "Apparaat",
-          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+          "description": "De apparaat-ID, of de entiteits-ID van een entiteit zonder apparaat."
         },
         "name": {
           "name": "Weergavenaam",
@@ -209,7 +209,7 @@
       "fields": {
         "device_id": {
           "name": "Apparaat",
-          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+          "description": "De apparaat-ID, of de entiteits-ID van een entiteit zonder apparaat."
         },
         "battery_type": {
           "name": "Batterijtype",
@@ -223,7 +223,7 @@
       "fields": {
         "device_id": {
           "name": "Apparaat",
-          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+          "description": "De apparaat-ID, of de entiteits-ID van een entiteit zonder apparaat."
         }
       }
     },
@@ -233,7 +233,7 @@
       "fields": {
         "device_id": {
           "name": "Apparaat",
-          "description": "De apparaat-ID, of de entiteits-ID van een batterijsensor zonder apparaat."
+          "description": "De apparaat-ID, of de entiteits-ID van een entiteit zonder apparaat."
         }
       }
     },
@@ -286,7 +286,7 @@
         "name": "Stil"
       },
       "next_to_run_out": {
-        "name": "Als eerste leeg"
+        "name": "Volgende te vervangen"
       },
       "device_days_left": {
         "name": "Batterij dagen resterend"

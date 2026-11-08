@@ -139,7 +139,7 @@
       "fields": {
         "device_id": {
           "name": "Zařízení",
-          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+          "description": "ID zařízení nebo ID entity, která nemá zařízení."
         },
         "days": {
           "name": "Dny",
@@ -157,7 +157,7 @@
       "fields": {
         "device_id": {
           "name": "Zařízení",
-          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+          "description": "ID zařízení nebo ID entity, která nemá zařízení."
         }
       }
     },
@@ -167,7 +167,7 @@
       "fields": {
         "device_id": {
           "name": "Zařízení",
-          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+          "description": "ID zařízení nebo ID entity, která nemá zařízení."
         },
         "name": {
           "name": "Zobrazovaný název",
@@ -209,7 +209,7 @@
       "fields": {
         "device_id": {
           "name": "Zařízení",
-          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+          "description": "ID zařízení nebo ID entity, která nemá zařízení."
         },
         "battery_type": {
           "name": "Typ baterie",
@@ -223,7 +223,7 @@
       "fields": {
         "device_id": {
           "name": "Zařízení",
-          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+          "description": "ID zařízení nebo ID entity, která nemá zařízení."
         }
       }
     },
@@ -233,7 +233,7 @@
       "fields": {
         "device_id": {
           "name": "Zařízení",
-          "description": "ID zařízení nebo ID entity bateriového senzoru, který nemá zařízení."
+          "description": "ID zařízení nebo ID entity, která nemá zařízení."
         }
       }
     },
@@ -286,7 +286,7 @@
         "name": "Neozývá se"
       },
       "next_to_run_out": {
-        "name": "Vybije se jako další"
+        "name": "Další k výměně"
       },
       "device_days_left": {
         "name": "Zbývající dny baterie"

@@ -199,6 +199,8 @@ export function parseDevice(raw: unknown): DeviceHealth | undefined {
   if (daysLeft !== undefined) device.daysLeft = daysLeft;
   const estimate = parseEstimate(raw.estimate);
   if (estimate) device.estimate = estimate;
+  const usualLow = num(raw.usualLow);
+  if (usualLow !== undefined) device.usualLow = usualLow;
   const batteryKind = str(raw.batteryKind);
   if (batteryKind === 'charged' || batteryKind === 'replaceable' || batteryKind === 'unknown') {
     device.batteryKind = batteryKind;

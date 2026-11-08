@@ -111,13 +111,18 @@ stand-in such as "assume a year" was considered and rejected.
 hourly means) into cycles at a rise of 15+ points within 48 h, at a
 `mark_replaced` / `mark_charged` call, or when a charging signal turns on. A
 lone dip far below both neighbours is a glitch, not a cycle. Each battery
-gets a kind: **charged** (phone, marked rechargeable, charging seen, or
-cycles shorter than 30 days), **replaceable** (every cycle began near full),
+gets a kind: **charged** (phone, marked rechargeable, charging seen, two
+or more charges in the hourly history, or cycles shorter than 30 days), **replaceable** (every cycle began near full),
 or **unknown** (no estimate). Replaceable batteries are estimated from the
 current cycle's trend when it spans a week, else from completed cycles, with
 "flat for 90+ days" and "slow drain over a fortnight" tiers that read "more
-than a year" where appropriate. Charged batteries get "charge in ~N days"
-until the warning level, suppressed under a day, so phones show nothing.
+than a year" where appropriate (a trend beyond a year too). Charged
+batteries get "charge in ~N" until the warning level, in hours for one
+charged every day, plus the usual low before a charge; one that never ran
+down to the warning level lately gets the usual low alone. A charge in the
+hourly history is a rise of 15+ points from a low however gradual, held
+for more than one reading, and not a glitch that falls or rises suddenly
+and goes straight back. Phones and robot vacuums are charged by type.
 Every estimate carries a basis and a confidence. "Unusual" flags apply only
 to replaceable batteries, comparing the current cycle with the device's own
 past cycles like for like, or on a sudden 20-point drop.
@@ -129,8 +134,9 @@ past cycles like for like, or on a sudden 20-point drop.
   `battery_count`, `rechargeable`, `notify_policy`, `sparkline_days`),
   snoozes, notification state, and replacement/charge history with cycle
   statistics.
-- **Entities**: attention count with a summary attribute; low, critical,
-  offline and quiet counts; next to run out; a problem binary sensor;
+- **Entities**: attention count with summary and shopping-list attributes; low, critical,
+  offline and quiet counts; next to replace (replaceable batteries only);
+  a problem binary sensor;
   a maintenance mode switch; optional per-device diagnostic sensors. Nothing time-stamped goes on an
   entity, so an unchanged result writes no recorder row.
 - **Notifications**: once per transition (enters warning, enters critical,
@@ -147,11 +153,13 @@ past cycles like for like, or on a sudden 20-point drop.
   restart are kept for a device not yet seen: no false resolved, and
   reminders carry on. Offline and quiet
   messages are limited per integration (default 3 an hour); the rest wait
-  an hour and go out as one message listing those still wrong. Maintenance mode holds
+  an hour and go out as one message listing those still wrong. A message
+  no target accepts is retried every 15 minutes, four times; a missing or
+  failing target raises a repair issue. Runs never overlap (a lock). Maintenance mode holds
   messages back for a set time and ends with one summary.
 - **Services**: `snooze`, `unsnooze`, `set_device_settings`,
   `mark_replaced`, `mark_charged`, `undo_mark` (takes back the latest
-  manual mark and the cycle it closed; automatic detections stay),
+  mark, by hand or detected, and the cycle it closed),
   `refresh`, `maintenance_mode`.
 - **Websocket API**: `pulse_check/subscribe` streams the snapshot (devices,
   summary, actions, config, device settings, the installed `version`) and
@@ -373,4 +381,4 @@ entities with no device.
   and the same `hacs.json`. Submission is a pull request adding
   `yog18r/pulse-check-integration` to its integration list, with links to
   the latest release and to passing HACS action and hassfest runs. Reviews
-  take months.
+  take months. Submitted on 2026-11-08 as hacs/default#13657.

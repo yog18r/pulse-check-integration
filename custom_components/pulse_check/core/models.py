@@ -346,6 +346,8 @@ class DeviceHealth:
     # True when the integration no longer provides the entities that would
     # decide offline: stale configuration, not a fault. Never also offline.
     is_not_provided: bool = False
+    # For a battery charged often: the level it usually falls to before a charge.
+    usual_low: float | None = None
     # Hardware, a service device, or an entity with no device. For the last
     # two, offline reads as "unavailable".
     source: Source = "device"
@@ -390,6 +392,8 @@ class DeviceHealth:
             out["isNotProvided"] = True
         if self.source != "device":
             out["source"] = self.source
+        if self.usual_low is not None:
+            out["usualLow"] = round(self.usual_low)
         return out
 
 

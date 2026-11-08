@@ -71,6 +71,7 @@ export const de: Catalog = {
   'row.limit': 'Grenze {hours}',
   'row.left': 'noch {days}',
   'row.charge_in': 'laden in {days}',
+  'row.usual_low': 'fällt meist auf {level} %',
   'row.year_plus': 'noch mehr als ein Jahr',
   'row.estimate_high': '{basis} (hohe Sicherheit)',
   'row.estimate_medium': '{basis} (mittlere Sicherheit)',
@@ -111,7 +112,6 @@ export const de: Catalog = {
   'unit.days': '{n} Tg.',
   'unit.weeks': '{n} Wo.',
   'unit.months': '{n} Mon.',
-  'days_left.under_day': 'unter einem Tag',
   'days_left.year_plus': '1 J.+',
 
   // -- the Actions tab --------------------------------------------------------

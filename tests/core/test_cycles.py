@@ -96,17 +96,23 @@ def test_the_current_cycle_wins_once_it_has_a_week_of_decline() -> None:
 # --- a phone charged nightly: no estimate -----------------------------------
 
 
-def test_a_phone_charged_every_night_gets_nothing() -> None:
+def test_a_phone_charged_every_night_gets_hours_and_its_usual_low() -> None:
     history: list[DrainPoint] = []
     for day in range(14, 0, -1):
         for hour in range(24):
-            # 100 % at 7 am, 2 points an hour, charged overnight.
-            level = max(100 - 2 * ((hour - 7) % 24), 40)
+            # 100 % at 7 am, 4 points an hour, down to 25 % before its overnight charge.
+            level = max(100 - 4 * ((hour - 7) % 24), 25)
             history.append(DrainPoint(time=NOW - day * DAY + hour * HOUR, level=level))
     means = [DrainPoint(time=NOW - d * DAY, level=70) for d in range(14, 0, -1)]
-    insight = assess(means, history, 70, NOW, warning=30, mobile_app=True)
+    # The last hourly mean was 36 %; it has drained a little more since.
+    insight = assess(means, history, 34, NOW, warning=30, mobile_app=True)
     assert insight.kind == "charged"
-    assert insight.estimate is None
+    assert insight.usual_low == 25
+    estimate = insight.estimate
+    assert estimate is not None
+    assert estimate.kind == "charge"
+    # 34 % down to 30 % at 4 points an hour: about an hour.
+    assert 0.5 < estimate.days_left * 24 < 2
 
     # Even without the mobile_app hint, the short cycles give it away.
     cycles = segment_cycles(history)

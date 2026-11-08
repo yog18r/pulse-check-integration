@@ -139,7 +139,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+          "description": "O ID do dispositivo, ou o ID de uma entidade que não tem dispositivo."
         },
         "days": {
           "name": "Dias",
@@ -157,7 +157,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+          "description": "O ID do dispositivo, ou o ID de uma entidade que não tem dispositivo."
         }
       }
     },
@@ -167,7 +167,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+          "description": "O ID do dispositivo, ou o ID de uma entidade que não tem dispositivo."
         },
         "name": {
           "name": "Nome de exibição",
@@ -209,7 +209,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+          "description": "O ID do dispositivo, ou o ID de uma entidade que não tem dispositivo."
         },
         "battery_type": {
           "name": "Tipo de bateria",
@@ -223,7 +223,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+          "description": "O ID do dispositivo, ou o ID de uma entidade que não tem dispositivo."
         }
       }
     },
@@ -233,7 +233,7 @@
       "fields": {
         "device_id": {
           "name": "Dispositivo",
-          "description": "O ID do dispositivo, ou o ID da entidade de um sensor de bateria que não tem dispositivo."
+          "description": "O ID do dispositivo, ou o ID de uma entidade que não tem dispositivo."
         }
       }
     },
@@ -286,7 +286,7 @@
         "name": "Inativos"
       },
       "next_to_run_out": {
-        "name": "Próxima a acabar"
+        "name": "Próxima a trocar"
       },
       "device_days_left": {
         "name": "Dias restantes da bateria"

@@ -22,7 +22,7 @@ from itertools import pairwise
 from statistics import median
 from typing import TYPE_CHECKING, Literal
 
-from .drain import DrainPoint, estimate_drain
+from .drain import MIN_SPAN, DrainPoint, estimate_drain
 from .models import as_utc
 
 if TYPE_CHECKING:
@@ -61,8 +61,22 @@ UNUSUAL_FACTOR = 2.0
 # Cycles compared for unusual drain must span at least this long: a few
 # hours of use say nothing about how fast a battery drains.
 MIN_COMPARE_DAYS = 2.0
-# Charge estimates shorter than this are daily chargers: nothing to say.
-MIN_CHARGE_DAYS = 1.0
+# A charge is a rise of RISE_POINTS from a low within RISE_WINDOW, found
+# in the hourly history: a home battery charging 10 points an hour never
+# rises 15 between two samples, but does from where it started. After a
+# charge, the level must fall this far below its peak before the next
+# rise counts, so one long charge is one charge.
+REARM_POINTS = 5
+# A charge stays up: at least this many samples at or above the rise.
+MIN_CHARGE_SAMPLES = 2
+# This many charges in the hourly history (a fortnight) make a battery one
+# that gets charged, whatever its daily means say.
+FREQUENT_CHARGES = 2
+# The usual low: the median level before the most recent charges.
+USUAL_LOW_CHARGES = 7
+# A battery charged that often drains in hours, so its discharge since the
+# last charge is worth a fit once it covers this long.
+MIN_DISCHARGE_SPAN = timedelta(hours=3)
 
 type BatteryKind = Literal["charged", "replaceable", "unknown"]
 type Confidence = Literal["high", "medium", "low"]
@@ -113,6 +127,14 @@ class Estimate:
 
 
 @dataclass(frozen=True, slots=True)
+class Charge:
+    """One charge: the low it started from and the peak it reached."""
+
+    low: DrainPoint
+    peak: DrainPoint
+
+
+@dataclass(frozen=True, slots=True)
 class BatteryInsight:
     """Everything the cycles say about one battery."""
 
@@ -121,6 +143,10 @@ class BatteryInsight:
     completed_cycles: int
     median_cycle_days: float | None
     unusual: str | None
+    # For a battery charged often: the level it usually falls to before a
+    # charge (the median of the last few lows, from hourly means, so a few
+    # points above the very lowest reading).
+    usual_low: float | None = None
 
 
 def _ordered(points: Iterable[DrainPoint]) -> list[DrainPoint]:
@@ -179,21 +205,91 @@ def segment_cycles(
     ]
 
 
+def find_charges(points: Iterable[DrainPoint]) -> list[Charge]:
+    """Every charge in the samples: a rise of RISE_POINTS from a low within RISE_WINDOW.
+
+    Unlike a cycle boundary, the rise may be spread over many samples, as
+    a home battery's is. One charge ends once the level has fallen
+    REARM_POINTS below its peak; a charge still at its peak counts too.
+    A real charge stays up for more than one sample: a lone high reading
+    (a Zigbee device saying 100 % once as it rejoins) is not one.
+
+    Nor is a reading glitch that lasts a few hours, as one does in hourly
+    means until the device next reports: a sudden fall that comes back to
+    where it was (a lock reading 42 % for three hours, then 61 % again),
+    or a sudden rise that drops straight back (100 % for three hours,
+    then 60 % again). A real charge climbs well above where the battery
+    was before it ran down, and drains away gradually.
+    """
+    charges: list[Charge] = []
+    low: DrainPoint | None = None
+    # The level before a sudden fall to the current low, if it fell suddenly.
+    fell_from: float | None = None
+    start: DrainPoint | None = None  # the low of the charge under way
+    start_fell_from: float | None = None
+    peak: DrainPoint | None = None
+    high = 0  # samples of the charge under way that stayed risen
+    previous: DrainPoint | None = None
+
+    def keep(dropped_back_to: DrainPoint | None) -> bool:
+        """Whether the charge under way was real, not a glitch."""
+        assert start is not None and peak is not None
+        if high < MIN_CHARGE_SAMPLES:
+            return False
+        if start_fell_from is not None and peak.level - start_fell_from <= REARM_POINTS:
+            return False  # a dip that came back to where it was
+        return not (
+            dropped_back_to is not None and dropped_back_to.level - start.level <= REARM_POINTS
+        )  # a spike that dropped straight back
+
+    for point in remove_glitches(points):
+        sudden_fall = previous is not None and previous.level - point.level >= GLITCH_POINTS
+        if start is not None and peak is not None:
+            if point.level - start.level >= RISE_POINTS:
+                high += 1
+            if point.level >= peak.level:
+                peak = point
+            elif peak.level - point.level >= REARM_POINTS:
+                if keep(point if sudden_fall else None):
+                    charges.append(Charge(low=start, peak=peak))
+                start = peak = None
+                # The new low may itself be the bottom of a sudden dip.
+                low = point
+                fell_from = previous.level if sudden_fall and previous is not None else None
+        else:
+            stale = low is not None and as_utc(point.time) - as_utc(low.time) > RISE_WINDOW
+            if low is None or point.level <= low.level or stale:
+                if sudden_fall and previous is not None:
+                    fell_from = previous.level
+                elif low is None or stale or abs(point.level - low.level) > 1:
+                    fell_from = None  # a gradual decline, not a dip
+                low = point
+            elif point.level - low.level >= RISE_POINTS:
+                start, start_fell_from, peak, high = low, fell_from, point, 1
+        previous = point
+    if start is not None and peak is not None and keep(None):
+        charges.append(Charge(low=start, peak=peak))
+    return charges
+
+
 def classify_battery(
     cycles: Sequence[Cycle],
     *,
     mobile_app: bool = False,
     rechargeable: bool = False,
     charging_signal: bool = False,
+    frequent_charges: bool = False,
 ) -> BatteryKind:
     """Charged, replaceable, or unknown.
 
-    Charged: the user said so, it is a phone, it has shown a charging
-    signal, or its completed cycles are short (median under 30 days).
+    Charged: the user said so, it is a phone or a robot vacuum, it has shown a charging
+    signal, its hourly history shows it charged at least twice, or its
+    completed cycles are short (median under 30 days). Daily means alone
+    cannot see a daily charge: every day averages out the same.
     Replaceable: every cycle so far began near full, which is what a fresh
     cell looks like. Anything else is unknown, and gets no estimate.
     """
-    if mobile_app or rechargeable or charging_signal:
+    if mobile_app or rechargeable or charging_signal or frequent_charges:
         return "charged"
     completed = cycles[:-1]
     if len(completed) >= 2 and median(c.days for c in completed) < SHORT_CYCLE_DAYS:
@@ -220,8 +316,11 @@ def estimate_replaceable(cycles: Sequence[Cycle], level: float) -> Estimate | No
     if current.days >= MIN_TREND_DAYS:
         fit = estimate_drain(current.points, level)
         if fit is not None:
+            # Beyond a year a fit is as uncertain as any other way of
+            # saying so, and reads the same: "more than a year".
             return Estimate(
-                days_left=fit.days_left,
+                days_left=min(fit.days_left, OPEN_ENDED_DAYS),
+                open_ended=fit.days_left > OPEN_ENDED_DAYS,
                 basis="trend over current cycle",
                 confidence="high" if fit.samples >= 14 else "medium",
                 kind="replace",
@@ -262,29 +361,57 @@ def estimate_replaceable(cycles: Sequence[Cycle], level: float) -> Estimate | No
 
 
 def estimate_charged(
-    current_points: Sequence[DrainPoint], level: float, warning: float
+    current_points: Sequence[DrainPoint],
+    level: float,
+    warning: float,
+    *,
+    min_span: timedelta | None = None,
 ) -> Estimate | None:
-    """Days until a charged battery reaches the warning level.
+    """Days (often a fraction of one) until a charged battery reaches the warning level.
 
-    Fitted over the samples since the last charge. A device charged every
-    day never spans enough to fit, and anything under a day is suppressed:
-    nobody needs to be told their phone wants charging tonight.
+    Fitted over the samples since the last charge. For a battery charged
+    every day, `min_span` is a few hours and the answer is in hours; the
+    card shows it, and nothing is ever notified from it.
     """
     if level <= warning:
         return None
-    fit = estimate_drain(current_points, level)
+    fit = estimate_drain(current_points, level, min_span or MIN_SPAN)
     if fit is None:
         return None
-    days = (level - warning) / fit.rate_per_day
-    if days < MIN_CHARGE_DAYS:
-        return None
     return Estimate(
-        days_left=days,
+        days_left=(level - warning) / fit.rate_per_day,
         basis="until charge needed",
         confidence="medium" if fit.samples >= 24 else "low",
         kind="charge",
         rate_per_day=fit.rate_per_day,
     )
+
+
+def since_last_charge(
+    points: Sequence[DrainPoint], charges: Sequence[Charge], marks: Sequence[datetime] = ()
+) -> list[DrainPoint]:
+    """The discharge since the latest charge; empty while it is charging again.
+
+    It starts at the later of the latest charge's peak and the latest
+    mark (a mark_charged after a small top-up), then skips the flat top a
+    battery sits at while it is still being topped up or held full. If
+    the level has since risen again, a new charge is under way and there
+    is no discharge to measure.
+    """
+    begin = as_utc(charges[-1].peak.time) if charges else None
+    for mark in marks:
+        if begin is None or as_utc(mark) > begin:
+            begin = as_utc(mark)
+    segment = [p for p in points if begin is None or as_utc(p.time) >= begin]
+    if not segment:
+        return []
+    top = segment[0].level
+    while len(segment) > 1 and segment[1].level >= top - 1:
+        segment = segment[1:]
+    lowest = min(p.level for p in segment)
+    if segment[-1].level - lowest >= REARM_POINTS:
+        return []  # charging again
+    return segment
 
 
 def _span_rate(points: Sequence[DrainPoint]) -> float | None:
@@ -351,15 +478,37 @@ def assess(
     """The whole picture for one battery, from its history and what we know about it."""
     live = DrainPoint(time=now, level=level)
     marks = tuple(marks)
+    fine_points = remove_glitches([*hourly, live])
+    charges = find_charges(fine_points)
+    frequent = len(charges) >= FREQUENT_CHARGES
+    lows = [c.low.level for c in charges[-USUAL_LOW_CHARGES:]]
+    usual_low = median(lows) if frequent else None
     cycles = segment_cycles([*daily, live], marks)
     kind = classify_battery(
-        cycles, mobile_app=mobile_app, rechargeable=rechargeable, charging_signal=charging_signal
+        cycles,
+        mobile_app=mobile_app,
+        rechargeable=rechargeable,
+        charging_signal=charging_signal,
+        frequent_charges=frequent,
     )
     estimate: Estimate | None = None
     if kind == "replaceable":
         estimate = estimate_replaceable(cycles, level)
+    elif kind == "charged" and frequent and min(lows) > warning:
+        # Charged often and not once run down to the warning level lately (a
+        # home battery topped up by solar every day): a time to the warning
+        # level would forecast something that does not happen. The usual low
+        # says what does.
+        estimate = None
+    elif kind == "charged" and (charges or marks):
+        estimate = estimate_charged(
+            since_last_charge(fine_points, charges, marks),
+            level,
+            warning,
+            min_span=MIN_DISCHARGE_SPAN if frequent else None,
+        )
     elif kind == "charged":
-        fine = segment_cycles([*hourly, live], marks)
+        fine = segment_cycles(fine_points, marks)
         if fine:
             estimate = estimate_charged(fine[-1].points, level, warning)
     completed = cycles[:-1]
@@ -369,4 +518,5 @@ def assess(
         completed_cycles=len(completed),
         median_cycle_days=median(c.days for c in completed) if completed else None,
         unusual=unusual_behaviour(cycles, now, kind),
+        usual_low=usual_low,
     )

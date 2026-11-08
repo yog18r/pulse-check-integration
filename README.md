@@ -29,8 +29,8 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 - **Unavailable** services and entities with no device: AdGuard Home or Sun dropping out, a template sensor whose source broke, an automation that failed to load
 - **Quiet** devices: no report within a threshold, judged per device and per integration
 - **Actions**: "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", and a to-buy total per battery type
-- **Notifications** once per transition, not once per update: a device goes offline, goes quiet, or drops to warning or critical. Instant with reminders, or collected into a daily or weekly digest, chosen per device
-- **Days left** from the recorder's history, **replacement tracking** with cycle statistics, and a flag when a battery drains much faster than it used to
+- **Notifications** once per transition, not once per update: a device goes offline, goes quiet, or drops to warning or critical. Instant with reminders, or collected into a daily or weekly digest, chosen per device. A limit per integration keeps an outage to a few messages, failed sends are retried, and a broken notify target shows up under Repairs
+- **Days left** from the recorder's history (hours for a battery charged every day, with the level it usually falls to), **replacement tracking** with cycle statistics, and a flag when a battery drains much faster than it used to
 - **Snooze** a device for a while; snoozes are shared across every browser and user
 - Everything grouped by **device**, not entity, so each physical thing appears once
 - In **ten languages**: English, German, French, Spanish, Dutch, Italian, Brazilian Portuguese, Polish, Simplified Chinese and Czech
@@ -86,14 +86,14 @@ type: custom:pulse-check-card
 
 ### How the card gets onto your dashboards
 
-A *dashboard resource* (Settings → Dashboards → ⋮ → Resources) is a script every dashboard loads. On each start the integration serves its card at `/pulse_check/pulse-check-card.js` and makes sure there is exactly one resource for it, of type *JavaScript module*, with the integration's version on the end (`?v=0.1.0`). After an update the version changes, the resource is updated with it, and browsers fetch the new card instead of a cached old one. Removing the integration removes the resource.
+A *dashboard resource* (Settings → Dashboards → ⋮ → Resources) is a script every dashboard loads. On each start the integration serves its card at `/pulse_check/pulse-check-card.js` and makes sure there is exactly one resource for it, of type *JavaScript module*, with the integration's version on the end (`?v=0.2.10`). After an update the version changes, the resource is updated with it, and browsers fetch the new card instead of a cached old one. Removing the integration removes the resource.
 
 If your resources are defined in YAML (`lovelace: resource_mode: yaml`), an integration must not edit them, so Pulse Check logs the line to add instead:
 
 ```yaml
 lovelace:
   resources:
-    - url: /pulse_check/pulse-check-card.js?v=0.1.0
+    - url: /pulse_check/pulse-check-card.js?v=0.2.10
       type: module
 ```
 
@@ -163,12 +163,14 @@ A device's own `notify_policy` (set with the `set_device_settings` service) over
 
 ## The card
 
-- **🔋 Batteries**: every battery-powered device, lowest first (or soonest to run out), with a coloured bar, a trend sparkline, "~12d left", and a note when a battery is draining much faster than it used to
-- **📡 Connectivity**: anything offline, not heard from within its threshold, or no longer provided by its integration
+- **🔋 Batteries**: every battery-powered device, lowest first (or soonest to run out), with a coloured bar, a trend sparkline, "~12d left" (for a battery charged every day, "charge in ~6h · usually lowest 24%", or just "usually lowest 47%" when it never runs down to the warning level, like a home battery topped up by solar), and a note when a battery is draining much faster than it used to
+- **📡 Connectivity**: anything offline, not heard from within its threshold, or no longer provided by its integration, and services or entities with no device that have stopped working (shown as *Unavailable*)
 - **🛠️ Actions** (optional tab): "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", a to-buy total, and a **Done** button that records the replacement. For ten seconds afterwards an **Undo** takes a mistaken tap back
 - **Snooze** a device for 1, 7 or 30 days. Snoozes live in the integration, so every dashboard, phone and notification agrees
 - **Group by** area, integration or device type. Tap a row to open the device in Home Assistant
 - A line under the header while **maintenance mode** holds notifications back, with its end time
+- A **Refresh** prompt after Pulse Check is updated, since a browser tab keeps running the card it loaded
+- A short notice when a snooze, Done or Undo fails (the integration reloading, or no permission), and a warning when the data shown is more than 15 minutes old
 
 The card shows what the integration computed; it analyses nothing itself. What counts as low, how long a device may stay quiet, which devices are ignored and which notifications go out are the integration's options (above). The card's own options are about presentation only, and the visual editor covers all of them:
 
@@ -203,7 +205,7 @@ sparkline_days: 14 # 1 to 365
 
 The integration's filters decide what is monitored at all; a card's `areas`, `integrations` and `device_types` only decide what *that* card shows, so one integration can feed a hallway card, a locks-only card and a whole-house card. The header counts follow the card's filters.
 
-The visual editor also has a **Per-device settings** panel: display name, area, battery type and count, rechargeable, quiet threshold, notification policy and sparkline window for any device. Each change is saved at once through `pulse_check.set_device_settings`, not into the card's YAML, so it applies to every card and to notifications.
+The visual editor also has a **Per-device settings** panel: display name, area, battery type and count, rechargeable, quiet threshold, notification policy and sparkline window for any device, service (such as Sun) or entity with no device. Each change is saved at once through `pulse_check.set_device_settings`, not into the card's YAML, so it applies to every card and to notifications.
 
 ## Entities
 
@@ -212,9 +214,9 @@ The visual editor also has a **Per-device settings** panel: display name, area, 
 | `sensor.pulse_check_attention` | Number of devices that need attention (warning or critical) | `summary`: the counts below as one mapping; `shopping`: the batteries to buy, a list of `{batteryType, count, devices}`. Neither is kept in the recorder. The device list itself is served over the websocket (see below), not as an attribute |
 | `sensor.pulse_check_low_batteries` | Battery devices at or below the warning level, or reporting "low" | |
 | `sensor.pulse_check_critical_batteries` | Battery devices at or below the critical level, or reporting "low" | |
-| `sensor.pulse_check_offline` | Devices with every primary entity unavailable | |
+| `sensor.pulse_check_offline` | Devices with every primary entity unavailable, and services or entities with no device that are unavailable | |
 | `sensor.pulse_check_quiet` | Devices not heard from within their threshold | |
-| `sensor.pulse_check_next_to_run_out` | Name of the battery device with the fewest days left (`unknown` until there is enough history) | `days_left`, `device_id`, `entity_id`, `level` |
+| `sensor.pulse_check_next_to_replace` | *Next to replace*: the replaceable battery with the fewest days left, "more than a year" included, the lower level first on a tie (`unknown` until there is enough history). Batteries that get charged are left out. Installs from before 0.2.11 keep the entity id `sensor.pulse_check_next_to_run_out` | `days_left`, `more_than_a_year`, `device_id`, `entity_id`, `level` |
 | `binary_sensor.pulse_check_problem` | On when anything needs attention | |
 | `switch.pulse_check_maintenance_mode` | On while maintenance mode holds notifications back. Turn it on to start a window of the default length, off to end it now | `until`: when it ends |
 
@@ -229,13 +231,13 @@ This is the contract between the integration and the card. The card, or anything
 ```json
 {
   "devices": [ ...one entry per device, see below... ],
-  "summary": { "attention": 4, "critical": 2, "warning": 2, "batteryDevices": 11, "lowBatteries": 4, "criticalBatteries": 3, "offline": 1, "quiet": 2, "snoozed": 0 },
+  "summary": { "attention": 4, "critical": 2, "warning": 2, "batteryDevices": 11, "lowBatteries": 4, "criticalBatteries": 3, "offline": 1, "quiet": 2, "notProvided": 0, "snoozed": 0 },
   "actions": { "replace": [...], "charge": [...], "shopping": [{ "batteryType": "CR2450", "count": 2, "devices": 1 }] },
   "config": { "battery_warning": 30, "battery_critical": 15, "quiet_threshold_hours": 24, "quiet_scope": "battery", "integration_thresholds": {}, "device_settings": [...] },
   "device_settings": { "<device id>": { "battery_type": "CR2450", "battery_count": 2, "notify_policy": "weekly" } },
   "computed_at": "2026-10-15T10:00:00.000Z",
   "maintenance_until": null,
-  "version": "0.2.7"
+  "version": "0.2.10"
 }
 ```
 
@@ -249,7 +251,7 @@ This is the contract between the integration and the card. The card, or anything
 
 **`pulse_check/histories`** takes `requests`, a list of `{ "entity_id", "days" }`, and answers `{ "results": [...] }` with one entry per request in the same order, each shaped as above. A battery Pulse Check does not watch gets `{ "entity_id", "days", "error": "unknown_entity" }` in its place rather than failing the request. The recorder is asked once per window length instead of once per battery; the card fetches every sparkline on screen this way.
 
-Both return the error `not_loaded` when the integration is not set up.
+All three return the error `not_loaded` when the integration is not set up.
 
 Each device entry uses the card's `DeviceHealth` shape:
 
@@ -271,9 +273,9 @@ Each device entry uses the card's `DeviceHealth` shape:
   entityIds: [binary_sensor.living_room_motion_occupancy, sensor.living_room_motion_battery, …]
 ```
 
-The large attributes are excluded from the recorder; only the count is kept as history.
+Each device entry also carries `deviceType` (lock, cover, vacuum, phone, media, remote, climate, motion, contact, light, switch or other); `daysLeft`, `estimate`, `batteryKind`, `usualLow`, `lastReplaced` and `unusual` when known; `snoozedUntil` while snoozed; `isNotProvided: true` for leftovers an integration no longer provides; and `source` (`service` or `entity`) for a service or an entity with no device, which reads as unavailable rather than offline.
 
-Each device entry also carries `deviceType` (lock, cover, vacuum, phone, media, remote, climate, motion, contact, light, switch or other), `daysLeft`, `lastReplaced` and `unusual` when known, and `snoozedUntil` while snoozed.
+Every device is in the list, except services and entities with no device that are working: those appear only while they are unavailable or not provided, snoozed, or carry a battery, so hundreds of working automations and helpers do not travel to every dashboard.
 
 ## Notifications
 
@@ -294,7 +296,7 @@ A target that is a companion-app service (`notify.mobile_app_<phone>`, iOS or An
 | Problem | Buttons |
 | --- | --- |
 | Battery low or critical | **Mark replaced** (or **Mark charged** for a device set as rechargeable), **Remind me later** |
-| Offline or quiet | **Snooze 1 day** |
+| Offline, unavailable, quiet or not provided | **Snooze 1 day** |
 
 Pressing one does what the service of the same name does, for that device, without opening the app. **Remind me later** changes nothing: the reminder comes when it was due anyway, so it is only offered when another reminder will actually follow. Digests and the maintenance summary cover many devices and have no buttons. Every other target (notify entities, e-mail, Telegram, a notify group) gets the plain message as before.
 
@@ -329,11 +331,11 @@ Every transition also fires a `pulse_check_transition` event with `device_id`, `
 | `pulse_check.refresh` | Recompute now and re-read battery history |
 | `pulse_check.maintenance_mode` | Hold every notification back for `hours` (default from the options; 0 ends it now). See [Maintenance mode](#maintenance-mode) |
 
-`device_id` is the device registry id, or the entity id of a battery sensor that has no device (`sensor.remote_battery_template` or `entity:sensor.remote_battery_template`). Everything is stored in `.storage/pulse_check.data`.
+`device_id` is the device registry id, or the entity id of an entity that has no device (`sensor.remote_battery_template` or `entity:sensor.remote_battery_template`). Everything is stored in `.storage/pulse_check.data`.
 
 ## Replacement tracking
 
-`mark_replaced` and `mark_charged` record an event; the cycle that just ended is summarised (how many days it lasted, how fast it drained). A level that rises by 20 points or more in one step is detected as a replacement by itself (a charge for devices marked rechargeable, or that were charging). Once a device has completed cycles on record, a current drain rate more than twice its own average is flagged as `unusual: "draining 3× faster than usual"`; a sudden drop of 20 points is flagged for a week. Days left always comes from the current drain estimate.
+`mark_replaced` and `mark_charged` record an event; the cycle that just ended is summarised (how many days it lasted, how fast it drained). A level that rises by 20 points or more in one step is detected as a replacement by itself (a charge for devices marked rechargeable, or that were charging), once the new level has held for an hour; it is dated from the rise. A level that falls straight back was a glitch (some Zigbee and Z-Wave devices report 100 % once on rejoining) and is ignored. `undo_mark` takes back a detected one as well as one recorded by hand. Once a device has completed cycles on record, a current drain rate more than twice its own average is flagged as `unusual: "draining 3× faster than usual"`; a sudden drop of 20 points is flagged for a week. Days left always comes from the current drain estimate.
 
 ### Automation examples
 
@@ -374,9 +376,9 @@ These rules are shared with the card and checked against the same test fixture (
 
 **Last heard and quiet.** The newest `last_reported` across the device's live entities. Settings-type entities (`number`, `select`, `button`, `update`, `text`, `scene`, `script`, and anything `entity_category: config`) do not count: changing a setting an hour ago says nothing about whether the sensor is alive. A device is quiet when that timestamp is older than its threshold. By default only battery devices can be quiet: a mains light nobody has touched for two days is fine, not quiet. Offline devices are not also counted as quiet.
 
-**Severity.** *Critical*: offline, battery at or below the critical level (default 15 %), a binary low-battery sensor, or a dead Z-Wave node. *Warning*: battery at or below the warning level (default 30 %), or quiet. Snoozed devices read as ok.
+**Severity.** *Critical*: offline, battery at or below the critical level (default 15 %), a binary low-battery sensor, or a dead Z-Wave node. *Warning*: battery at or below the warning level (default 30 %), quiet, or not provided. A service or an entity with no device that is unavailable is critical, like an offline device. Snoozed devices read as ok.
 
-**Grouping.** By device registry entry. Entities with no device get a synthetic id `entity:<entity_id>` each. Disabled devices are skipped. The device's integration is the most common platform among its entities.
+**Grouping.** By device registry entry, child devices (Home Assistant 2026.10) included as devices of their own. Entities with no device get a synthetic id `entity:<entity_id>` each. Disabled devices are skipped, and Pulse Check's own entities, including the per-device sensors it adds to devices, never count towards any device. The device's integration is the most common platform among its entities.
 
 **Services and entities with no device.** A service device (Sun, AdGuard Home, Backup, a cloud integration) has no hardware, and an entity with no device (a template sensor, an automation, a helper) has nothing behind it, but either can stop working. They follow the offline rule above and read as *unavailable*: on the card, in the messages ("AdGuard Home: unavailable", then "available again") and as a critical problem. They count toward the offline sensor and keep the `offline` issue key, so automations see one name. They are never quiet: Sun's next setting changes once a day and an automation may not run for weeks. One made only of settings and buttons is left out, as is Pulse Check itself. The card receives them only while they are unavailable, snoozed or carry a battery, so hundreds of working automations cost nothing. Turn the option off to go back to watching them for batteries only.
 
@@ -388,7 +390,7 @@ Entities without a `unique_id`, such as YAML template sensors and some MQTT enti
 
 From the cycles each battery gets a *kind*, published as `batteryKind`:
 
-- **charged**: the device is a phone (`mobile_app`), is marked rechargeable in its settings, has shown a charging signal, or has completed cycles with a median length under 30 days.
+- **charged**: the device is a phone (`mobile_app`) or a robot vacuum, is marked rechargeable in its settings, has shown a charging signal, has charged at least twice in the last fortnight's hourly history, or has completed cycles with a median length under 30 days. A charge in the hourly history is a rise of 15 points or more from a low within 48 hours, however gradual (a home battery charging 10 points an hour counts), that stays up for more than one reading. A reading glitch that lasts a few hours is not one: a sudden fall that comes back to where it was (a lock reading 42 % for three hours, then 61 % again), or a sudden rise that drops straight back. Daily means alone cannot see a battery charged every day, since every day averages out the same.
 - **replaceable**: every cycle so far began near full (85 % or more), which is what a fresh cell looks like.
 - **unknown**: anything else, such as a partial top-up. No estimate is made; nothing is ever invented.
 
@@ -396,11 +398,11 @@ The estimate depends on the kind, and always carries a `basis` and a `confidence
 
 | Kind | Basis | What it means |
 | --- | --- | --- |
-| replaceable | "trend over current cycle" | The current cycle spans at least a week of decline; days left is the level divided by the fitted rate. High confidence with two weeks or more of samples |
+| replaceable | "trend over current cycle" | The current cycle spans at least a week of decline; days left is the level divided by the fitted rate. High confidence with two weeks or more of samples. Beyond a year it is "more than a year", `openEnded: true`, like the tiers below |
 | replaceable | "from N previous cycles of ~D days" | Too early in the current cycle, so the device's own completed cycles are used: how many days they lasted per 100 points, scaled to the current level. Medium confidence with two or more cycles, low with one |
 | replaceable | "flat for D days" | At least 90 days in the current cycle and fewer than 10 points lost: "more than a year", low confidence, `openEnded: true` |
 | replaceable | "slow drain over D days" | The fit had nothing to say (too slow, or too few readings) but the current cycle spans at least a fortnight and has lost a point: the drop over the span, low confidence. Beyond a year it is "more than a year", `openEnded: true`. This is what a lock two weeks after install gets |
-| charged | "until charge needed" | Days until the warning level at the rate since the last charge, from the hourly means. A device charged every day never spans enough to fit, and anything under a day is suppressed, so phones show nothing while a blind charged every couple of months shows "charge in ~N days" |
+| charged | "until charge needed" | Time until the warning level at the rate since the last charge (after it has left its full plateau, or since a later `mark_charged`), from the hourly means: "charge in ~6h" for a phone charged every day (fitted once the discharge spans three hours), "charge in ~N days" for a blind charged every couple of months. Nothing while it is charging. A battery charged every day also reports `usualLow` on the device, the median level it fell to before its last seven charges (from hourly means, so a few points above the very lowest reading); if none of those charges started at or below the warning level, as with a home battery topped up by solar, it gets the usual low alone and no time. Nothing is notified from these estimates, and the per-device "Battery days left" sensor leaves batteries charged every day out |
 
 Rows are also flagged as `unusual` when the current cycle drains more than twice as fast as the median of the device's past cycles ("draining 3× faster than usual"), or when the level fell by 20 points within 48 hours in the last week ("level dropped suddenly").
 
@@ -418,12 +420,16 @@ custom_components/pulse_check/
 ├── core/             pure Python, no Home Assistant imports
 │   ├── models.py     the input snapshot (TypedDicts) and output dataclasses
 │   ├── battery.py    battery and charging detection
-│   ├── availability.py  offline, last heard, quiet
+│   ├── availability.py  offline, not provided, last heard, quiet
 │   ├── group.py      entities -> devices
+│   ├── device_type.py   lock, cover, phone… for grouping and filters
+│   ├── settings.py   per-device settings
 │   ├── thresholds.py severity and threshold resolution
 │   ├── analyse.py    the orchestrator: snapshot + config -> DeviceHealth list
+│   ├── summarise.py  the counts
 │   ├── actions.py    replace / charge lists and shopping totals
-│   ├── drain.py      drain-rate estimation (used from phase 2)
+│   ├── drain.py      drain-rate fits and daily / hourly means
+│   ├── cycles.py     battery cycles, kinds and days-left estimates
 │   └── enhancers/    Z-Wave JS, Zigbee2MQTT, ZHA
 ├── websocket.py      pulse_check/subscribe, /history and /histories for the card
 ├── card.py           serves the card and keeps its dashboard resource current
@@ -440,7 +446,8 @@ custom_components/pulse_check/
 ├── options.py        entry.options -> the core's configuration
 ├── entity.py         the base entity (one "Pulse Check" service device)
 ├── sensor.py         the sensors
-├── binary_sensor.py  the problem and maintenance mode binary sensors
+├── binary_sensor.py  the problem binary sensor
+├── switch.py         the maintenance mode switch
 ├── config_flow.py    the "Add integration" and "Configure" dialogs
 └── __init__.py       setup and unload
 ```
@@ -463,7 +470,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (142 tests) runs in under half a minute.
+The test suite (201 tests) runs in under a minute.
 
 **Card.** Node 24, in `frontend/`:
 
@@ -471,7 +478,7 @@ The test suite (142 tests) runs in under half a minute.
 cd frontend
 npm ci
 npm run dev      # demo page with a fake subscription, no Home Assistant needed
-npm run check    # typecheck, lint, format check, tests (92), build
+npm run check    # typecheck, lint, format check, tests (115), build
 ```
 
 With the demo running, `python frontend/docs/screenshots.py` retakes the README screenshots from it.
@@ -485,7 +492,7 @@ To try a development build on a live instance, run `npm run build` in `frontend/
 Everything planned is built; [PLAN.md](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) records how the design got here. Still to come:
 
 - Native-speaker review of the machine-made translations
-- Listing in the Marketplace catalog, through a submission to [hacs/default](https://github.com/hacs/default)
+- Listing in the Marketplace catalog: submitted to [hacs/default](https://github.com/hacs/default/pull/13657) and waiting for review
 
 ## License
 

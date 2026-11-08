@@ -46,7 +46,7 @@ describe('batteryList', () => {
     ]);
   });
 
-  it('replace_soon: estimates first by days left, then devices without one by level', () => {
+  it('replace_soon: replacement estimates first by days left, then the rest by level', () => {
     const tweaked = devices.map((d) => {
       if (d.name === 'Front Door Sensor') {
         return {
@@ -94,15 +94,16 @@ describe('batteryList', () => {
       'TV Remote Battery',
       'Living Room Motion',
     ]);
-    // Within the ok band: the three estimates ascending whatever their
-    // basis, then the devices without one by level. Nothing is invented.
+    // Within the ok band: the replacement estimates ascending whatever their
+    // basis, then the devices without one by level. Kitchen H&T's estimate is
+    // a charge, not a replacement, so it sorts by level. Nothing is invented.
     expect(list.slice(5, 11)).toEqual([
       'Window Sensor',
-      'Kitchen H&T',
       'Front Door Sensor',
       'Dog Collar Tracker',
       'Garage Multisensor',
       'Pixel 9',
+      'Kitchen H&T',
     ]);
   });
 

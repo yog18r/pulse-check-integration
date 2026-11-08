@@ -226,7 +226,10 @@ class HistoryTracker:
                 battery.level,
                 now,
                 warning=config.battery_warning,
-                mobile_app=device.integration == "mobile_app",
+                # Companion-app phones and robot vacuums are charged by nature,
+                # whether or not they report a charging signal. Not every
+                # "phone" device type: GPS trackers on a collar are those too.
+                mobile_app=device.integration == "mobile_app" or device.device_type == "vacuum",
                 rechargeable=bool(settings.get("rechargeable")),
                 charging_signal=charging_signal,
                 marks=marks,

@@ -84,6 +84,7 @@ export const cs: Catalog = {
   'row.limit': 'limit {hours}',
   'row.left': 'zbývá {days}',
   'row.charge_in': 'nabít za {days}',
+  'row.usual_low': 'obvykle nejníže {level} %',
   'row.year_plus': 'zbývá více než rok',
   'row.estimate_high': '{basis} (vysoká spolehlivost)',
   'row.estimate_medium': '{basis} (střední spolehlivost)',
@@ -129,7 +130,6 @@ export const cs: Catalog = {
   'unit.days': '{n} d',
   'unit.weeks': '{n} týd.',
   'unit.months': '{n} měs.',
-  'days_left.under_day': 'méně než den',
   'days_left.year_plus': '1 r.+',
 
   // -- the Actions tab --------------------------------------------------------

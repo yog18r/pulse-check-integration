@@ -139,7 +139,7 @@
       "fields": {
         "device_id": {
           "name": "设备",
-          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+          "description": "设备 ID，或没有设备的实体的实体 ID。"
         },
         "days": {
           "name": "天数",
@@ -157,7 +157,7 @@
       "fields": {
         "device_id": {
           "name": "设备",
-          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+          "description": "设备 ID，或没有设备的实体的实体 ID。"
         }
       }
     },
@@ -167,7 +167,7 @@
       "fields": {
         "device_id": {
           "name": "设备",
-          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+          "description": "设备 ID，或没有设备的实体的实体 ID。"
         },
         "name": {
           "name": "显示名称",
@@ -209,7 +209,7 @@
       "fields": {
         "device_id": {
           "name": "设备",
-          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+          "description": "设备 ID，或没有设备的实体的实体 ID。"
         },
         "battery_type": {
           "name": "电池类型",
@@ -223,7 +223,7 @@
       "fields": {
         "device_id": {
           "name": "设备",
-          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+          "description": "设备 ID，或没有设备的实体的实体 ID。"
         }
       }
     },
@@ -233,7 +233,7 @@
       "fields": {
         "device_id": {
           "name": "设备",
-          "description": "设备 ID，或没有设备的电池传感器的实体 ID。"
+          "description": "设备 ID，或没有设备的实体的实体 ID。"
         }
       }
     },
@@ -286,7 +286,7 @@
         "name": "久未上报"
       },
       "next_to_run_out": {
-        "name": "最先耗尽"
+        "name": "下一个需更换"
       },
       "device_days_left": {
         "name": "电池剩余天数"

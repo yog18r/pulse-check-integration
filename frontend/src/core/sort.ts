@@ -39,6 +39,10 @@ export function estimateFor(device: DeviceHealth, drains?: DrainMap): Estimate |
   return (id ? drains?.get(id)?.estimate : undefined) ?? device.estimate;
 }
 
+function replaceDays(estimate: Estimate | undefined): number | undefined {
+  return estimate && estimate.kind !== 'charge' ? estimate.daysLeft : undefined;
+}
+
 export function batteryList(
   devices: DeviceHealth[],
   thresholds: Thresholds,
@@ -65,8 +69,10 @@ export function batteryList(
       // "Replace soon": fewest days left first, whatever the basis. Devices
       // without an estimate follow, ordered by level. Nothing is invented.
       if (sort === 'replace_soon') {
-        const da = estimateFor(a, drains)?.daysLeft;
-        const db = estimateFor(b, drains)?.daysLeft;
+        // Only batteries that get replaced: a phone due a charge tonight
+        // is not "replace soon".
+        const da = replaceDays(estimateFor(a, drains));
+        const db = replaceDays(estimateFor(b, drains));
         if (da !== undefined && db !== undefined && da !== db) return da - db;
         if (da !== undefined && db === undefined) return -1;
         if (da === undefined && db !== undefined) return 1;

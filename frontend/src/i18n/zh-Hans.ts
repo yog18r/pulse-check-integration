@@ -61,6 +61,7 @@ export const zhHans: Catalog = {
   'row.limit': '上限 {hours}',
   'row.left': '剩余 {days}',
   'row.charge_in': '{days}后需充电',
+  'row.usual_low': '通常最低 {level}%',
   'row.year_plus': '剩余一年以上',
   'row.estimate_high': '{basis}（高可信度）',
   'row.estimate_medium': '{basis}（中可信度）',
@@ -97,7 +98,6 @@ export const zhHans: Catalog = {
   'unit.days': '{n}天',
   'unit.weeks': '{n}周',
   'unit.months': '{n}个月',
-  'days_left.under_day': '不到一天',
   'days_left.year_plus': '1年+',
 
   'actions.to_buy': '需购买：',

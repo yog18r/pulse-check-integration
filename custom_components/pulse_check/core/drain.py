@@ -69,12 +69,18 @@ def _slope_per_day(points: list[DrainPoint]) -> float:
     return numerator / denominator * SECONDS_PER_DAY
 
 
-def estimate_drain(raw_points: Iterable[DrainPoint], current_level: float) -> DrainEstimate | None:
-    """Fit the samples and estimate days left, or None when the data is too thin."""
+def estimate_drain(
+    raw_points: Iterable[DrainPoint], current_level: float, min_span: timedelta = MIN_SPAN
+) -> DrainEstimate | None:
+    """Fit the samples and estimate days left, or None when the data is too thin.
+
+    `min_span` is how long the samples must cover: two days by default, a
+    few hours for a battery that is charged every day.
+    """
     points = sorted((p for p in raw_points if math.isfinite(p.level)), key=lambda p: as_utc(p.time))
     if len(points) < MIN_SAMPLES:
         return None
-    if as_utc(points[-1].time) - as_utc(points[0].time) < MIN_SPAN:
+    if as_utc(points[-1].time) - as_utc(points[0].time) < min_span:
         return None
 
     rate_per_day = -_slope_per_day(points)
@@ -86,19 +92,6 @@ def estimate_drain(raw_points: Iterable[DrainPoint], current_level: float) -> Dr
         days_left=max(0.0, current_level / rate_per_day),
         samples=len(points),
     )
-
-
-def format_days_left(days: float) -> str:
-    """Round to a friendly unit: "~12d", "~3w", "~4mo"."""
-    if days < 1:
-        return "under a day"
-    if days < 14:
-        return f"~{math.floor(days + 0.5)}d"
-    if days < 60:
-        return f"~{math.floor(days / 7 + 0.5)}w"
-    if days < 365:
-        return f"~{math.floor(days / 30 + 0.5)}mo"
-    return "1y+"
 
 
 def rows_to_points(rows: Iterable[Mapping[str, Any]]) -> list[DrainPoint]:

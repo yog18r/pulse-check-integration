@@ -211,6 +211,12 @@ export interface DeviceHealth {
   estimate?: Estimate;
   /** "charged", "replaceable" or "unknown", from the battery's history. */
   batteryKind?: BatteryKind;
+  /**
+   * For a battery charged often (a phone, a home battery): the level it
+   * usually falls to before a charge. Shown even without an estimate: a
+   * home battery that never runs down to the warning level gets this alone.
+   */
+  usualLow?: number;
   /** When the battery was last replaced or charged. */
   lastReplaced?: Date;
   /** A note when the battery behaves unlike its own past, e.g. "draining 3× faster than usual". */

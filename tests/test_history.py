@@ -20,6 +20,7 @@ from homeassistant.core import CoreState, HomeAssistant, State
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.pulse_check.const import DOMAIN
+from custom_components.pulse_check.core.cycles import BatteryInsight, Estimate
 from tests.conftest import device_dicts, load_fixture_into_hass
 
 DAY = timedelta(days=1)
@@ -166,7 +167,7 @@ async def test_drain_estimates_reach_the_entities(
     # And the docked, charging vacuum.
     assert "daysLeft" not in by_name["Mr Roboto"]
 
-    soonest = hass.states.get("sensor.pulse_check_next_to_run_out")
+    soonest = hass.states.get("sensor.pulse_check_next_to_replace")
     assert soonest is not None
     assert soonest.state == "Living Room Motion"
     assert soonest.attributes["days_left"] == pytest.approx(6, abs=0.5)
@@ -199,7 +200,7 @@ async def test_recorder_errors_keep_the_sensors_up(
     attention = hass.states.get("sensor.pulse_check_attention")
     assert attention is not None
     assert attention.state != "unavailable"
-    assert hass.states.get("sensor.pulse_check_next_to_run_out").state == "unknown"  # type: ignore[union-attr]
+    assert hass.states.get("sensor.pulse_check_next_to_replace").state == "unknown"  # type: ignore[union-attr]
 
 
 async def test_the_first_history_load_waits_for_home_assistant_to_start(
@@ -217,13 +218,13 @@ async def test_the_first_history_load_waits_for_home_assistant_to_start(
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
     assert recorder["statistics"] == []
-    assert hass.states.get("sensor.pulse_check_next_to_run_out").state == "unknown"  # type: ignore[union-attr]
+    assert hass.states.get("sensor.pulse_check_next_to_replace").state == "unknown"  # type: ignore[union-attr]
 
     hass.set_state(CoreState.running)
     hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
     await hass.async_block_till_done(wait_background_tasks=True)
     assert [period for period, _ in recorder["statistics"]] == ["day", "hour"]
-    assert hass.states.get("sensor.pulse_check_next_to_run_out").state == "Living Room Motion"  # type: ignore[union-attr]
+    assert hass.states.get("sensor.pulse_check_next_to_replace").state == "Living Room Motion"  # type: ignore[union-attr]
 
 
 async def test_insights_survive_an_options_reload(
@@ -239,7 +240,7 @@ async def test_insights_survive_an_options_reload(
     await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
-    assert hass.states.get("sensor.pulse_check_next_to_run_out").state == "Living Room Motion"  # type: ignore[union-attr]
+    assert hass.states.get("sensor.pulse_check_next_to_replace").state == "Living Room Motion"  # type: ignore[union-attr]
 
     def broken(*_: Any, **__: Any) -> Any:
         raise RuntimeError("database locked")
@@ -248,7 +249,7 @@ async def test_insights_survive_an_options_reload(
     with patch("custom_components.pulse_check.history.statistics_during_period", broken):
         await hass.config_entries.async_reload(config_entry.entry_id)
         await hass.async_block_till_done(wait_background_tasks=True)
-    assert hass.states.get("sensor.pulse_check_next_to_run_out").state == "Living Room Motion"  # type: ignore[union-attr]
+    assert hass.states.get("sensor.pulse_check_next_to_replace").state == "Living Room Motion"  # type: ignore[union-attr]
 
 
 async def test_raw_history_is_read_once_per_refresh(
@@ -270,3 +271,46 @@ async def test_raw_history_is_read_once_per_refresh(
     read = [entity_id for entity_id, _ in recorder["history"]]
     assert read, "some batteries have no statistics here"
     assert len(read) == len(set(read))
+
+
+async def test_next_to_replace_skips_charged_batteries_and_keeps_long_ones(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """A phone due a charge in two hours is not news; a lock good for over a year still is."""
+    freezer.move_to(fixed_now)
+    await load_fixture_into_hass(hass, fixture_snapshot)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = config_entry.runtime_data
+
+    def estimate(days: float, kind: str, open_ended: bool = False) -> BatteryInsight:
+        return BatteryInsight(
+            kind="charged" if kind == "charge" else "replaceable",
+            estimate=Estimate(
+                days_left=days,
+                basis="until charge needed" if kind == "charge" else "flat for 120 days",
+                confidence="low",
+                kind=kind,  # type: ignore[arg-type]
+                open_ended=open_ended,
+            ),
+            completed_cycles=0,
+            median_cycle_days=None,
+            unusual=None,
+        )
+
+    coordinator.history.insights = {
+        "sensor.pixel_9_battery_level": estimate(0.1, "charge"),
+        "sensor.window_sensor_battery": estimate(365, "replace", open_ended=True),
+        "sensor.living_room_motion_battery": estimate(365, "replace", open_ended=True),
+    }
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    state = hass.states.get("sensor.pulse_check_next_to_replace")
+    assert state is not None
+    # Both locks-like sensors read "more than a year"; the lower level goes first.
+    assert state.state == "Living Room Motion"
+    assert state.attributes["more_than_a_year"] is True
