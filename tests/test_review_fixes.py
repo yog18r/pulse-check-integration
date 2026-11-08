@@ -268,8 +268,9 @@ def test_pulse_check_entities_on_a_device_are_ignored() -> None:
             "last_reported": at,
         }
 
-    snapshot: Snapshot = {
-        "states": {  # type: ignore[typeddict-item]
+    # Built by hand, so loosely typed; the core reads it as a Snapshot.
+    snapshot: dict[str, Any] = {
+        "states": {
             "sensor.door_battery": state(
                 "sensor.door_battery", "60", long_ago, device_class="battery"
             ),
@@ -298,7 +299,7 @@ def test_pulse_check_entities_on_a_device_are_ignored() -> None:
             },
         },
         "devices": {
-            "dev": {  # type: ignore[typeddict-item]
+            "dev": {
                 "id": "dev",
                 "name": "Door",
                 "name_by_user": None,
@@ -311,7 +312,8 @@ def test_pulse_check_entities_on_a_device_are_ignored() -> None:
         },
         "areas": {},
     }
-    [door] = analyse_devices(snapshot, CoreConfig(), datetime(2026, 11, 8, 12, 0, tzinfo=UTC))
+    typed: Snapshot = snapshot  # type: ignore[assignment]
+    [door] = analyse_devices(typed, CoreConfig(), datetime(2026, 11, 8, 12, 0, tzinfo=UTC))
     assert door.integration == "zha"  # not "pulse_check", which would drop it
     assert door.is_quiet
     assert door.entity_ids == ["sensor.door_battery"]
