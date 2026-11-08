@@ -138,11 +138,17 @@ past cycles like for like, or on a sudden 20-point drop.
   an hour and go out as one message listing those still wrong. Maintenance mode holds
   messages back for a set time and ends with one summary.
 - **Services**: `snooze`, `unsnooze`, `set_device_settings`,
-  `mark_replaced`, `mark_charged`, `refresh`, `maintenance_mode`.
+  `mark_replaced`, `mark_charged`, `undo_mark` (takes back the latest
+  manual mark and the cycle it closed; automatic detections stay),
+  `refresh`, `maintenance_mode`.
 - **Websocket API**: `pulse_check/subscribe` streams the snapshot (devices,
-  summary, actions, config, device settings) and re-sends it after every
-  recompute, option change or service call; `pulse_check/history` returns a
-  battery's trend points for sparklines.
+  summary, actions, config, device settings, the installed `version`) and
+  re-sends it after every recompute, option change or service call;
+  `pulse_check/history` returns one battery's trend points and
+  `pulse_check/histories` many at once, one recorder query per window
+  length. The card uses the batched form and offers a refresh when the
+  installed version differs from its own, since a tab keeps the card it
+  loaded until it is refreshed.
 - **The card**: `card.py` serves `frontend/pulse-check-card.js` and keeps a
   single dashboard resource current with `?v=<version>`; the version lives
   only in `manifest.json`.

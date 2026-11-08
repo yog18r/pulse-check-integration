@@ -147,7 +147,7 @@ A device's own `notify_policy` (set with the `set_device_settings` service) over
 
 - **🔋 Batteries**: every battery-powered device, lowest first (or soonest to run out), with a coloured bar, a trend sparkline, "~12d left", and a note when a battery is draining much faster than it used to
 - **📡 Connectivity**: anything offline, not heard from within its threshold, or no longer provided by its integration
-- **🛠️ Actions** (optional tab): "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", a to-buy total, and a **Done** button that records the replacement
+- **🛠️ Actions** (optional tab): "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", a to-buy total, and a **Done** button that records the replacement. For ten seconds afterwards an **Undo** takes a mistaken tap back
 - **Snooze** a device for 1, 7 or 30 days. Snoozes live in the integration, so every dashboard, phone and notification agrees
 - **Group by** area, integration or device type. Tap a row to open the device in Home Assistant
 - A line under the header while **maintenance mode** holds notifications back, with its end time
@@ -216,15 +216,20 @@ This is the contract between the integration and the card. The card, or anything
   "config": { "battery_warning": 30, "battery_critical": 15, "quiet_threshold_hours": 24, "quiet_scope": "battery", "integration_thresholds": {}, "device_settings": [...] },
   "device_settings": { "<device id>": { "battery_type": "CR2450", "battery_count": 2, "notify_policy": "weekly" } },
   "computed_at": "2026-10-15T10:00:00.000Z",
-  "maintenance_until": null
+  "maintenance_until": null,
+  "version": "0.2.7"
 }
 ```
+
+`version` is the installed integration's. A browser tab keeps running the card it loaded until it is refreshed, so after an update the card compares this with its own version and, when they differ, offers a **Refresh** button.
 
 **`pulse_check/history`** with `entity_id` (a watched battery entity) and optional `days` (1 to 365, default 14) returns sparkline points, hourly means for windows of three days or less and daily means otherwise, from the recorder's statistics with raw and attribute history as fallbacks, plus the current drain estimate:
 
 ```json
 { "entity_id": "sensor.living_room_motion_battery", "days": 14, "points": [{ "time": 1760000000000, "level": 40.0 }], "estimate": { "ratePerDay": 2.0, "daysLeft": 6.0, "samples": 15 } }
 ```
+
+**`pulse_check/histories`** takes `requests`, a list of `{ "entity_id", "days" }`, and answers `{ "results": [...] }` with one entry per request in the same order, each shaped as above. A battery Pulse Check does not watch gets `{ "entity_id", "days", "error": "unknown_entity" }` in its place rather than failing the request. The recorder is asked once per window length instead of once per battery; the card fetches every sparkline on screen this way.
 
 Both return the error `not_loaded` when the integration is not set up.
 
@@ -298,6 +303,7 @@ Every transition also fires a `pulse_check_transition` event with `device_id`, `
 | `pulse_check.set_device_settings` | `name`, `area`, `quiet_threshold_hours`, `battery_type`, `battery_count`, `rechargeable`, `notify_policy`, `sparkline_days`. Only given fields change; an empty value clears one |
 | `pulse_check.mark_replaced` | Record a replacement now (optional `battery_type`), closing the current cycle |
 | `pulse_check.mark_charged` | The same for a charge |
+| `pulse_check.undo_mark` | Take back the most recent replacement or charge recorded by hand, with the cycle it closed. One detected automatically from a jump in level is left alone |
 | `pulse_check.refresh` | Recompute now and re-read battery history |
 | `pulse_check.maintenance_mode` | Hold every notification back for `hours` (default from the options; 0 ends it now). See [Maintenance mode](#maintenance-mode) |
 
@@ -379,7 +385,7 @@ Rows are also flagged as `unusual` when the current cycle drains more than twice
 One repository, two halves that meet at the websocket API above:
 
 - **`custom_components/pulse_check/`**, the integration in Python, does all the work: detection, history, notifications, storage, services.
-- **`frontend/`**, the card in TypeScript and React, built with Vite into one JavaScript file inside the integration folder. It renders the `pulse_check/subscribe` snapshot, fetches sparklines with `pulse_check/history` and calls the `pulse_check.*` services. See [frontend/README.md](https://github.com/yog18r/pulse-check-integration/blob/main/frontend/README.md).
+- **`frontend/`**, the card in TypeScript and React, built with Vite into one JavaScript file inside the integration folder. It renders the `pulse_check/subscribe` snapshot, fetches sparklines with `pulse_check/histories` and calls the `pulse_check.*` services. See [frontend/README.md](https://github.com/yog18r/pulse-check-integration/blob/main/frontend/README.md).
 
 The card used to be a separate repository; it moved here with its history so a single HACS install delivers both, and so the two can never be installed at mismatched versions. `manifest.json` holds the one version number; the card's build reads it from there.
 
@@ -395,7 +401,7 @@ custom_components/pulse_check/
 │   ├── actions.py    replace / charge lists and shopping totals
 │   ├── drain.py      drain-rate estimation (used from phase 2)
 │   └── enhancers/    Z-Wave JS, Zigbee2MQTT, ZHA
-├── websocket.py      pulse_check/subscribe and pulse_check/history for the card
+├── websocket.py      pulse_check/subscribe, /history and /histories for the card
 ├── card.py           serves the card and keeps its dashboard resource current
 ├── frontend/         the built card, pulse-check-card.js (not in git; built from /frontend)
 ├── coordinator.py    when to recompute; builds the snapshot from HA
