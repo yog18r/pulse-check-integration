@@ -4,6 +4,8 @@ name: Release
 # version in manifest.json, builds the card into the integration folder,
 # zips that folder and attaches the zip to a GitHub release. HACS downloads
 # that zip (see hacs.json), so one install brings the integration and card.
+# The release notes are the version's section of CHANGELOG.md, which is
+# also what HACS shows when it offers the update.
 on:
   push:
     tags: ["v*"]
@@ -39,6 +41,8 @@ jobs:
           npm ci
           npm run check
           test -s ../custom_components/pulse_check/frontend/pulse-check-card.js
+      - name: Release notes from CHANGELOG.md
+        run: python3 scripts/changelog.py "$GITHUB_REF_NAME" > release-notes.md
       - name: Build zip
         run: |
           cd custom_components/pulse_check
@@ -48,4 +52,4 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: pulse_check.zip
-          generate_release_notes: true
+          body_path: release-notes.md

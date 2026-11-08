@@ -1,0 +1,147 @@
+# Changelog
+
+What changed in each release of Pulse Check. The section for a version is
+also its release notes on GitHub, which is what HACS shows when it offers
+the update.
+
+## 0.2.7 - 2026-11-08
+
+### Added
+- **Refresh prompt after updates.** A browser tab keeps running the card it
+  loaded until the page is refreshed. When the installed version is newer
+  than the card on screen, the card now says so and offers a Refresh button.
+  This first shows after the update that follows this one.
+- **Undo for Done.** After pressing Done on the Actions tab, "Marked … as
+  replaced" stays on screen for ten seconds with an Undo button, so a
+  mistaken tap no longer resets the device's battery cycle.
+- **`pulse_check.undo_mark` action.** Takes back the most recent replacement
+  or charge recorded by hand, with the cycle it closed. One detected
+  automatically from a jump in level is left alone.
+- **Keyboard support in the snooze menu.** It focuses the first option when
+  it opens; the arrow keys, Home and End move between options, and Escape
+  closes it.
+
+### Changed
+- **Sparklines arrive in one request.** The card used to fetch each
+  battery's history separately; it now asks once for all of them, and the
+  integration reads the recorder once per window length instead of once per
+  battery.
+
+### Under the hood
+- Dependabot opens weekly update pull requests for the card's packages, the
+  Python tools and the GitHub Actions.
+- Development tools updated; an unused coverage tool removed; a test that
+  failed now and then on CI fixed.
+
+## 0.2.6 - 2026-10-30
+
+### Fixed
+- **"Configuration error" on a dashboard opened while Home Assistant
+  starts.** The card's file was only served at the end of Pulse Check's
+  setup, so a page loaded during startup could not load the card at all. It
+  is now served from the integration's first setup step.
+
+## 0.2.5 - 2026-10-28
+
+### Fixed
+- **"Pulse Check integration not found" after a restart.** The card now
+  tries again until Pulse Check answers and subscribes again after the
+  connection comes back, so it fills in by itself instead of needing a page
+  refresh. While Home Assistant is still starting it says it is connecting.
+
+### Upgrading
+- The first restart after updating still runs the card your browser already
+  had. Refresh the dashboard once; later restarts recover by themselves.
+
+## 0.2.4 - 2026-10-28
+
+### Added
+- **"Not provided" instead of offline for leftover entities.** When an
+  integration stops providing an entity, typically after an update, Home
+  Assistant keeps it as an unavailable placeholder. A device made only of
+  those used to read as offline and send critical notifications. While its
+  integration is running it now reads as *not provided*: a warning on the
+  Connectivity tab saying which integration no longer provides it, notified
+  under the warning policy (the weekly digest by default). Delete it from
+  the device page to clear it.
+
+### Under the hood
+- Releases are built with the newest Node 24, which includes the fix for
+  CVE-2026-111497 (Node2Shell). Nothing that ships was affected.
+
+## 0.2.3 - 2026-10-23
+
+### Fixed
+- **A failed firmware check no longer reads as offline.** A device with no
+  primary entities, such as Home Assistant's SkyConnect, was judged by its
+  firmware update entity, which goes unavailable whenever a firmware check
+  fails. Settings and update checkers no longer decide whether a device is
+  offline.
+
+## 0.2.2 - 2026-10-22
+
+### Added
+- **A limit on offline and quiet messages per integration.** An outage
+  outside Home Assistant, such as a network controller updating, used to
+  send one message per device. Each integration now sends at most three an
+  hour by default; the rest follow an hour later as one message listing
+  those still unresolved. Each integration has its own allowance, and
+  battery messages are never held back. Set it under Configure,
+  Notifications; 0 turns it off.
+
+### Fixed
+- **The snooze menu is no longer cut off** at the bottom of the card. It
+  opens upwards when there is no room below.
+
+## 0.2.1 - 2026-10-16
+
+### Changed
+- **Maintenance mode is a switch.** `switch.pulse_check_maintenance_mode` on
+  the Pulse Check device page turns it on for the default length from the
+  options, and off ends it at once. The `pulse_check.maintenance_mode`
+  action still takes any number of hours.
+
+### Upgrading
+- The switch replaces `binary_sensor.pulse_check_maintenance_mode`, which
+  is removed. Point any dashboard or automation that used it at the switch.
+
+## 0.2.0 - 2026-10-16
+
+### Added
+- **Maintenance mode.** Holds every notification back for a few hours, for
+  planned work such as migrating a Zigbee coordinator. Problems are still
+  tracked; when it ends, one message lists those that appeared meanwhile
+  and are still there.
+- **Buttons on phone notifications.** Instant notifications sent to the
+  companion app offer Mark replaced (or Mark charged), Remind me later and
+  Snooze 1 day.
+- **Nine more languages**: German, French, Spanish, Dutch, Italian,
+  Brazilian Portuguese, Polish, Simplified Chinese and Czech, for the
+  settings dialogs, the notifications and the card. They are machine
+  translations; corrections are welcome.
+
+## 0.1.1 - 2026-10-16
+
+### Fixed
+- The screenshots and links in the README now show in HACS.
+
+## 0.1.0 - 2026-10-16
+
+The first release of the integration and its dashboard card in one install.
+
+- **Detection** of low batteries, offline devices and devices that have gone
+  quiet, across every integration, grouped by device.
+- **Entities**: counts of devices needing attention, low and critical
+  batteries, offline and quiet devices, the next battery to run out, and a
+  problem binary sensor.
+- **Notifications** once per change of state, never per update: instant
+  with reminders, or collected into daily or weekly digests, chosen per
+  device. A digest missed while Home Assistant was off is sent once after
+  the next start.
+- **Days left** for each battery from its own history, replacement
+  tracking, and a note when a battery drains faster than it used to.
+- **The dashboard card**, served by the integration and added to the card
+  picker automatically, with Batteries, Connectivity and Actions tabs,
+  snoozing, and per-device settings.
+- Batteries with no device or registry entry, such as YAML template
+  sensors, are watched too.
