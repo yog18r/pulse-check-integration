@@ -4,7 +4,7 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
-## Unreleased
+## 0.2.13 - 2026-11-09
 
 ### Upgrading
 - Per-device settings have moved from the card editor to the integration:
