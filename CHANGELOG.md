@@ -4,7 +4,7 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
-## Unreleased
+## 0.2.9 - 2026-11-08
 
 ### Added
 - **Devices that don't come back after a restart are reported.** Until
