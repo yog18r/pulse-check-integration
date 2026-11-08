@@ -8,10 +8,11 @@ from typing import Any
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
-from custom_components.pulse_check.const import DEBOUNCE_SECONDS, DOMAIN
+from custom_components.pulse_check.const import DEBOUNCE_SECONDS, DOMAIN, SIGNAL_SNAPSHOT
 from tests.conftest import load_fixture_into_hass
 
 BATTERY = {"device_class": "battery", "unit_of_measurement": "%"}
@@ -108,6 +109,12 @@ async def test_a_subscription_survives_saving_options(
     first = await client.receive_json()
     assert "Pixel 9" in {d["name"] for d in first["event"]["devices"]}
 
+    # Other recomputes send snapshots too, at moments no test controls: the
+    # battery history refresh finishes in the background. Send one here, so
+    # the test proves it finds the snapshot from after the save regardless.
+    async_dispatcher_send(hass, SIGNAL_SNAPSHOT)
+    await hass.async_block_till_done()
+
     # The Configure dialog excludes phones. OptionsFlowWithReload reloads the entry.
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     result = await hass.config_entries.options.async_configure(
@@ -116,8 +123,11 @@ async def test_a_subscription_survives_saving_options(
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
 
-    second = await client.receive_json()
-    names = {d["name"] for d in second["event"]["devices"]}
+    # Snapshots arrive in order; the reload's comes after any sent before it.
+    for _ in range(5):
+        names = {d["name"] for d in (await client.receive_json())["event"]["devices"]}
+        if "Pixel 9" not in names:
+            break
     assert "Pixel 9" not in names
     assert "Front Door Lock" in names
     # And the sensors moved with it, without a restart.
