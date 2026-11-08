@@ -58,9 +58,5 @@ export default defineConfig({
     setupFiles: ['test/setup.ts'],
     // Clock times ("until 14:30") are local; pin the zone so tests agree everywhere.
     env: { TZ: 'UTC' },
-    coverage: {
-      provider: 'v8',
-      include: ['src/core/**', 'src/card/**'],
-    },
   },
 });
