@@ -26,6 +26,7 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 
 - **Low batteries** from percentage sensors, binary "low battery" sensors, and `battery_level` attributes alike, with charging devices never flagged
 - **Offline** devices: every primary entity unavailable
+- **Unavailable** services and entities with no device: AdGuard Home or Sun dropping out, a template sensor whose source broke, an automation that failed to load
 - **Quiet** devices: no report within a threshold, judged per device and per integration
 - **Actions**: "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", and a to-buy total per battery type
 - **Notifications** once per transition, not once per update: a device goes offline, goes quiet, or drops to warning or critical. Instant with reminders, or collected into a daily or weekly digest, chosen per device
@@ -126,6 +127,7 @@ Open **Settings → Devices & services → Pulse Check → Configure**. Everythi
 
 | Option | Meaning |
 | --- | --- |
+| Watch services and entities with no device | On by default. Services (Sun, AdGuard Home, Backup) and entities with no device (template sensors, automations, helpers) count as unavailable when they stop working. Off, a lone entity is watched for its battery only. See [How detection works](#how-detection-works) |
 | Only these areas / Ignore these areas | Area allow and deny lists. With an allow list, devices without an area are left out |
 | Only these integrations / Ignore these integrations | By platform, e.g. `mobile_app` to leave phones out, `music_assistant` for players that are off when the TV is |
 | Ignore these devices | Specific devices |
@@ -369,9 +371,11 @@ These rules are shared with the card and checked against the same test fixture (
 
 **Severity.** *Critical*: offline, battery at or below the critical level (default 15 %), a binary low-battery sensor, or a dead Z-Wave node. *Warning*: battery at or below the warning level (default 30 %), or quiet. Snoozed devices read as ok.
 
-**Grouping.** By device registry entry. Entities with no device get a synthetic id `entity:<entity_id>` and are included only if they carry a battery (a template battery sensor), never offline or quiet. Service devices (Sun, Forecast) and disabled devices are skipped. The device's integration is the most common platform among its entities.
+**Grouping.** By device registry entry. Entities with no device get a synthetic id `entity:<entity_id>` each. Disabled devices are skipped. The device's integration is the most common platform among its entities.
 
-Entities without a `unique_id`, such as YAML template sensors and some MQTT entities, never reach the entity registry and exist only as a state. They are treated the same way: `entity:<entity_id>`, included only with a battery reading (a numeric battery sensor, a binary low-battery sensor or a `battery_level` attribute), never offline or quiet. Their integration shows as `unknown`, because a state does not say which integration made it. "Ignore these entities" leaves one out, and so do the integration and area filters (with no area, an area allow list leaves them out). Having no registry entry they have no entity category, so the config-entity rule cannot apply to them.
+**Services and entities with no device.** A service device (Sun, AdGuard Home, Backup, a cloud integration) has no hardware, and an entity with no device (a template sensor, an automation, a helper) has nothing behind it, but either can stop working. They follow the offline rule above and read as *unavailable*: on the card, in the messages ("AdGuard Home: unavailable", then "available again") and as a critical problem. They count toward the offline sensor and keep the `offline` issue key, so automations see one name. They are never quiet: Sun's next setting changes once a day and an automation may not run for weeks. One made only of settings and buttons is left out, as is Pulse Check itself. The card receives them only while they are unavailable, snoozed or carry a battery, so hundreds of working automations cost nothing. Turn the option off to go back to watching them for batteries only.
+
+Entities without a `unique_id`, such as YAML template sensors and some MQTT entities, never reach the entity registry and exist only as a state. They are treated the same way: `entity:<entity_id>`, unavailable when their state is, never quiet. Their integration shows as `unknown`, because a state does not say which integration made it. "Ignore these entities" leaves one out, and so do the integration and area filters (with no area, an area allow list leaves them out). Having no registry entry they have no entity category, so the config-entity rule cannot apply to them.
 
 **Enhancers.** Optional, integration-specific extras that never break the core: Z-Wave JS node status, Zigbee2MQTT link quality and `last_seen`, ZHA LQI and RSSI.
 

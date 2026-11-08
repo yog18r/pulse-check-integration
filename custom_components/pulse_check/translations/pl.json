@@ -37,6 +37,7 @@
             "name": "Filtry",
             "description": "Pozostaw wszystko puste, aby obserwować każde urządzenie.",
             "data": {
+              "watch_non_devices": "Obserwuj usługi i encje bez urządzenia",
               "include_areas": "Tylko te obszary",
               "exclude_areas": "Pomijaj te obszary",
               "include_integrations": "Tylko te integracje",
@@ -45,6 +46,7 @@
               "exclude_entities": "Pomijaj te encje"
             },
             "data_description": {
+              "watch_non_devices": "Usługi takie jak Słońce czy AdGuard Home oraz encje bez urządzenia, np. sensory szablonów i automatyzacje, liczą się jako niedostępne, gdy przestaną działać.",
               "include_areas": "Gdy to jest ustawione, urządzenia bez obszaru są pomijane.",
               "exclude_entities": "Na przykład sensor ustawień, który integracja oznacza jako baterię."
             }

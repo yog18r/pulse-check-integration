@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from .models import DeviceEntry, EntityEntry, EntityState, Snapshot
+    from .models import DeviceEntry, EntityEntry, EntityState, Snapshot, Source
 
 # Prefix used for the synthetic id of a device-less entity.
 ORPHAN_PREFIX = "entity:"
@@ -38,8 +38,19 @@ class DeviceGroup:
 
 
 def is_ignorable_device(device: DeviceEntry) -> bool:
-    """Devices never shown: virtual "service" devices and disabled ones."""
-    return device["entry_type"] == "service" or device["disabled_by"] is not None
+    """Devices never shown: disabled ones.
+
+    Virtual "service" devices (Sun, AdGuard Home, Backup) are grouped like
+    any other; the analysis decides whether to watch them.
+    """
+    return device["disabled_by"] is not None
+
+
+def group_source(group: DeviceGroup) -> Source:
+    """What the group stands for: hardware, a service, or a lone entity."""
+    if group.device is None:
+        return "entity"
+    return "service" if group.device["entry_type"] == "service" else "device"
 
 
 def collect_device_groups(snapshot: Snapshot) -> list[DeviceGroup]:

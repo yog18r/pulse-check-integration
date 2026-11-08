@@ -47,7 +47,8 @@ def test_a_battery_without_a_registry_entry_is_watched() -> None:
         _state("sensor.shed_temperature", "14", device_class="temperature"),
         _state("sun.sun", "above_horizon"),
     )
-    devices = analyse_devices(snapshot, CoreConfig(), NOW)
+    # With services and lone entities unwatched, only the battery is of interest.
+    devices = analyse_devices(snapshot, CoreConfig(watch_non_devices=False), NOW)
     assert [device.device_id for device in devices] == ["entity:binary_sensor.shed_battery_low"]
     shed = devices[0]
     assert shed.integration == "unknown"

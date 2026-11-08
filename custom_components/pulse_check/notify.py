@@ -192,6 +192,16 @@ def last_digest_slot(now: datetime, hour: int, minute: int, weekday: int | None 
     return slot
 
 
+def wording(key: str, device: DeviceHealth) -> str:
+    """The message key for an issue: a service or lone entity is unavailable, not offline.
+
+    The issue key itself stays "offline", so events and the store keep one name.
+    """
+    if key == "offline" and device.source != "device":
+        return "unavailable"
+    return key
+
+
 def device_issues(
     device: DeviceHealth,
     config: CoreConfig,
@@ -205,7 +215,8 @@ def device_issues(
     issues: dict[str, Issue] = {}
     name = device.name
     if device.is_offline:
-        issues["offline"] = Issue("offline", "critical", text("issue_offline", name=name))
+        message = text(f"issue_{wording('offline', device)}", name=name)
+        issues["offline"] = Issue("offline", "critical", message)
     elif device.is_quiet:
         hours = _hours_since(device.last_heard, now)
         issues["quiet"] = Issue("quiet", "warning", text("issue_quiet", name=name, hours=hours))
@@ -537,7 +548,7 @@ class Notifier:
             if not record.get("confirmed", True):
                 continue  # healed within the window: it never happened
             severity = ISSUE_SEVERITY.get(key, "warning")
-            message = self.text(f"resolved_{key}", name=device.name)
+            message = self.text(f"resolved_{wording(key, device)}", name=device.name)
             resolved = Issue(key, severity, message)  # type: ignore[arg-type]
             policy = self.policy_for(device.device_id, severity)
             self._fire(device, resolved, "resolved", policy)

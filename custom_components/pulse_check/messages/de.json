@@ -1,5 +1,6 @@
 {
   "issue_offline": "{name}: offline",
+  "issue_unavailable": "{name}: nicht verfügbar",
   "issue_quiet": "{name}: seit {hours} h keine Meldung",
   "issue_not_provided": "{name}: wird von {integration} nicht mehr bereitgestellt",
   "issue_battery_critical": "{name}: Batterie kritisch ({level})",
@@ -7,6 +8,7 @@
   "level_percent": "{level} %",
   "level_low": "meldet schwach",
   "resolved_offline": "{name}: wieder online",
+  "resolved_unavailable": "{name}: wieder verfügbar",
   "resolved_quiet": "{name}: meldet sich wieder",
   "resolved_not_provided": "{name}: wird wieder bereitgestellt",
   "resolved_battery_critical": "{name}: Batterie nicht mehr kritisch",

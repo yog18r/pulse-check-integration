@@ -10,7 +10,11 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from custom_components.pulse_check.const import ATTR_SUMMARY, DEBOUNCE_SECONDS
+from custom_components.pulse_check.const import (
+    ATTR_SUMMARY,
+    CONF_WATCH_NON_DEVICES,
+    DEBOUNCE_SECONDS,
+)
 from tests.conftest import device_dicts, load_fixture_into_hass
 
 ENTITY_ID = "sensor.pulse_check_attention"
@@ -48,6 +52,8 @@ async def test_attention_sensor_matches_the_golden_output(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
+    # The golden output predates watching services and lone entities.
+    hass.config_entries.async_update_entry(config_entry, options={CONF_WATCH_NON_DEVICES: False})
     device_ids = await _set_up(hass, config_entry, fixture_snapshot, freezer, fixed_now)
     expected = golden["cases"][0]  # the defaults case
 

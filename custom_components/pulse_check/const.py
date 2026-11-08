@@ -40,6 +40,10 @@ CONF_INCLUDE_INTEGRATIONS = "include_integrations"
 CONF_EXCLUDE_INTEGRATIONS = "exclude_integrations"
 CONF_EXCLUDE_DEVICES = "exclude_devices"
 CONF_EXCLUDE_ENTITIES = "exclude_entities"
+# Services (Sun, AdGuard Home) and entities with no device count as
+# unavailable when they stop working.
+CONF_WATCH_NON_DEVICES = "watch_non_devices"
+DEFAULT_WATCH_NON_DEVICES = True
 
 # Sub-keys of one integration threshold entry.
 CONF_INTEGRATION = "integration"

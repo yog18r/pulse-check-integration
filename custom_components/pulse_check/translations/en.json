@@ -37,6 +37,7 @@
             "name": "Filters",
             "description": "Leave everything empty to watch every device.",
             "data": {
+              "watch_non_devices": "Watch services and entities with no device",
               "include_areas": "Only these areas",
               "exclude_areas": "Ignore these areas",
               "include_integrations": "Only these integrations",
@@ -45,6 +46,7 @@
               "exclude_entities": "Ignore these entities"
             },
             "data_description": {
+              "watch_non_devices": "Services such as Sun or AdGuard Home, and entities with no device such as template sensors and automations, count as unavailable when they stop working.",
               "include_areas": "Devices without an area are left out when this is set.",
               "exclude_entities": "For example a settings sensor an integration labels as a battery."
             }

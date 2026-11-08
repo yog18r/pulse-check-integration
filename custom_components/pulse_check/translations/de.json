@@ -37,6 +37,7 @@
             "name": "Filter",
             "description": "Alles leer lassen, um jedes Gerät zu überwachen.",
             "data": {
+              "watch_non_devices": "Dienste und Entitäten ohne Gerät überwachen",
               "include_areas": "Nur diese Bereiche",
               "exclude_areas": "Diese Bereiche ignorieren",
               "include_integrations": "Nur diese Integrationen",
@@ -45,6 +46,7 @@
               "exclude_entities": "Diese Entitäten ignorieren"
             },
             "data_description": {
+              "watch_non_devices": "Dienste wie Sonne oder AdGuard Home sowie Entitäten ohne Gerät, etwa Template-Sensoren und Automationen, gelten als nicht verfügbar, wenn sie nicht mehr funktionieren.",
               "include_areas": "Geräte ohne Bereich werden dann ausgelassen.",
               "exclude_entities": "Zum Beispiel ein Einstellungssensor, den eine Integration als Batterie kennzeichnet."
             }

@@ -37,6 +37,7 @@
             "name": "Filters",
             "description": "Laat alles leeg om elk apparaat te bewaken.",
             "data": {
+              "watch_non_devices": "Diensten en entiteiten zonder apparaat bewaken",
               "include_areas": "Alleen deze ruimtes",
               "exclude_areas": "Deze ruimtes negeren",
               "include_integrations": "Alleen deze integraties",
@@ -45,6 +46,7 @@
               "exclude_entities": "Deze entiteiten negeren"
             },
             "data_description": {
+              "watch_non_devices": "Diensten zoals Zon of AdGuard Home, en entiteiten zonder apparaat zoals template-sensoren en automatiseringen, tellen als niet beschikbaar wanneer ze niet meer werken.",
               "include_areas": "Apparaten zonder ruimte vallen dan weg.",
               "exclude_entities": "Bijvoorbeeld een instellingssensor die een integratie als batterij aanmerkt."
             }

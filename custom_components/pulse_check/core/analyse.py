@@ -9,7 +9,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .availability import detect_last_heard, detect_not_provided, detect_offline, is_quiet
+from .availability import (
+    can_be_offline,
+    detect_last_heard,
+    detect_not_provided,
+    detect_offline,
+    is_quiet,
+)
 from .battery import detect_battery
 from .device_type import classify_device
 from .enhancers import apply_enhancers
@@ -20,6 +26,7 @@ from .group import (
     collect_device_groups,
     display_name,
     dominant_integration,
+    group_source,
 )
 from .models import DeviceHealth, Severity, as_utc
 from .settings import settings_for_device
@@ -37,6 +44,9 @@ if TYPE_CHECKING:
 
     from .enhancers import Enhancer
     from .models import CoreConfig, Snapshot
+
+# Pulse Check's own entities, which live on a service device of their own.
+OWN_INTEGRATION = "pulse_check"
 
 
 def _list_has(items: Iterable[str], *values: str | None) -> bool:
@@ -117,6 +127,8 @@ def analyse_devices(
 
     for raw_group in collect_device_groups(snapshot):
         integration = dominant_integration(raw_group.entities)
+        if integration == OWN_INTEGRATION:
+            continue  # it cannot report itself unavailable
         if _is_excluded(raw_group, integration, config, snapshot):
             continue
 
@@ -126,12 +138,17 @@ def analyse_devices(
 
         battery = detect_battery(group.states, snapshot["entities"])
 
-        # A lone entity with no device is only interesting if it tells us
-        # about a battery. Otherwise (template helpers, input_booleans...)
-        # it is noise. And even then, it can only ever be a battery reading:
-        # with no device behind it there is nothing to be offline or quiet.
-        is_orphan = group.device is None
-        if is_orphan and battery is None:
+        # Services (Sun, AdGuard Home) and entities with no device (template
+        # sensors, automations) have no hardware to be quiet, but they can
+        # stop working: they are watched for being unavailable. With that
+        # turned off, services are skipped and a lone entity is only
+        # interesting for its battery.
+        source = group_source(group)
+        watched = source == "device" or config.watch_non_devices
+        if not watched and (source == "service" or battery is None):
+            continue
+        # Nor is one made only of settings and buttons, which never decide.
+        if source != "device" and battery is None and not can_be_offline(group.entities):
             continue
 
         # Enhancers run first so their better signals (a Z-Wave "dead"
@@ -141,12 +158,12 @@ def analyse_devices(
         # Entities the integration dropped (stale configuration) are not an
         # outage; an enhancer's "dead node" still is.
         not_provided = (
-            not is_orphan
+            watched
             and not enhanced.offline
             and detect_not_provided(group.entities, snapshot["states"])
         )
         is_offline = (
-            not is_orphan
+            watched
             and not not_provided
             and (enhanced.offline or detect_offline(group.entities, snapshot["states"]))
         )
@@ -162,7 +179,7 @@ def analyse_devices(
         # their own. By default that is battery devices; mains devices go
         # unavailable when they drop off, and an untouched light is not news.
         quiet_eligible = (
-            not is_orphan
+            source == "device"
             and not is_offline
             and not not_provided
             and (config.quiet_scope == "all" or battery is not None)
@@ -194,6 +211,7 @@ def analyse_devices(
                 integration=integration,
                 is_offline=is_offline,
                 is_not_provided=not_provided,
+                source=source,
                 is_quiet=quiet,
                 quiet_threshold_hours=quiet_hours,
                 severity=severity,

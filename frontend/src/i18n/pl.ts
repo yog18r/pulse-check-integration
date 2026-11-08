@@ -71,6 +71,7 @@ export const pl: Catalog = {
 
   'row.open': '{name}, otwórz w Home Assistant',
   'row.offline': 'Offline',
+  'row.unavailable': 'Niedostępne',
   'row.not_provided': 'Niedostarczane',
   'row.not_provided_by': 'nie jest już dostarczane przez {integration}',
   'row.quiet': 'Milczy',

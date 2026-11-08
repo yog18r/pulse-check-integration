@@ -37,6 +37,7 @@
             "name": "Filtri",
             "description": "Lascia tutto vuoto per controllare ogni dispositivo.",
             "data": {
+              "watch_non_devices": "Monitora servizi ed entità senza dispositivo",
               "include_areas": "Solo queste aree",
               "exclude_areas": "Ignora queste aree",
               "include_integrations": "Solo queste integrazioni",
@@ -45,6 +46,7 @@
               "exclude_entities": "Ignora queste entità"
             },
             "data_description": {
+              "watch_non_devices": "I servizi come Sole o AdGuard Home, e le entità senza dispositivo come i sensori template e le automazioni, contano come non disponibili quando smettono di funzionare.",
               "include_areas": "Se impostato, i dispositivi senza area vengono esclusi.",
               "exclude_entities": "Ad esempio un sensore di impostazione che un'integrazione etichetta come batteria."
             }

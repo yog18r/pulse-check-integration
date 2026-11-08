@@ -104,6 +104,43 @@ describe('App', () => {
     expect(cells.queryByText('Offline')).not.toBeInTheDocument();
   });
 
+  it('shows a service or an entity with no device as unavailable', async () => {
+    const { emit } = renderApp();
+    await screen.findByText('⚠️ 7 devices need attention');
+    const down = (deviceId: string, name: string, source: string) => ({
+      deviceId,
+      name,
+      integration: 'adguard',
+      deviceType: 'other',
+      isOffline: true,
+      isQuiet: false,
+      quietThresholdHours: 24,
+      severity: 'critical',
+      extras: [],
+      entityIds: [],
+      source,
+    });
+    const devices = SNAPSHOT_PAYLOAD.devices as unknown[];
+    emit({
+      ...SNAPSHOT_PAYLOAD,
+      devices: [
+        ...devices,
+        down('dev_adguard', 'AdGuard Home', 'service'),
+        down('entity:sensor.front_door', 'Front door', 'entity'),
+      ],
+    });
+    expect(await screen.findByText('⚠️ 9 devices need attention')).toBeInTheDocument();
+
+    await user().click(screen.getByRole('tab', { name: /Connectivity/ }));
+    for (const name of ['AdGuard Home', 'Front door']) {
+      const row = screen.getByText(name).closest('li');
+      expect(row).not.toBeNull();
+      const cells = within(row!);
+      expect(cells.getByText('Unavailable')).toBeInTheDocument();
+      expect(cells.queryByText('Offline')).not.toBeInTheDocument();
+    }
+  });
+
   it("speaks the user's language", async () => {
     const fake = fakeHass();
     fake.hass.locale = { language: 'de' };

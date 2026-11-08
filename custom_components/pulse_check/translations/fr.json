@@ -37,6 +37,7 @@
             "name": "Filtres",
             "description": "Laissez tout vide pour surveiller tous les appareils.",
             "data": {
+              "watch_non_devices": "Surveiller les services et les entités sans appareil",
               "include_areas": "Uniquement ces pièces",
               "exclude_areas": "Ignorer ces pièces",
               "include_integrations": "Uniquement ces intégrations",
@@ -45,6 +46,7 @@
               "exclude_entities": "Ignorer ces entités"
             },
             "data_description": {
+              "watch_non_devices": "Les services comme Soleil ou AdGuard Home, et les entités sans appareil comme les capteurs template et les automatisations, comptent comme indisponibles lorsqu'ils cessent de fonctionner.",
               "include_areas": "Si ce champ est rempli, les appareils sans pièce sont exclus.",
               "exclude_entities": "Par exemple un capteur de réglage qu'une intégration présente comme une batterie."
             }

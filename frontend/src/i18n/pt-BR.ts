@@ -44,6 +44,7 @@ export const ptBR: Catalog = {
 
   'row.open': '{name}, abrir no Home Assistant',
   'row.offline': 'Offline',
+  'row.unavailable': 'Indisponível',
   'row.not_provided': 'Não fornecido',
   'row.not_provided_by': 'não é mais fornecido por {integration}',
   'row.quiet': 'Inativo',

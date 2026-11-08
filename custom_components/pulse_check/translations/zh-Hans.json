@@ -37,6 +37,7 @@
             "name": "筛选",
             "description": "全部留空即可监控所有设备。",
             "data": {
+              "watch_non_devices": "监控服务和无设备的实体",
               "include_areas": "仅这些区域",
               "exclude_areas": "忽略这些区域",
               "include_integrations": "仅这些集成",
@@ -45,6 +46,7 @@
               "exclude_entities": "忽略这些实体"
             },
             "data_description": {
+              "watch_non_devices": "太阳、AdGuard Home 等服务，以及模板传感器、自动化等无设备的实体，停止工作时计为不可用。",
               "include_areas": "设置此项后，没有区域的设备将被排除。",
               "exclude_entities": "例如某个集成标记为电池的设置类传感器。"
             }

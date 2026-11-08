@@ -77,10 +77,17 @@ change must come with a deliberate change to the golden file.
   binary low, or an enhancer says so; warning = at/below warning (default
   30) or quiet. Snoozed devices read as ok.
 - **Grouping**: by device registry entry; device-less entities get
-  `entity:<entity_id>` and count only as battery readings. A state with no
-  registry entry at all (no `unique_id`) is device-less too, with
-  integration `unknown`. Service and disabled devices are skipped. Integration = most common platform among
-  the device's entities. Name = `name_by_user` > `name`, overridable.
+  `entity:<entity_id>`. A state with no registry entry at all (no
+  `unique_id`) is device-less too, with integration `unknown`. Disabled
+  devices are skipped. Integration = most common platform among the
+  device's entities. Name = `name_by_user` > `name`, overridable.
+- **Services and device-less entities** (`watch_non_devices`, on by
+  default): judged by the offline rule and worded as *unavailable*
+  (`source` is `service` or `entity`), never quiet. Pulse Check's own
+  device and ones made only of settings are left out. The card's snapshot
+  carries them only while unavailable, snoozed or with a battery. Off:
+  services are skipped and device-less entities count only as battery
+  readings.
 - **Device type**: lock, cover, vacuum, phone, media, remote, climate,
   motion, contact, light, switch or other, from the primary entities'
   domains and device classes.

@@ -4,6 +4,22 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Added
+- **Services and entities with no device can be unavailable.** Pulse
+  Check used to watch only hardware for being offline. Services such as
+  Sun, AdGuard Home or Backup, and entities with no device such as
+  template sensors, automations and helpers, now count as unavailable when
+  they stop working: shown on the Connectivity tab and notified as
+  "unavailable" under the critical policy. They are never quiet. Turn it
+  off under Configure, Filters, "Watch services and entities with no
+  device", or leave out a noisy one with the usual filters.
+
+### Changed
+- The README leads with installing from the Home Assistant Marketplace,
+  which replaced HACS in Home Assistant 2026.11.
+
 ## 0.2.7 - 2026-11-08
 
 ### Added

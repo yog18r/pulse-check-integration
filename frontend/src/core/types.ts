@@ -189,6 +189,12 @@ export interface DeviceHealth {
    * update, to delete in Home Assistant. Never also offline or quiet.
    */
   isNotProvided?: boolean;
+  /**
+   * Set for a virtual "service" device (Sun, AdGuard Home) or an entity
+   * with no device (a template sensor, an automation). Absent for
+   * hardware. For these, offline reads as "unavailable".
+   */
+  source?: 'service' | 'entity';
   /** The threshold that applied to this device, after overrides, in hours. */
   quietThresholdHours: number;
   /** Set while the user has snoozed this device; severity is then "ok". */

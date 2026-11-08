@@ -73,6 +73,7 @@ from .const import (
     CONF_REMINDER_DAYS,
     CONF_REMINDER_MAX,
     CONF_STARTUP_GRACE_MINUTES,
+    CONF_WATCH_NON_DEVICES,
     CONF_WEEKLY_ALL_CLEAR,
     DEFAULT_BATTERY_CRITICAL,
     DEFAULT_BATTERY_WARNING,
@@ -88,6 +89,7 @@ from .const import (
     DEFAULT_REMINDER_DAYS,
     DEFAULT_REMINDER_MAX,
     DEFAULT_STARTUP_GRACE_MINUTES,
+    DEFAULT_WATCH_NON_DEVICES,
     DOMAIN,
     MAX_MAINTENANCE_HOURS,
     NOTIFY_POLICIES,
@@ -115,6 +117,7 @@ THRESHOLD_KEYS = (
     CONF_INTEGRATION_THRESHOLDS,
 )
 FILTER_KEYS = (
+    CONF_WATCH_NON_DEVICES,
     CONF_INCLUDE_AREAS,
     CONF_EXCLUDE_AREAS,
     CONF_INCLUDE_INTEGRATIONS,
@@ -269,6 +272,9 @@ def _options_schema(platforms: list[str], notify_targets: list[str]) -> probatio
     )
     filters = probatio.Schema(
         {
+            probatio.Required(
+                CONF_WATCH_NON_DEVICES, default=DEFAULT_WATCH_NON_DEVICES
+            ): BooleanSelector(),
             probatio.Optional(CONF_INCLUDE_AREAS): AreaSelector(AreaSelectorConfig(multiple=True)),
             probatio.Optional(CONF_EXCLUDE_AREAS): AreaSelector(AreaSelectorConfig(multiple=True)),
             probatio.Optional(CONF_INCLUDE_INTEGRATIONS): _integrations(platforms),

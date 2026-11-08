@@ -56,6 +56,7 @@ export const en = {
   // -- one device row ---------------------------------------------------------
   'row.open': '{name}, open in Home Assistant',
   'row.offline': 'Offline',
+  'row.unavailable': 'Unavailable',
   'row.not_provided': 'Not provided',
   'row.not_provided_by': 'no longer provided by {integration}',
   'row.quiet': 'Quiet',

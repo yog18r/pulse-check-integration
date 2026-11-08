@@ -40,7 +40,7 @@ interface Props {
 }
 
 function connectivityLabel(device: DeviceHealth, t: Translator): string {
-  if (device.isOffline) return t.t('row.offline');
+  if (device.isOffline) return t.t(device.source ? 'row.unavailable' : 'row.offline');
   if (device.isNotProvided) return t.t('row.not_provided');
   if (device.isQuiet) return t.t('row.quiet');
   return t.t('row.online');

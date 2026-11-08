@@ -41,6 +41,7 @@ export const it: Catalog = {
   'empty.actions': 'Niente da fare',
   'row.open': '{name}, apri in Home Assistant',
   'row.offline': 'Offline',
+  'row.unavailable': 'Non disponibile',
   'row.not_provided': 'Non fornito',
   'row.not_provided_by': 'non più fornito da {integration}',
   'row.quiet': 'Silenzioso',

@@ -182,6 +182,7 @@ export function parseDevice(raw: unknown): DeviceHealth | undefined {
       : [],
   };
   if (raw.isNotProvided === true) device.isNotProvided = true;
+  if (raw.source === 'service' || raw.source === 'entity') device.source = raw.source;
   const area = str(raw.area);
   if (area !== undefined) device.area = area;
   const manufacturer = str(raw.manufacturer);

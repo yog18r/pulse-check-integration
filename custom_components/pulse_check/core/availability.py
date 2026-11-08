@@ -65,6 +65,11 @@ def detect_not_provided(entities: Sequence[EntityEntry], states: Mapping[str, En
     )
 
 
+def can_be_offline(entities: Sequence[EntityEntry]) -> bool:
+    """False when only settings, buttons and update checkers are left to judge by."""
+    return any(is_primary(e) or not is_static_entity(e["entity_id"], e) for e in entities)
+
+
 def _deciding_entities(
     entities: Sequence[EntityEntry], states: Mapping[str, EntityState]
 ) -> list[EntityEntry]:

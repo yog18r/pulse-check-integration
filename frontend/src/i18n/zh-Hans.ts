@@ -41,6 +41,7 @@ export const zhHans: Catalog = {
 
   'row.open': '{name}，在 Home Assistant 中打开',
   'row.offline': '离线',
+  'row.unavailable': '不可用',
   'row.not_provided': '未提供',
   'row.not_provided_by': '{integration} 已不再提供',
   'row.quiet': '久未上报',

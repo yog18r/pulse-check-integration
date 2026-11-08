@@ -37,6 +37,7 @@
             "name": "Filtros",
             "description": "Deixe tudo vazio para acompanhar todos os dispositivos.",
             "data": {
+              "watch_non_devices": "Monitorar serviços e entidades sem dispositivo",
               "include_areas": "Somente estas áreas",
               "exclude_areas": "Ignorar estas áreas",
               "include_integrations": "Somente estas integrações",
@@ -45,6 +46,7 @@
               "exclude_entities": "Ignorar estas entidades"
             },
             "data_description": {
+              "watch_non_devices": "Serviços como Sol ou AdGuard Home, e entidades sem dispositivo como sensores de template e automações, contam como indisponíveis quando param de funcionar.",
               "include_areas": "Quando isto está definido, dispositivos sem área ficam de fora.",
               "exclude_entities": "Por exemplo, um sensor de configuração que uma integração marca como bateria."
             }

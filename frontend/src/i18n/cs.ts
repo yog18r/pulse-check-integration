@@ -64,6 +64,7 @@ export const cs: Catalog = {
   // -- one device row ---------------------------------------------------------
   'row.open': '{name}, otevřít v Home Assistant',
   'row.offline': 'Offline',
+  'row.unavailable': 'Nedostupné',
   'row.not_provided': 'Neposkytováno',
   'row.not_provided_by': 'už neposkytováno integrací {integration}',
   'row.quiet': 'Neozývá se',

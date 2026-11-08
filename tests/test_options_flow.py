@@ -19,6 +19,7 @@ from custom_components.pulse_check.const import (
     CONF_INTEGRATION_THRESHOLDS,
     CONF_QUIET_SCOPE,
     CONF_QUIET_THRESHOLD_HOURS,
+    CONF_WATCH_NON_DEVICES,
 )
 from tests.conftest import load_fixture_into_hass
 
@@ -126,6 +127,7 @@ async def test_options_are_stored_flat_and_applied(
             "sensor.living_room_motion_battery",
         ],
         CONF_EXCLUDE_INTEGRATIONS: ["zha"],
+        CONF_WATCH_NON_DEVICES: True,
     }
 
     # OptionsFlowWithReload reloaded the entry, so the new config is live.

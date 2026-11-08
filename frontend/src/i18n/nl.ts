@@ -46,6 +46,7 @@ export const nl: Catalog = {
   // -- one device row ---------------------------------------------------------
   'row.open': '{name}, openen in Home Assistant',
   'row.offline': 'Offline',
+  'row.unavailable': 'Niet beschikbaar',
   'row.not_provided': 'Niet geleverd',
   'row.not_provided_by': 'niet meer geleverd door {integration}',
   'row.quiet': 'Stil',

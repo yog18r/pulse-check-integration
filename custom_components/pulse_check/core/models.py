@@ -102,6 +102,9 @@ class Snapshot(TypedDict):
 # --------------------------------------------------------------------------
 
 type QuietScope = Literal["battery", "all"]
+# What a result stands for: hardware, a virtual "service" device (Sun,
+# AdGuard Home), or an entity with no device (template sensors, automations).
+type Source = Literal["device", "service", "entity"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,6 +172,9 @@ class CoreConfig:
     exclude_entities: tuple[str, ...] = ()
     # Which devices can be "quiet": only battery-powered ones, or all.
     quiet_scope: QuietScope = "battery"
+    # Whether services and entities with no device can be unavailable. When
+    # off, entities with no device are watched for their battery only.
+    watch_non_devices: bool = True
     # Allow and deny lists. Areas by id or name; integrations by platform.
     include_areas: tuple[str, ...] = ()
     exclude_areas: tuple[str, ...] = ()
@@ -212,6 +218,7 @@ class CoreConfig:
             exclude_devices=_text_tuple(raw.get("exclude_devices")),
             exclude_entities=_text_tuple(raw.get("exclude_entities")),
             quiet_scope=quiet_scope,
+            watch_non_devices=raw.get("watch_non_devices", defaults.watch_non_devices) is not False,
             include_areas=_text_tuple(raw.get("include_areas")),
             exclude_areas=_text_tuple(raw.get("exclude_areas")),
             include_integrations=_text_tuple(raw.get("include_integrations")),
@@ -339,6 +346,9 @@ class DeviceHealth:
     # True when the integration no longer provides the entities that would
     # decide offline: stale configuration, not a fault. Never also offline.
     is_not_provided: bool = False
+    # Hardware, a service device, or an entity with no device. For the last
+    # two, offline reads as "unavailable".
+    source: Source = "device"
 
     def to_dict(self) -> dict[str, Any]:
         """The card's `DeviceHealth` shape, JSON-ready."""
@@ -354,12 +364,16 @@ class DeviceHealth:
             "extras": [extra.to_dict() for extra in self.extras],
             "entityIds": list(self.entity_ids),
         }
-        if self.area is not None:
-            out["area"] = self.area
-        if self.manufacturer is not None:
-            out["manufacturer"] = self.manufacturer
-        if self.model is not None:
-            out["model"] = self.model
+        # Optional fields are left out when unset, as the card expects.
+        for key, value in (
+            ("area", self.area),
+            ("manufacturer", self.manufacturer),
+            ("model", self.model),
+            ("batteryKind", self.battery_kind),
+            ("unusual", self.unusual),
+        ):
+            if value is not None:
+                out[key] = value
         if self.battery is not None:
             out["battery"] = self.battery.to_dict()
         if self.last_heard is not None:
@@ -370,14 +384,12 @@ class DeviceHealth:
             out["daysLeft"] = round(self.days_left, 1)
         if self.estimate is not None:
             out["estimate"] = self.estimate.to_dict()
-        if self.battery_kind is not None:
-            out["batteryKind"] = self.battery_kind
         if self.last_replaced is not None:
             out["lastReplaced"] = to_iso(self.last_replaced)
-        if self.unusual is not None:
-            out["unusual"] = self.unusual
         if self.is_not_provided:
             out["isNotProvided"] = True
+        if self.source != "device":
+            out["source"] = self.source
         return out
 
 

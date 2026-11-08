@@ -37,6 +37,7 @@
             "name": "Filtry",
             "description": "Nechte vše prázdné, chcete-li sledovat každé zařízení.",
             "data": {
+              "watch_non_devices": "Sledovat služby a entity bez zařízení",
               "include_areas": "Pouze tyto oblasti",
               "exclude_areas": "Ignorovat tyto oblasti",
               "include_integrations": "Pouze tyto integrace",
@@ -45,6 +46,7 @@
               "exclude_entities": "Ignorovat tyto entity"
             },
             "data_description": {
+              "watch_non_devices": "Služby jako Slunce nebo AdGuard Home a entity bez zařízení, například šablonové senzory a automatizace, se počítají jako nedostupné, když přestanou fungovat.",
               "include_areas": "Zařízení bez oblasti jsou pak vynechána.",
               "exclude_entities": "Například senzor nastavení, který integrace označuje jako baterii."
             }

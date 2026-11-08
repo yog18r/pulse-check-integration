@@ -346,7 +346,8 @@
             "source": "sensor",
             "entityId": "sensor.remote_battery_template"
           },
-          "lastHeard": "2026-10-15T06:00:00.000Z"
+          "lastHeard": "2026-10-15T06:00:00.000Z",
+          "source": "entity"
         },
         {
           "deviceId": "dev_vacuum",
@@ -418,7 +419,8 @@
             "entityId": "sensor.garden_soil_moisture",
             "level": 22
           },
-          "lastHeard": "2026-10-11T08:00:00.000Z"
+          "lastHeard": "2026-10-11T08:00:00.000Z",
+          "source": "entity"
         }
       ],
       "actions": {
@@ -836,7 +838,8 @@
             "source": "sensor",
             "entityId": "sensor.remote_battery_template"
           },
-          "lastHeard": "2026-10-15T06:00:00.000Z"
+          "lastHeard": "2026-10-15T06:00:00.000Z",
+          "source": "entity"
         },
         {
           "deviceId": "dev_vacuum",
@@ -908,7 +911,8 @@
             "entityId": "sensor.garden_soil_moisture",
             "level": 22
           },
-          "lastHeard": "2026-10-11T08:00:00.000Z"
+          "lastHeard": "2026-10-11T08:00:00.000Z",
+          "source": "entity"
         }
       ],
       "actions": {
@@ -1359,7 +1363,8 @@
             "source": "sensor",
             "entityId": "sensor.remote_battery_template"
           },
-          "lastHeard": "2026-10-15T06:00:00.000Z"
+          "lastHeard": "2026-10-15T06:00:00.000Z",
+          "source": "entity"
         },
         {
           "deviceId": "dev_vacuum",
@@ -1431,7 +1436,8 @@
             "entityId": "sensor.garden_soil_moisture",
             "level": 22
           },
-          "lastHeard": "2026-10-11T08:00:00.000Z"
+          "lastHeard": "2026-10-11T08:00:00.000Z",
+          "source": "entity"
         }
       ],
       "actions": {
@@ -2010,7 +2016,8 @@
             "entityId": "sensor.garden_soil_moisture",
             "level": 22
           },
-          "lastHeard": "2026-10-11T08:00:00.000Z"
+          "lastHeard": "2026-10-11T08:00:00.000Z",
+          "source": "entity"
         }
       ],
       "actions": {
@@ -2192,7 +2199,8 @@
             "source": "sensor",
             "entityId": "sensor.remote_battery_template"
           },
-          "lastHeard": "2026-10-15T06:00:00.000Z"
+          "lastHeard": "2026-10-15T06:00:00.000Z",
+          "source": "entity"
         }
       ],
       "actions": {
@@ -2597,7 +2605,8 @@
             "source": "sensor",
             "entityId": "sensor.remote_battery_template"
           },
-          "lastHeard": "2026-10-15T06:00:00.000Z"
+          "lastHeard": "2026-10-15T06:00:00.000Z",
+          "source": "entity"
         },
         {
           "deviceId": "dev_vacuum",
@@ -2669,7 +2678,8 @@
             "entityId": "sensor.garden_soil_moisture",
             "level": 22
           },
-          "lastHeard": "2026-10-11T08:00:00.000Z"
+          "lastHeard": "2026-10-11T08:00:00.000Z",
+          "source": "entity"
         }
       ],
       "actions": {

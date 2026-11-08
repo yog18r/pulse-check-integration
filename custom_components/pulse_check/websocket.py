@@ -36,6 +36,7 @@ from .core.models import to_iso
 if TYPE_CHECKING:
     from .coordinator import PulseCheckCoordinator, PulseCheckData
     from .core.drain import DrainPoint
+    from .core.models import DeviceHealth
 
 ERR_NOT_LOADED = "not_loaded"
 ERR_UNKNOWN_ENTITY = "unknown_entity"
@@ -56,13 +57,29 @@ def _coordinator(hass: HomeAssistant) -> PulseCheckCoordinator | None:
     return coordinator
 
 
+def _worth_showing(device: DeviceHealth) -> bool:
+    """Whether the card needs the device.
+
+    Every device is, but a working service or entity with no device is not:
+    a home can have hundreds (automations, helpers, Sun) and the card shows
+    them only while they are unavailable, snoozed or carry a battery.
+    """
+    return (
+        device.source == "device"
+        or device.is_offline
+        or device.is_not_provided
+        or device.battery is not None
+        or device.snoozed_until is not None
+    )
+
+
 def snapshot_payload(coordinator: PulseCheckCoordinator) -> dict[str, Any]:
     """Everything the card needs, JSON-ready."""
     data: PulseCheckData = coordinator.data
     store = coordinator.store
     until = store.maintenance_until if store.in_maintenance(dt_util.utcnow()) else None
     return {
-        "devices": [device.to_dict() for device in data.devices],
+        "devices": [device.to_dict() for device in data.devices if _worth_showing(device)],
         "summary": data.summary.to_dict(),
         "actions": data.actions.to_dict(),
         "config": data.config.to_dict(),
