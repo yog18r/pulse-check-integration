@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -240,6 +240,62 @@ describe('EditorForm: per-device settings', () => {
       device_id: 'entity:sensor.remote_battery_template',
       rechargeable: true,
     });
+  });
+
+  it('clears every setting of a device, and shows stale ones so they can go', async () => {
+    const { callService } = renderEditor(
+      { type: 'custom:pulse-check-card' },
+      {
+        payload: {
+          ...SNAPSHOT_PAYLOAD,
+          device_settings: {
+            dev_zha_temp: { battery_type: 'CR2450', notify_policy: 'none' },
+            // Saved when this sensor had no device; it has one now.
+            'entity:sensor.foxess_bat_soc': { rechargeable: true },
+          },
+        },
+      },
+    );
+    const user = userEvent.setup();
+    const chips = await screen.findByLabelText('Devices with settings');
+    const stale = within(chips).getByRole('button', {
+      name: 'entity:sensor.foxess_bat_soc (no longer found)',
+    });
+
+    await user.click(within(chips).getByRole('button', { name: 'Bedroom Temp & Humidity' }));
+    await user.click(screen.getByRole('button', { name: 'Clear settings' }));
+    expect(callService).toHaveBeenLastCalledWith('pulse_check', 'set_device_settings', {
+      device_id: 'dev_zha_temp',
+      name: '',
+      area: '',
+      quiet_threshold_hours: '',
+      battery_type: '',
+      battery_count: '',
+      rechargeable: '',
+      notify_policy: '',
+      sparkline_days: '',
+    });
+    expect(await screen.findByText(/Settings cleared/)).toBeInTheDocument();
+
+    await user.click(stale);
+    await user.click(screen.getByRole('button', { name: 'Clear settings' }));
+    expect(callService).toHaveBeenLastCalledWith(
+      'pulse_check',
+      'set_device_settings',
+      expect.objectContaining({ device_id: 'entity:sensor.foxess_bat_soc', rechargeable: '' }),
+    );
+  });
+
+  it('switches the older battery_sort spelling to sort when it opens', async () => {
+    const { latest } = renderEditor({
+      type: 'custom:pulse-check-card',
+      battery_sort: 'replace_soon',
+    });
+    await waitFor(() => {
+      expect(latest()).toEqual({ type: 'custom:pulse-check-card', sort: 'replace_soon' });
+    });
+    expect(screen.getByLabelText('Sort order')).toHaveValue('replace_soon');
+    expect(screen.getByRole('option', { name: 'Soonest to replace first' })).toBeInTheDocument();
   });
 
   it('confirms each save inline, and reports a failure', async () => {

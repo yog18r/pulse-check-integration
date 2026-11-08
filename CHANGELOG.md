@@ -4,6 +4,24 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Added
+- **Clear settings** in the card editor's per-device panel removes every
+  setting saved for a device, and its chip with them.
+
+### Fixed
+- **Settings saved for something no longer found can be removed.** They
+  show as "(no longer found)" in the editor, and the
+  `pulse_check.set_device_settings` action accepts them, so they can be
+  cleared. Before, they could not be changed at all.
+- **Settings follow an entity onto its device.** When an integration gives
+  a battery sensor a device (FoxESS did), what was saved for the sensor on
+  its own (settings, snooze, replacement history) moves to the device,
+  unless the device has settings of its own.
+- The sort option reads "Soonest to replace first", matching "Next to
+  replace", and the editor switches the older `battery_sort` to `sort`.
+
 ## 0.2.11 - 2026-11-09
 
 ### Added

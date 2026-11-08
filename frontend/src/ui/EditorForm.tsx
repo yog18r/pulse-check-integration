@@ -16,6 +16,7 @@
  * props, and typing calls `onChange` to produce a new config object, which
  * flows back down as the new value. One-way data flow, no hidden state.
  */
+import { useEffect } from 'react';
 import {
   configErrorText,
   DEFAULT_CONFIG,
@@ -59,6 +60,16 @@ export function EditorForm({ config, onChange, hass, hassBox }: Props) {
     if (value !== undefined) entries.push([key, value]);
     onChange(Object.fromEntries(entries));
   }
+
+  // `battery_sort` is the older spelling of `sort`. Switch it once, when the
+  // editor opens, so the YAML shows the current name. React note: an effect
+  // runs after the render, and the condition stops it once switched.
+  useEffect(() => {
+    if (config.battery_sort === undefined || config.sort !== undefined) return;
+    const entries = Object.entries(config).filter(([k]) => k !== 'battery_sort');
+    if (config.battery_sort !== 'level') entries.push(['sort', config.battery_sort]);
+    onChange(Object.fromEntries(entries));
+  }, [config, onChange]);
 
   // Validate exactly like the card does, so the editor can warn early.
   let error: string | null = null;

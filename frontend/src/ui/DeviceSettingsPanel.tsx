@@ -46,6 +46,18 @@ interface Props {
   hassBox: HassBox;
 }
 
+/** Every per-device setting, for "Clear settings". */
+const SETTING_KEYS = [
+  'name',
+  'area',
+  'quiet_threshold_hours',
+  'battery_type',
+  'battery_count',
+  'rechargeable',
+  'notify_policy',
+  'sparkline_days',
+] as const;
+
 /** How long "Saved to Pulse Check" stays on screen. */
 const FEEDBACK_MS = 3000;
 
@@ -208,13 +220,13 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
   const keyFor = (field: string, value: string | number | undefined) =>
     `${field}:${selectedId}:${value === undefined ? '' : String(value)}`;
 
-  function save(patch: Record<string, unknown>) {
+  function save(patch: Record<string, unknown>, done = t.t('settings.saved')) {
     callPulseCheck(hassBox.latest, 'set_device_settings', {
       device_id: selectedId,
       ...patch,
     }).then(
       () => {
-        setFeedback({ kind: 'saved', text: t.t('settings.saved') });
+        setFeedback({ kind: 'saved', text: done });
       },
       (err: unknown) => {
         const reason = errorMessage(err) ?? String(err);
@@ -246,7 +258,10 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
                   setFeedback(null);
                 }}
               >
-                {option ? option.name : id}
+                {/* Settings saved for something no longer in the registry
+                    (an entity that has since been given a device) still
+                    show, so they can be cleared. */}
+                {option ? option.name : t.t('settings.not_found', { id })}
               </button>
             );
           })}
@@ -393,6 +408,26 @@ export function DeviceSettingsPanel({ hass, hassBox }: Props) {
               </select>
             </label>
           </div>
+
+          {Object.keys(settings).length > 0 && (
+            <div className="settingsline">
+              <button
+                type="button"
+                className="clear"
+                title={t.t('settings.clear_title')}
+                onClick={() => {
+                  // An empty value clears a setting; with none left, the
+                  // integration forgets the device and its chip goes.
+                  save(
+                    Object.fromEntries(SETTING_KEYS.map((key) => [key, ''])),
+                    t.t('settings.cleared'),
+                  );
+                }}
+              >
+                {t.t('settings.clear')}
+              </button>
+            </div>
+          )}
 
           {feedback && (
             <p className="feedback" role="status" data-kind={feedback.kind}>

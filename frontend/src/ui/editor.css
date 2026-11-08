@@ -359,6 +359,16 @@
   font-size: 0.85em;
   cursor: pointer;
 }
+.clear {
+  padding: 4px 12px;
+  border: 1px solid var(--error-color, #db4437);
+  border-radius: 999px;
+  background: none;
+  color: var(--error-color, #db4437);
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+}
 .chip[aria-pressed='true'] {
   border-color: var(--primary-color);
   color: var(--primary-color);

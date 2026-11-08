@@ -52,6 +52,7 @@ from .core import (
     summarise,
 )
 from .core.enhancers import ENHANCERS
+from .core.group import ORPHAN_PREFIX
 from .core.models import (
     AreaEntry,
     DeviceEntry,
@@ -222,6 +223,8 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         started = time.perf_counter()
         now = dt_util.utcnow()
         snapshot = build_snapshot(self.hass)
+        if self._adopt_entity_settings(snapshot):
+            self.rebuild_config()
         config = self.core_config
         snoozes = self.store.snoozes(now)
         devices = await self.hass.async_add_executor_job(_analyse, snapshot, config, now, snoozes)
@@ -243,6 +246,33 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             next_to_run_out=next_to_run_out,
             by_id={device.device_id: device for device in devices},
         )
+
+    def _adopt_entity_settings(self, snapshot: Snapshot) -> bool:
+        """Move what was saved for a lone entity onto the device it now belongs to.
+
+        An entity with no device is stored as `entity:<entity_id>`. When an
+        integration later gives it a device (FoxESS did for its battery
+        sensor), those settings, snooze and replacement history would never
+        apply again. They move to the device, unless it has its own already.
+        Returns True when anything moved.
+        """
+        moved = False
+        data = self.store.data
+        for key in [k for k in data["device_settings"] if k.startswith(ORPHAN_PREFIX)]:
+            entity = snapshot["entities"].get(key.removeprefix(ORPHAN_PREFIX))
+            device_id = entity.get("device_id") if entity is not None else None
+            if device_id is None or device_id not in snapshot["devices"]:
+                continue
+            if device_id in data["device_settings"]:
+                continue  # the device has settings of its own: leave both alone
+            for section in ("device_settings", "snoozes", "history"):
+                if key in data[section] and device_id not in data[section]:
+                    data[section][device_id] = data[section].pop(key)
+            _LOGGER.info("Moved the settings saved for %s to its device", key)
+            moved = True
+        if moved:
+            self.store.async_save()
+        return moved
 
     def _attach_drain_estimates(
         self, devices: list[DeviceHealth], now: datetime

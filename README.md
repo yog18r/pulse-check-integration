@@ -196,7 +196,7 @@ sparkline_days: 14 # 1 to 365
 | `show_tabs` | `[batteries, connectivity]` | Any of `batteries`, `connectivity`, `actions` |
 | `default_tab` | `batteries` | Must be in `show_tabs` |
 | `max_rows` | `12` | Or `all`. A "show more" control reveals the rest |
-| `sort` | `level` | Inside each severity band: `level` (lowest first), `name`, or `replace_soon` (devices with an estimate first, fewest days left first, then the rest by level). `battery_sort` still works |
+| `sort` | `level` | Inside each severity band: `level` (lowest first), `name`, or `replace_soon`, "Soonest to replace first" (batteries with a replacement estimate first, fewest days left first, then the rest by level; charge estimates do not count). `battery_sort` still works, and the visual editor switches it to `sort` |
 | `group_by` | `none` | `none`, `area`, `integration` or `device_type` |
 | `areas`, `integrations`, `device_types` | `[]` | Show only these. Device types: `lock`, `cover`, `vacuum`, `phone`, `media`, `remote`, `climate`, `motion`, `contact`, `light`, `switch`, `other` |
 | `problems_only` | `false` | Batteries tab shows only warning and critical rows |
@@ -205,7 +205,9 @@ sparkline_days: 14 # 1 to 365
 
 The integration's filters decide what is monitored at all; a card's `areas`, `integrations` and `device_types` only decide what *that* card shows, so one integration can feed a hallway card, a locks-only card and a whole-house card. The header counts follow the card's filters.
 
-The visual editor also has a **Per-device settings** panel: display name, area, battery type and count, rechargeable, quiet threshold, notification policy and sparkline window for any device, service (such as Sun) or entity with no device. Each change is saved at once through `pulse_check.set_device_settings`, not into the card's YAML, so it applies to every card and to notifications.
+The visual editor also has a **Per-device settings** panel: display name, area, battery type and count, rechargeable, quiet threshold, notification policy and sparkline window for any device, service (such as Sun) or entity with no device. Each change is saved at once through `pulse_check.set_device_settings`, not into the card's YAML, so it applies to every card and to notifications. Each device with saved settings shows as a chip; **Clear settings** removes them all, and its chip with them. Settings saved for something that is no longer found show as "(no longer found)" so they can be cleared too. When an entity saved by its own id is later given a device by its integration, its settings, snooze and replacement history move to that device, unless the device has settings of its own.
+
+The YAML in the code editor holds only what differs from the defaults: an untouched option, or every area, integration and device type still ticked, is left out.
 
 ## Entities
 
@@ -324,7 +326,7 @@ Every transition also fires a `pulse_check_transition` event with `device_id`, `
 | --- | --- |
 | `pulse_check.snooze` | Mute a device for `days` (default 7) or `until` a time. Its facts are still reported but it counts as ok and sends nothing |
 | `pulse_check.unsnooze` | Lift a snooze early |
-| `pulse_check.set_device_settings` | `name`, `area`, `quiet_threshold_hours`, `battery_type`, `battery_count`, `rechargeable`, `notify_policy`, `sparkline_days`. Only given fields change; an empty value clears one |
+| `pulse_check.set_device_settings` | `name`, `area`, `quiet_threshold_hours`, `battery_type`, `battery_count`, `rechargeable`, `notify_policy`, `sparkline_days`. Only given fields change; an empty value clears one. Settings saved for an id that is no longer watched can still be cleared |
 | `pulse_check.mark_replaced` | Record a replacement now (optional `battery_type`), closing the current cycle |
 | `pulse_check.mark_charged` | The same for a charge |
 | `pulse_check.undo_mark` | Take back the most recent replacement or charge, with the cycle it closed: one recorded by hand, or one detected from a rise in level that was not a new battery after all |

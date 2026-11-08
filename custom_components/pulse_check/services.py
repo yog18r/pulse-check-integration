@@ -141,9 +141,26 @@ async def _unsnooze(call: ServiceCall) -> None:
     await coordinator.async_refresh()
 
 
+def _settings_id(coordinator: PulseCheckCoordinator, raw: str) -> str:
+    """The id to store settings under: a watched device, or one that already has settings.
+
+    Settings saved for an id that no longer matches anything watched (a
+    removed device, or an entity that has since been given a device) can
+    still be changed, so they can be cleared.
+    """
+    try:
+        return resolve_device_id(coordinator, raw)
+    except ServiceValidationError:
+        stored = coordinator.store.device_settings
+        for candidate in (raw, ORPHAN_PREFIX + raw):
+            if candidate in stored:
+                return candidate
+        raise
+
+
 async def _set_device_settings(call: ServiceCall) -> None:
     coordinator = _coordinator(call.hass)
-    device_id = resolve_device_id(coordinator, call.data[ATTR_DEVICE_ID])
+    device_id = _settings_id(coordinator, call.data[ATTR_DEVICE_ID])
     updates = {key: value for key, value in call.data.items() if key != ATTR_DEVICE_ID}
     coordinator.store.update_device_settings(device_id, updates)
     coordinator.rebuild_config()
