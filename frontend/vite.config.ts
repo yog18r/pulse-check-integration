@@ -34,7 +34,7 @@ export default defineConfig({
       formats: ['es'],
       fileName: () => 'pulse-check-card.js',
     },
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         // Never split into chunks. HA loads the card as a single resource URL.
         codeSplitting: false,
