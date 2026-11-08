@@ -14,6 +14,12 @@ export const it: Catalog = {
   'app.snoozed': { one: '{count} posticipato', other: '{count} posticipati' },
   'app.show': 'mostra',
   'app.hide': 'nascondi',
+  'app.updated':
+    'Pulse Check è stato aggiornato alla {version}. Ricarica per usare la nuova scheda.',
+  'app.refresh': 'Ricarica',
+  'undo.replaced': '{name} segnato come sostituito.',
+  'undo.charged': '{name} segnato come ricaricato.',
+  'undo.undo': 'Annulla',
   'tab.batteries': 'Batterie',
   'tab.connectivity': 'Connettività',
   'tab.actions': 'Azioni',

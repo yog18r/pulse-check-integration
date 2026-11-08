@@ -15,6 +15,12 @@ export const de: Catalog = {
   'app.snoozed': { one: '{count} pausiert', other: '{count} pausiert' },
   'app.show': 'anzeigen',
   'app.hide': 'ausblenden',
+  'app.updated':
+    'Pulse Check wurde auf {version} aktualisiert. Neu laden, um die neue Karte zu verwenden.',
+  'app.refresh': 'Neu laden',
+  'undo.replaced': '{name} als ersetzt markiert.',
+  'undo.charged': '{name} als geladen markiert.',
+  'undo.undo': 'Rückgängig',
 
   'tab.batteries': 'Batterien',
   'tab.connectivity': 'Verbindung',

@@ -188,13 +188,30 @@ const DRAIN_PER_DAY: Record<string, number> = {
   'sensor.garden_soil_moisture': 0.2,
 };
 
-/** Fake `pulse_check/history`: a straight drain over the window. */
+/** Fake `pulse_check/history` and `pulse_check/histories`. */
 function fakeCallWS(message: Record<string, unknown>): Promise<unknown> {
-  if (message.type !== 'pulse_check/history') {
+  const answer =
+    message.type === 'pulse_check/history'
+      ? fakeHistory(String(message.entity_id), Number(message.days))
+      : message.type === 'pulse_check/histories'
+        ? {
+            results: (message.requests as { entity_id: string; days: number }[]).map((r) =>
+              fakeHistory(r.entity_id, r.days),
+            ),
+          }
+        : undefined;
+  if (answer === undefined) {
     return Promise.reject(new Error(`demo: unsupported command ${String(message.type)}`));
   }
-  const entityId = String(message.entity_id);
-  const days = Number(message.days);
+  return new Promise((resolve) =>
+    setTimeout(() => {
+      resolve(answer);
+    }, 300),
+  );
+}
+
+/** One battery's fake history: a straight drain over the window. */
+function fakeHistory(entityId: string, days: number): Record<string, unknown> {
   const rate = DRAIN_PER_DAY[entityId] ?? 0;
   const device = (payload.devices as Record<string, unknown>[]).find(
     (d) => (d.battery as { entityId?: string } | undefined)?.entityId === entityId,
@@ -215,11 +232,7 @@ function fakeCallWS(message: Record<string, unknown>): Promise<unknown> {
           ratePerDay: rate,
         }
       : null;
-  return new Promise((resolve) =>
-    setTimeout(() => {
-      resolve({ entity_id: entityId, days, points, estimate });
-    }, 300),
-  );
+  return { entity_id: entityId, days, points, estimate };
 }
 
 interface CardLike extends HTMLElement {
@@ -267,6 +280,8 @@ function mount(scenario: Scenario) {
         delete device.snoozedUntil;
       } else if (service === 'mark_replaced' || service === 'mark_charged') {
         device.lastReplaced = new Date().toISOString();
+      } else if (service === 'undo_mark') {
+        delete device.lastReplaced;
       } else if (service === 'set_device_settings') {
         const settings = s.device_settings as Record<string, Record<string, unknown>>;
         const rest = { ...data };

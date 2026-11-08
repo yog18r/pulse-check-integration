@@ -1,6 +1,6 @@
 /**
  * `useHistory`: sparkline history for the battery entities on screen,
- * fetched from the integration once and then every few hours.
+ * fetched from the integration in one request, once and then every few hours.
  *
  * React notes:
  *  - The effect only re-runs when the *set of battery entities* changes
@@ -10,7 +10,7 @@
  *    timer callback always reads fresh values.
  */
 import { useEffect, useRef, useState } from 'react';
-import { loadHistory } from '../card/snapshot';
+import { loadHistories, type HistoryRequest } from '../card/snapshot';
 import type { BatteryHistory } from '../core/drain';
 import type { HassBox } from '../core/types';
 
@@ -18,10 +18,7 @@ export type HistoryMap = ReadonlyMap<string, BatteryHistory>;
 
 export const REFRESH_MS = 6 * 60 * 60 * 1000;
 
-export interface HistoryRequest {
-  entityId: string;
-  days: number;
-}
+export type { HistoryRequest };
 
 export function useHistory(
   hassBox: HassBox,
@@ -48,20 +45,13 @@ export function useHistory(
     const run = () => {
       const hass = hassBox.latest;
       if (!hass) return;
-      void Promise.all(
-        latest.current.map(async (r) => {
-          try {
-            return [r.entityId, await loadHistory(hass, r.entityId, r.days)] as const;
-          } catch {
-            return [r.entityId, undefined] as const; // one bad entity must not hide the rest
-          }
-        }),
-      ).then((entries) => {
-        if (cancelled) return;
-        const map = new Map<string, BatteryHistory>();
-        for (const [id, history] of entries) if (history) map.set(id, history);
-        setHistories(map);
-      });
+      // One request for every sparkline on screen. A battery the
+      // integration does not know is simply missing from the answer.
+      void loadHistories(hass, latest.current)
+        .catch(() => new Map<string, BatteryHistory>())
+        .then((map) => {
+          if (!cancelled) setHistories(map);
+        });
     };
 
     run();

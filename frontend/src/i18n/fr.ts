@@ -14,6 +14,12 @@ export const fr: Catalog = {
   'app.snoozed': { one: '{count} en sourdine', other: '{count} en sourdine' },
   'app.show': 'afficher',
   'app.hide': 'masquer',
+  'app.updated':
+    'Pulse Check a été mis à jour en {version}. Actualisez pour charger la nouvelle carte.',
+  'app.refresh': 'Actualiser',
+  'undo.replaced': '{name} marqué comme remplacé.',
+  'undo.charged': '{name} marqué comme chargé.',
+  'undo.undo': 'Annuler',
   'tab.batteries': 'Batteries',
   'tab.connectivity': 'Connectivité',
   'tab.actions': 'Actions',

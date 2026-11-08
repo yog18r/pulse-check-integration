@@ -16,7 +16,14 @@
  * `useLayoutEffect` runs after React has put the menu in the DOM but before
  * the browser paints, so the menu never flashes in the wrong place.
  */
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type RefObject,
+} from 'react';
 import { useT } from './i18n';
 
 /** Options offered in the menu, in days. */
@@ -83,12 +90,52 @@ function usePlacement(
   }, [open, menuRef, buttonRef]);
 }
 
+/**
+ * Move focus between the menu's options, as a menu does: arrow keys step
+ * (wrapping round), Home and End jump to the ends. True when the key was one
+ * of those. Inside the card's shadow root, the focused element is the root's
+ * `activeElement`, not the document's.
+ */
+function moveFocus(menu: HTMLElement | null, key: string): boolean {
+  if (!menu) return false;
+  const items = [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+  if (items.length === 0) return false;
+  const root = menu.getRootNode() as Document | ShadowRoot;
+  const at = items.findIndex((item) => item === root.activeElement);
+  const last = items.length - 1;
+  const next: Record<string, number> = {
+    ArrowDown: at < 0 || at === last ? 0 : at + 1,
+    ArrowUp: at <= 0 ? last : at - 1,
+    Home: 0,
+    End: last,
+  };
+  const index = next[key];
+  if (index === undefined) return false;
+  items[index]?.focus();
+  return true;
+}
+
 export function SnoozeMenu({ deviceName, snoozedUntil, onSnooze, onUnsnooze }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLSpanElement>(null);
   usePlacement(open, menuRef, buttonRef);
+
+  // Opening the menu puts focus on its first option, as menus do, so the
+  // keyboard can carry on from there.
+  useEffect(() => {
+    if (open) menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+  }, [open]);
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setOpen(false);
+      buttonRef.current?.focus();
+      return;
+    }
+    if (open && moveFocus(menuRef.current, e.key)) e.preventDefault();
+  };
 
   if (snoozedUntil) {
     return (
@@ -111,9 +158,7 @@ export function SnoozeMenu({ deviceName, snoozedUntil, onSnooze, onUnsnooze }: P
         // Close when focus leaves the whole control, not just one button.
         if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false);
       }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') setOpen(false);
-      }}
+      onKeyDown={onKeyDown}
     >
       <button
         ref={buttonRef}

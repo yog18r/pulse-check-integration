@@ -9,6 +9,7 @@
  *                           recompute (about 2 s after a relevant change,
  *                           and at least every 5 minutes)
  *   pulse_check/history     sparkline points for one battery over N days
+ *   pulse_check/histories   the same for many batteries in one request
  *
  * and the services `pulse_check.snooze`, `unsnooze`, `mark_replaced`,
  * `mark_charged` and `set_device_settings`.
@@ -70,6 +71,8 @@ export interface Snapshot {
   computedAt?: Date;
   /** Set while maintenance mode holds notifications back: when it ends. */
   maintenanceUntil?: Date;
+  /** The installed integration's version, to compare with the card's own. */
+  version?: string;
 }
 
 /* ---- small parsers ----------------------------------------------------- */
@@ -316,6 +319,8 @@ export function parseSnapshot(raw: unknown): Snapshot {
   if (computedAt) snapshot.computedAt = computedAt;
   const maintenanceUntil = date(record.maintenance_until);
   if (maintenanceUntil) snapshot.maintenanceUntil = maintenanceUntil;
+  const version = str(record.version);
+  if (version !== undefined) snapshot.version = version;
   return snapshot;
 }
 
@@ -434,18 +439,14 @@ export function subscribeSnapshots(
 
 /* ---- history ----------------------------------------------------------- */
 
-/** Fetch sparkline points for one battery; undefined when hass cannot ask. */
-export async function loadHistory(
-  hass: HassLike,
-  entityId: string,
-  days: number,
-): Promise<BatteryHistory | undefined> {
-  if (!hass.callWS) return undefined;
-  const raw = await hass.callWS<unknown>({
-    type: 'pulse_check/history',
-    entity_id: entityId,
-    days,
-  });
+/** One sparkline wanted: a battery entity and how many days back. */
+export interface HistoryRequest {
+  entityId: string;
+  days: number;
+}
+
+/** Sparkline points and the estimate from one `pulse_check/history` answer. */
+function parseHistory(raw: unknown, days: number): BatteryHistory | undefined {
   if (!isRecord(raw)) return undefined;
   const points: DrainPoint[] = Array.isArray(raw.points)
     ? raw.points.flatMap((p: unknown) => {
@@ -461,10 +462,50 @@ export async function loadHistory(
   return history;
 }
 
+/** Fetch sparkline points for one battery; undefined when hass cannot ask. */
+export async function loadHistory(
+  hass: HassLike,
+  entityId: string,
+  days: number,
+): Promise<BatteryHistory | undefined> {
+  if (!hass.callWS) return undefined;
+  const raw = await hass.callWS<unknown>({
+    type: 'pulse_check/history',
+    entity_id: entityId,
+    days,
+  });
+  return parseHistory(raw, days);
+}
+
+/**
+ * Fetch every sparkline on screen in one request, keyed by entity id. The
+ * integration asks the recorder once per window length rather than once per
+ * battery. Batteries it does not know come back with an error and are left out.
+ */
+export async function loadHistories(
+  hass: HassLike,
+  requests: readonly HistoryRequest[],
+): Promise<Map<string, BatteryHistory>> {
+  const found = new Map<string, BatteryHistory>();
+  if (!hass.callWS || requests.length === 0) return found;
+  const raw = await hass.callWS<unknown>({
+    type: 'pulse_check/histories',
+    requests: requests.map((r) => ({ entity_id: r.entityId, days: r.days })),
+  });
+  if (!isRecord(raw) || !Array.isArray(raw.results)) return found;
+  for (const item of raw.results as unknown[]) {
+    if (!isRecord(item) || item.error !== undefined) continue;
+    const entityId = str(item.entity_id);
+    const history = parseHistory(item, num(item.days) ?? 14);
+    if (entityId !== undefined && history) found.set(entityId, history);
+  }
+  return found;
+}
+
 /* ---- services ---------------------------------------------------------- */
 
 export type PulseCheckService =
-  'snooze' | 'unsnooze' | 'mark_replaced' | 'mark_charged' | 'set_device_settings';
+  'snooze' | 'unsnooze' | 'mark_replaced' | 'mark_charged' | 'undo_mark' | 'set_device_settings';
 
 /** Call one of the integration's services, if hass can. */
 export async function callPulseCheck(

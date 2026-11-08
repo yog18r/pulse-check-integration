@@ -14,6 +14,11 @@ export const ptBR: Catalog = {
   'app.snoozed': { one: '{count} silenciado', other: '{count} silenciados' },
   'app.show': 'mostrar',
   'app.hide': 'ocultar',
+  'app.updated': 'O Pulse Check foi atualizado para {version}. Recarregue para usar o novo cartão.',
+  'app.refresh': 'Recarregar',
+  'undo.replaced': '{name} marcado como trocado.',
+  'undo.charged': '{name} marcado como carregado.',
+  'undo.undo': 'Desfazer',
 
   'tab.batteries': 'Baterias',
   'tab.connectivity': 'Conectividade',

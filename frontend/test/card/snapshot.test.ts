@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   callPulseCheck,
+  loadHistories,
   loadHistory,
   parseDevice,
   parseSnapshot,
@@ -234,6 +235,37 @@ describe('loadHistory and services', () => {
     const noWS = { ...hass };
     delete noWS.callWS;
     expect(await loadHistory(noWS, 'sensor.x', 14)).toBeUndefined();
+  });
+
+  it('fetches every sparkline in one pulse_check/histories request', async () => {
+    const { hass } = fakeHass();
+    const callWS = vi.fn(() =>
+      Promise.resolve({
+        results: [
+          { entity_id: 'sensor.a', days: 14, points: [{ time: 1, level: 80 }], estimate: null },
+          { entity_id: 'light.b', days: 7, error: 'unknown_entity' },
+          { entity_id: 'sensor.c', days: 30, points: [], estimate: null },
+        ],
+      }),
+    );
+    const histories = await loadHistories({ ...hass, callWS: callWS as never }, [
+      { entityId: 'sensor.a', days: 14 },
+      { entityId: 'light.b', days: 7 },
+      { entityId: 'sensor.c', days: 30 },
+    ]);
+    expect(callWS).toHaveBeenCalledOnce();
+    expect(callWS).toHaveBeenCalledWith({
+      type: 'pulse_check/histories',
+      requests: [
+        { entity_id: 'sensor.a', days: 14 },
+        { entity_id: 'light.b', days: 7 },
+        { entity_id: 'sensor.c', days: 30 },
+      ],
+    });
+    // The battery the integration does not know is left out.
+    expect([...histories.keys()]).toEqual(['sensor.a', 'sensor.c']);
+    expect(histories.get('sensor.a')).toEqual({ days: 14, points: [{ time: 1, level: 80 }] });
+    expect(await loadHistories(hass, [])).toEqual(new Map());
   });
 
   it('calls the integration service when hass can', async () => {

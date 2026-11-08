@@ -25,6 +25,11 @@ export const en = {
   'app.snoozed': { one: '{count} snoozed', other: '{count} snoozed' },
   'app.show': 'show',
   'app.hide': 'hide',
+  'app.updated': 'Pulse Check was updated to {version}. Refresh to load the new card.',
+  'app.refresh': 'Refresh',
+  'undo.replaced': 'Marked {name} as replaced.',
+  'undo.charged': 'Marked {name} as charged.',
+  'undo.undo': 'Undo',
 
   'tab.batteries': 'Batteries',
   'tab.connectivity': 'Connectivity',

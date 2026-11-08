@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_CONFIG, type ResolvedConfig } from '../../src/card/config';
 import type { HassBox } from '../../src/core/types';
 import { translator } from '../../src/i18n';
+import { CARD_VERSION } from '../../src/version';
 import { App } from '../../src/ui/App';
 import { FIXED_NOW } from '../fixtures/hass';
 import {
@@ -301,5 +302,68 @@ describe('App', () => {
     expect(subscribed()).toBe(true);
     unmount();
     expect(unsubscribe).toHaveBeenCalledOnce();
+  });
+});
+
+describe('App, after an update', () => {
+  it('asks for a refresh when the page runs an older card than is installed', async () => {
+    const { emit } = renderApp();
+    await screen.findByText('⚠️ 7 devices need attention');
+    expect(screen.queryByText(/Refresh to load the new card/)).not.toBeInTheDocument();
+
+    emit({ ...SNAPSHOT_PAYLOAD, version: CARD_VERSION });
+    expect(screen.queryByText(/Refresh to load the new card/)).not.toBeInTheDocument();
+
+    emit({ ...SNAPSHOT_PAYLOAD, version: '9.9.9' });
+    expect(
+      await screen.findByText(
+        /Pulse Check was updated to 9\.9\.9\. Refresh to load the new card\./,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument();
+  });
+});
+
+describe('App, undo', () => {
+  it('offers to undo a Done, and undoes it only once it is recorded', async () => {
+    const { callService } = renderApp({ show_tabs: ['actions'], default_tab: 'actions' });
+    await screen.findByText(/To buy/);
+    await user().click(screen.getByRole('button', { name: 'Mark Living Room Motion done' }));
+    expect(await screen.findByText('Marked Living Room Motion as replaced.')).toBeInTheDocument();
+
+    await user().click(screen.getByRole('button', { name: 'Undo' }));
+    await vi.waitFor(() => {
+      expect(callService).toHaveBeenLastCalledWith('pulse_check', 'undo_mark', {
+        device_id: 'dev_z2m_motion',
+      });
+    });
+    expect(callService.mock.calls.map((call: unknown[]) => call[1])).toEqual([
+      'mark_replaced',
+      'undo_mark',
+    ]);
+    expect(screen.queryByText('Marked Living Room Motion as replaced.')).not.toBeInTheDocument();
+  });
+});
+
+describe('App, snooze menu keyboard', () => {
+  it('focuses the first option, moves with the arrow keys and closes on Escape', async () => {
+    renderApp({ show_tabs: ['connectivity'] });
+    await screen.findByText(/devices need attention/);
+    const toggle = screen.getByRole('button', { name: 'Snooze Front Door Lock' });
+
+    await user().click(toggle);
+    expect(screen.getByRole('menuitem', { name: '1 day' })).toHaveFocus();
+    await user().keyboard('{ArrowDown}');
+    expect(screen.getByRole('menuitem', { name: '7 days' })).toHaveFocus();
+    await user().keyboard('{End}');
+    expect(screen.getByRole('menuitem', { name: '30 days' })).toHaveFocus();
+    await user().keyboard('{ArrowDown}'); // wraps round
+    expect(screen.getByRole('menuitem', { name: '1 day' })).toHaveFocus();
+    await user().keyboard('{ArrowUp}');
+    expect(screen.getByRole('menuitem', { name: '30 days' })).toHaveFocus();
+
+    await user().keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(toggle).toHaveFocus();
   });
 });

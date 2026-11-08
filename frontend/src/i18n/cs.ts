@@ -19,6 +19,12 @@ export const cs: Catalog = {
   },
   'app.show': 'zobrazit',
   'app.hide': 'skrýt',
+  'app.updated':
+    'Pulse Check byl aktualizován na {version}. Obnovte stránku pro načtení nové karty.',
+  'app.refresh': 'Obnovit',
+  'undo.replaced': '{name} označeno jako vyměněné.',
+  'undo.charged': '{name} označeno jako nabité.',
+  'undo.undo': 'Zpět',
 
   'tab.batteries': 'Baterie',
   'tab.connectivity': 'Připojení',

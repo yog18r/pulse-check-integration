@@ -19,6 +19,11 @@ export const pl: Catalog = {
   },
   'app.show': 'pokaż',
   'app.hide': 'ukryj',
+  'app.updated': 'Pulse Check zaktualizowano do {version}. Odśwież, aby załadować nową kartę.',
+  'app.refresh': 'Odśwież',
+  'undo.replaced': 'Oznaczono {name} jako wymienione.',
+  'undo.charged': 'Oznaczono {name} jako naładowane.',
+  'undo.undo': 'Cofnij',
 
   'tab.batteries': 'Baterie',
   'tab.connectivity': 'Łączność',

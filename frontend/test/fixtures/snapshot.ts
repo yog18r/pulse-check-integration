@@ -31,7 +31,7 @@ export interface FakeHassOptions {
   rejectTimes?: number;
   /** Home Assistant's run state, `hass.config.state`. Unset by default. */
   state?: string;
-  /** Answer `pulse_check/history` with this, per entity id. */
+  /** Answer `pulse_check/history` and each of `pulse_check/histories` with this. */
   history?: (entityId: string, days: number) => unknown;
 }
 
@@ -97,10 +97,21 @@ export function fakeHass(options: FakeHassOptions = {}): FakeHass {
     ...(options.state === undefined ? {} : { config: { state: options.state } }),
     callService,
     callWS: <T>(message: Record<string, unknown>) => {
-      if (message.type === 'pulse_check/history' && options.history) {
-        return Promise.resolve(
-          options.history(String(message.entity_id), Number(message.days)) as T,
-        );
+      const one = (entityId: string, days: number) =>
+        options.history
+          ? options.history(entityId, days)
+          : { entity_id: entityId, points: [], days, estimate: null };
+      if (message.type === 'pulse_check/history') {
+        return Promise.resolve(one(String(message.entity_id), Number(message.days)) as T);
+      }
+      if (message.type === 'pulse_check/histories') {
+        const requests = message.requests as { entity_id: string; days: number }[];
+        return Promise.resolve({
+          results: requests.map((r) => ({
+            entity_id: r.entity_id,
+            ...(one(r.entity_id, r.days) as object),
+          })),
+        } as T);
       }
       return Promise.resolve({ points: [], days: message.days, estimate: null } as T);
     },

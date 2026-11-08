@@ -16,7 +16,7 @@
  * recomputes when one of the listed dependencies changes, so sorting a
  * few hundred devices does not happen on every click.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ResolvedConfig, TabId } from '../card/config';
 import { callPulseCheck, type Snapshot } from '../card/snapshot';
 import { filterActions, type ActionKind } from '../core/actions';
@@ -33,6 +33,7 @@ import { EmptyState } from './EmptyState';
 import { GroupedRows } from './GroupedRows';
 import { I18nContext } from './i18n';
 import { useHistory, type HistoryRequest } from './useHistory';
+import { CARD_VERSION } from '../version';
 import { useNow } from './useNow';
 import { useSnapshot } from './useSnapshot';
 
@@ -50,6 +51,16 @@ const TAB_EMOJI: Record<TabId, string> = {
   connectivity: '📡',
   actions: '🛠️',
 };
+
+/** How long the "Undo" after a Done stays on screen. */
+export const UNDO_MS = 10_000;
+
+/** The last Done: which device, what was recorded, and the call recording it. */
+interface DoneRecord {
+  device: DeviceHealth;
+  kind: ActionKind;
+  recorded: Promise<void>;
+}
 
 export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
   const now = useNow();
@@ -144,13 +155,36 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
     },
     [hassBox],
   );
+  // "Done" records at once; for a few seconds it can be taken back.
+  const [lastDone, setLastDone] = useState<DoneRecord | null>(null);
+  useEffect(() => {
+    if (!lastDone) return;
+    const timer = setTimeout(() => {
+      setLastDone(null);
+    }, UNDO_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [lastDone]);
+
   const handleDone = useCallback(
     (device: DeviceHealth, kind: ActionKind) => {
       const service = kind === 'charge' ? 'mark_charged' : 'mark_replaced';
-      void callPulseCheck(hassBox.latest, service, { device_id: device.deviceId });
+      const recorded = callPulseCheck(hassBox.latest, service, { device_id: device.deviceId });
+      setLastDone({ device, kind, recorded });
     },
     [hassBox],
   );
+
+  const handleUndo = useCallback(() => {
+    if (!lastDone) return;
+    // Only after the mark itself is in: undoing first would find nothing.
+    const { device, recorded } = lastDone;
+    void recorded.then(() =>
+      callPulseCheck(hassBox.latest, 'undo_mark', { device_id: device.deviceId }),
+    );
+    setLastDone(null);
+  }, [hassBox, lastDone]);
 
   if (status !== 'ready' || !snapshot) {
     return (
@@ -213,6 +247,21 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
             {t.t('app.maintenance', {
               time: formatClock(snapshot.maintenanceUntil, now, t.language),
             })}
+          </p>
+        )}
+
+        {snapshot.version !== undefined && snapshot.version !== CARD_VERSION && (
+          <p className="notice" role="status">
+            <span>⬆️ {t.t('app.updated', { version: snapshot.version })}</span>
+            <button
+              type="button"
+              className="noticebutton"
+              onClick={() => {
+                window.location.reload();
+              }}
+            >
+              {t.t('app.refresh')}
+            </button>
           </p>
         )}
 
@@ -299,6 +348,19 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
 
           {activeTab === 'actions' && (
             <ActionsTab actions={actions} devices={byId} onDone={handleDone} {...rowProps} />
+          )}
+
+          {lastDone && (
+            <p className="notice" role="status">
+              <span>
+                {t.t(lastDone.kind === 'charge' ? 'undo.charged' : 'undo.replaced', {
+                  name: lastDone.device.name,
+                })}
+              </span>
+              <button type="button" className="noticebutton" onClick={handleUndo}>
+                {t.t('undo.undo')}
+              </button>
+            </p>
           )}
         </div>
 

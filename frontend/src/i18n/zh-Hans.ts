@@ -14,6 +14,11 @@ export const zhHans: Catalog = {
   'app.snoozed': { other: '已静音 {count} 个' },
   'app.show': '显示',
   'app.hide': '隐藏',
+  'app.updated': 'Pulse Check 已更新到 {version}。刷新以加载新卡片。',
+  'app.refresh': '刷新',
+  'undo.replaced': '已将 {name} 标记为已更换。',
+  'undo.charged': '已将 {name} 标记为已充电。',
+  'undo.undo': '撤销',
 
   'tab.batteries': '电池',
   'tab.connectivity': '连接',
