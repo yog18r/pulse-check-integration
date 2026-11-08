@@ -29,7 +29,8 @@ Plain tone over playful in user-facing text.
    file is now frozen in this repository as the permanent spec.
 4. **One repository.** The card moved into `frontend/` (git subtree, history
    kept). The integration serves the built bundle and registers the dashboard
-   resource itself, so one HACS install delivers both and versions can never
+   resource itself, so one install (the Marketplace, or HACS before Home
+   Assistant 2026.11) delivers both and versions can never
    mismatch. The old card repository was deleted.
 
 All planned phases are complete. Remaining ideas are listed at the end.
@@ -341,5 +342,10 @@ pressed button's `action` identifier.
 
 ## Still open
 
-- A native-speaker review of the translations; HACS default-store
-  submission once released.
+- A native-speaker review of the translations.
+- Listing in the Marketplace catalog. Home Assistant 2026.11 replaced HACS
+  with a built-in Marketplace that reads the same catalog, `hacs/default`,
+  and the same `hacs.json`. Submission is a pull request adding
+  `yog18r/pulse-check-integration` to its integration list, with links to
+  the latest release and to passing HACS action and hassfest runs. Reviews
+  take months.

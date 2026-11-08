@@ -43,15 +43,15 @@ the update.
 
 ## 0.2.5 - 2026-10-28
 
+### Upgrading
+- The first restart after updating still runs the card your browser already
+  had. Refresh the dashboard once; later restarts recover by themselves.
+
 ### Fixed
 - **"Pulse Check integration not found" after a restart.** The card now
   tries again until Pulse Check answers and subscribes again after the
   connection comes back, so it fills in by itself instead of needing a page
   refresh. While Home Assistant is still starting it says it is connecting.
-
-### Upgrading
-- The first restart after updating still runs the card your browser already
-  had. Refresh the dashboard once; later restarts recover by themselves.
 
 ## 0.2.4 - 2026-10-28
 
@@ -95,15 +95,15 @@ the update.
 
 ## 0.2.1 - 2026-10-16
 
+### Upgrading
+- The switch replaces `binary_sensor.pulse_check_maintenance_mode`, which
+  is removed. Point any dashboard or automation that used it at the switch.
+
 ### Changed
 - **Maintenance mode is a switch.** `switch.pulse_check_maintenance_mode` on
   the Pulse Check device page turns it on for the default length from the
   options, and off ends it at once. The `pulse_check.maintenance_mode`
   action still takes any number of hours.
-
-### Upgrading
-- The switch replaces `binary_sensor.pulse_check_maintenance_mode`, which
-  is removed. Point any dashboard or automation that used it at the switch.
 
 ## 0.2.0 - 2026-10-16
 

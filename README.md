@@ -36,13 +36,29 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 
 It reads only what Home Assistant already knows: the state machine and the registries. **It never contacts a device**, so it cannot wake or drain anything.
 
+<!-- ha-marketplace:exclude-start -->
 ## Installation
 
-### Option 1: HACS
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=yog18r&repository=pulse-check-integration&category=integration)
 
-Add `https://github.com/yog18r/pulse-check-integration` as a custom repository in HACS (category: Integration) and install it. Restart Home Assistant.
+Requires Home Assistant 2026.9 or newer.
 
-### Option 2: manual
+### Option 1: the Marketplace (Home Assistant 2026.11 and newer)
+
+Since 2026.11, community integrations install from **Settings → Marketplace**, which replaced HACS. Select the button above, or add the repository by hand:
+
+1. Go to **Settings → Marketplace**.
+2. In the upper-right corner, select **Add from link**.
+3. Enter `yog18r/pulse-check-integration` and select **Add**.
+4. Open **Pulse Check**, select **Install**, and restart Home Assistant.
+
+Adding from a link needs the Marketplace's GitHub connection, which it asks you to set up the first time. Pulse Check is not in the Marketplace catalog yet; once it is, you can find it by searching under **Settings → Marketplace** instead.
+
+### Option 2: HACS (Home Assistant 2026.9 and 2026.10)
+
+HACS still works on versions before 2026.11. Add `https://github.com/yog18r/pulse-check-integration` as a custom repository in HACS (category: Integration), install it and restart Home Assistant. When you move to 2026.11, Home Assistant carries it over to the Marketplace.
+
+### Option 3: manual
 
 Download `pulse_check.zip` from the [latest release](https://github.com/yog18r/pulse-check-integration/releases/latest), unzip it into `config/custom_components/pulse_check/` and restart. The zip already contains the card.
 
@@ -55,8 +71,9 @@ npm run build
 ```
 
 That writes `custom_components/pulse_check/frontend/pulse-check-card.js`. Delete any `__pycache__` folders before copying; some file-manager add-ons refuse to upload `.pyc` files. The release zip never contains them.
+<!-- ha-marketplace:exclude-end -->
 
-### Then
+## Setting up
 
 Go to **Settings → Devices & services → Add integration** and search for **Pulse Check**. There is nothing to fill in. One instance watches the whole house.
 
@@ -65,8 +82,6 @@ Refresh the browser, edit a dashboard, **Add card**, and pick **Pulse Check Card
 ```yaml
 type: custom:pulse-check-card
 ```
-
-Requires Home Assistant 2026.9 or newer.
 
 ### How the card gets onto your dashboards
 
@@ -387,7 +402,7 @@ One repository, two halves that meet at the websocket API above:
 - **`custom_components/pulse_check/`**, the integration in Python, does all the work: detection, history, notifications, storage, services.
 - **`frontend/`**, the card in TypeScript and React, built with Vite into one JavaScript file inside the integration folder. It renders the `pulse_check/subscribe` snapshot, fetches sparklines with `pulse_check/histories` and calls the `pulse_check.*` services. See [frontend/README.md](https://github.com/yog18r/pulse-check-integration/blob/main/frontend/README.md).
 
-The card used to be a separate repository; it moved here with its history so a single HACS install delivers both, and so the two can never be installed at mismatched versions. `manifest.json` holds the one version number; the card's build reads it from there.
+The card used to be a separate repository; it moved here with its history so a single install, from the Marketplace or HACS, delivers both, and so the two can never be installed at mismatched versions. `manifest.json` holds the one version number; the card's build reads it from there.
 
 ```
 custom_components/pulse_check/
@@ -461,7 +476,7 @@ To try a development build on a live instance, run `npm run build` in `frontend/
 Everything planned is built; [PLAN.md](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) records how the design got here. Still to come:
 
 - Native-speaker review of the machine-made translations
-- Submission to the HACS default store
+- Listing in the Marketplace catalog, through a submission to [hacs/default](https://github.com/hacs/default)
 
 ## License
 
