@@ -1,0 +1,36 @@
+# Dependabot opens pull requests that keep dependencies current; CI tests
+# each one before it is merged. Security alerts come on their own; this file
+# adds routine version updates.
+#
+# Grouped so a normal week is a few pull requests, not one per package.
+# Major versions stay separate: those can break things and deserve a look
+# on their own.
+version: 2
+updates:
+  # The card: React (shipped in the bundle) and its build and test tools.
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      card-minor-and-patch:
+        update-types: [minor, patch]
+
+  # Python development tools: Home Assistant's test package, ruff and mypy.
+  # The integration itself has no Python dependencies.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      python-dev-tools:
+        update-types: [minor, patch]
+
+  # The actions the CI and release workflows use.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
