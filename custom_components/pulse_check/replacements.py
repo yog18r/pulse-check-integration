@@ -7,7 +7,8 @@ fast it drained. Those summaries are what "unusual behaviour" is judged
 against: a cycle draining far faster than the device's own past cycles
 is worth a look.
 
-All of it is kept in the store under `history[device_id]`:
+All of it is kept in the store under `history[device_id]`, the newest
+`MAX_HISTORY_RECORDS` of each:
 
     events:  [{at, kind, battery_type, level_before, level_after, auto}]
     cycles:  [{start, end, kind, days, rate_per_day}]
@@ -22,6 +23,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 from .core.models import as_utc, to_iso
+from .core.settings import is_charged
+from .storage import stored_rechargeable, trim_history
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -111,6 +114,7 @@ class ReplacementTracker:
                 "auto": auto,
             }
         )
+        trim_history(entry)
         self.store.async_save()
 
     def undo_last(self, device_id: str) -> bool:
@@ -152,8 +156,12 @@ class ReplacementTracker:
             "average_rate_per_day": self.average_rate(device_id),
         }
 
+    def _charged(self, device: DeviceHealth) -> bool:
+        settings = self.store.device_settings.get(device.device_id, {})
+        return is_charged(device, stored_rechargeable(settings))
+
     def _follow_jump(
-        self, device_id: str, previous: dict[str, Any] | None, level: int, now: datetime
+        self, device: DeviceHealth, previous: dict[str, Any] | None, level: int, now: datetime
     ) -> tuple[dict[str, Any] | None, bool, bool]:
         """A big rise means a new battery, or a charge for rechargeables, once it holds.
 
@@ -177,9 +185,10 @@ class ReplacementTracker:
             return None, True, False  # fell back: a glitch, not a new battery
         if (as_utc(now) - _at(jump["at"])).total_seconds() < JUMP_CONFIRM_SECONDS:
             return jump, False, False
-        rechargeable = bool(self.store.device_settings.get(device_id, {}).get("rechargeable"))
-        kind: EventKind = "charged" if rechargeable or jump["charging"] else "replaced"
-        self.record(device_id, kind, _at(jump["at"]), None, jump["from"], auto=True)
+        explicit = stored_rechargeable(self.store.device_settings.get(device.device_id, {}))
+        charged = self._charged(device) or (explicit is None and jump["charging"])
+        kind: EventKind = "charged" if charged else "replaced"
+        self.record(device.device_id, kind, _at(jump["at"]), None, jump["from"], auto=True)
         return None, False, True
 
     def observe(self, devices: Iterable[DeviceHealth], now: datetime) -> bool:
@@ -197,7 +206,7 @@ class ReplacementTracker:
             level = battery.level
             previous = levels.get(device.device_id)
             previous_level = previous.get("level") if previous else None
-            jump, glitch, recorded = self._follow_jump(device.device_id, previous, level, now)
+            jump, glitch, recorded = self._follow_jump(device, previous, level, now)
             changed |= recorded
 
             last = self.last_event(device.device_id)
@@ -268,13 +277,7 @@ class ReplacementTracker:
         # Without recorder history there are no cycles; the live readings
         # still catch a sudden drop. Not for batteries that get charged: a
         # phone losing 20 points in an afternoon is ordinary use.
-        rechargeable = bool(
-            self.store.device_settings.get(device.device_id, {}).get("rechargeable")
-        )
-        charged = (
-            device.battery_kind == "charged" or device.integration == "mobile_app" or rechargeable
-        )
-        if device.unusual is None and not charged:
+        if device.unusual is None and not self._charged(device):
             dropped = self.store.levels.get(device.device_id, {}).get("sudden_drop_at")
             if dropped and (as_utc(now) - as_utc(datetime.fromisoformat(dropped))).days < 7:
                 device.unusual = "level dropped suddenly"

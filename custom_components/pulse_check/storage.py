@@ -7,11 +7,15 @@ by every browser and every card, and survives restarts.
 
 The file holds one dict with a few top-level sections. Writes are
 delayed by a couple of seconds so a burst of changes costs one save.
+
+Nothing in it grows without end: each device keeps its most recent
+replacements and cycles only, and what was kept for a device or entity
+that has left Home Assistant is dropped a week after it went (`prune`).
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.storage import Store
@@ -20,11 +24,13 @@ from .const import DOMAIN
 from .core.models import as_utc, to_iso
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Iterable, Mapping
 
     from homeassistant.core import HomeAssistant
 
 STORAGE_VERSION = 1
+# 2 (0.2.14): `rechargeable: false` means "replaceable" rather than "not set".
+STORAGE_MINOR_VERSION = 2
 STORAGE_KEY = f"{DOMAIN}.data"
 SAVE_DELAY_SECONDS = 2.0
 
@@ -39,7 +45,56 @@ DEVICE_SETTING_KEYS = (
     "notify_policy",
     # Only the card uses this one: its sparkline window for the device.
     "sparkline_days",
+    "battery_warning",
+    "battery_critical",
 )
+
+# Replacements and cycles kept per device, newest last. A phone charged
+# every day records one a day; this keeps over six months of them.
+MAX_HISTORY_RECORDS = 200
+# What is kept for a device or entity that has left Home Assistant is
+# dropped once it has been gone this long. A week rides out an integration
+# that fails to start for a few days without losing a battery's history.
+PRUNE_AFTER = timedelta(days=7)
+# Sections keyed by device id that `prune` looks after. Notification state
+# and last levels are already dropped by their owners as soon as a device
+# is no longer watched; per-device settings stay until the user clears them.
+_PRUNED_SECTIONS = ("history", "snoozes", "heard")
+# Last heard changes with nearly every update; it is written at most this
+# often (and when Home Assistant stops), not every minute.
+HEARD_SAVE_EVERY = timedelta(minutes=15)
+
+
+def stored_rechargeable(settings: Mapping[str, Any]) -> bool | None:
+    """The charged-or-replaced setting: True, False, or None to detect it."""
+    value = settings.get("rechargeable")
+    return value if isinstance(value, bool) else None
+
+
+def trim_history(entry: dict[str, Any]) -> bool:
+    """Keep a device's newest replacements and cycles only. True when it dropped any."""
+    trimmed = False
+    for key in ("events", "cycles"):
+        records = entry.get(key)
+        if isinstance(records, list) and len(records) > MAX_HISTORY_RECORDS:
+            del records[:-MAX_HISTORY_RECORDS]
+            trimmed = True
+    return trimmed
+
+
+class _Store(Store[dict[str, Any]]):
+    """The store, with the migrations between minor versions."""
+
+    async def _async_migrate_func(
+        self, old_major_version: int, old_minor_version: int, old_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        if old_minor_version < 2:
+            # Before 0.2.14 an unticked "rechargeable" could be saved as
+            # false and meant "not set"; false now means "replaceable".
+            for settings in (old_data.get("device_settings") or {}).values():
+                if settings.get("rechargeable") is False:
+                    del settings["rechargeable"]
+        return old_data
 
 
 def _empty() -> dict[str, Any]:
@@ -51,6 +106,8 @@ def _empty() -> dict[str, Any]:
         "history": {},  # device id -> replacement history (phase 4)
         "levels": {},  # device id -> last observed battery level (phase 4)
         "maintenance": {},  # empty, or the maintenance window (see `start_maintenance`)
+        "gone": {},  # device id -> ISO timestamp it was first found missing (see `prune`)
+        "heard": {},  # device id -> ISO timestamp it was last heard from (see `note_heard`)
     }
 
 
@@ -59,8 +116,13 @@ class PulseCheckStore:
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Create the store; nothing is read until `async_load`."""
-        self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+        self._store: Store[dict[str, Any]] = _Store(
+            hass, STORAGE_VERSION, STORAGE_KEY, minor_version=STORAGE_MINOR_VERSION
+        )
         self.data: dict[str, Any] = _empty()
+        # Last heard changed since it was last written, and when that was.
+        self._heard_dirty = False
+        self._heard_saved: datetime | None = None
 
     async def async_load(self) -> None:
         """Read the file, keeping defaults for any section it lacks."""
@@ -214,3 +276,71 @@ class PulseCheckStore:
     def levels(self) -> dict[str, Any]:
         """Last observed battery level per device, for auto-detection."""
         return self.data["levels"]  # type: ignore[no-any-return]
+
+    # -- last heard ----------------------------------------------------------
+
+    def last_heard(self) -> dict[str, datetime]:
+        """When each device was last heard from, as remembered across restarts."""
+        out: dict[str, datetime] = {}
+        for device_id, iso in self.data["heard"].items():
+            try:
+                out[device_id] = as_utc(datetime.fromisoformat(iso))
+            except TypeError, ValueError:
+                continue
+        return out
+
+    def note_heard(self, heard: Iterable[tuple[str, datetime | None]], now: datetime) -> None:
+        """Remember when each device was last heard from.
+
+        Home Assistant gives every unavailable entity a fresh timestamp at a
+        restart, so a device that was already offline would otherwise read
+        "last heard just now". Written at most every `HEARD_SAVE_EVERY`.
+        """
+        stored: dict[str, str] = self.data["heard"]
+        for device_id, moment in heard:
+            if moment is None:
+                continue
+            iso = to_iso(moment)
+            if stored.get(device_id) != iso:
+                stored[device_id] = iso
+                self._heard_dirty = True
+        if self._heard_dirty and (
+            self._heard_saved is None or now - self._heard_saved >= HEARD_SAVE_EVERY
+        ):
+            self._heard_dirty = False
+            self._heard_saved = now
+            self.async_save()
+
+    # -- housekeeping --------------------------------------------------------
+
+    def prune(self, exists: Callable[[str], bool], now: datetime) -> bool:
+        """Drop what is kept for devices and entities that have left Home Assistant.
+
+        `exists` says whether an id still names a device or an entity. One
+        that does not is noted with the time it was first missed, and its
+        history and snooze are dropped once it has stayed missing for
+        `PRUNE_AFTER`; one that comes back in the meantime keeps everything.
+        Over-long histories are trimmed on the way. True when anything changed.
+        """
+        gone: dict[str, str] = self.data["gone"]
+        ids = {device_id for section in _PRUNED_SECTIONS for device_id in self.data[section]}
+        changed = False
+        for device_id in ids:
+            if exists(device_id):
+                changed |= gone.pop(device_id, None) is not None
+                continue
+            since = gone.setdefault(device_id, to_iso(now))
+            changed |= since == to_iso(now)
+            if as_utc(now) - as_utc(datetime.fromisoformat(since)) >= PRUNE_AFTER:
+                for section in _PRUNED_SECTIONS:
+                    self.data[section].pop(device_id, None)
+                del gone[device_id]
+                changed = True
+        for device_id in [d for d in gone if d not in ids]:
+            del gone[device_id]
+            changed = True
+        for entry in self.history.values():
+            changed |= trim_history(entry)
+        if changed:
+            self.async_save()
+        return changed

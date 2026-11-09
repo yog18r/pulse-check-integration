@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from custom_components.pulse_check.core import CoreConfig, Snapshot, analyse_devices, summarise
-from custom_components.pulse_check.core.availability import detect_offline
+from custom_components.pulse_check.core.availability import detect_last_heard, detect_offline
 from custom_components.pulse_check.core.models import EntityEntry, EntityState
 
 NOW = datetime(2026, 10, 23, 12, 0, tzinfo=UTC)
@@ -158,3 +158,16 @@ def test_a_working_entity_beside_a_dropped_one_is_fine() -> None:
     )
     [device] = analyse_devices(snapshot, CoreConfig(), NOW)
     assert (device.is_offline, device.is_not_provided, device.severity) == (False, False, "ok")
+
+
+def test_unavailable_and_unknown_are_not_heard_from() -> None:
+    """At a restart Home Assistant stamps them "now"; the device said nothing."""
+    states = _states(sensor_temp="21", sensor_battery="80")
+    restarted: EntityState = {
+        **states["sensor.battery"],
+        "state": "unavailable",
+        "last_reported": NOW.isoformat(),
+    }
+    assert detect_last_heard([states["sensor.temp"], restarted]) == datetime.fromisoformat(EARLIER)
+    unknown: EntityState = {**restarted, "state": "unknown"}
+    assert detect_last_heard([restarted, unknown]) is None

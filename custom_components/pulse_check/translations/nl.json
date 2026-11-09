@@ -103,23 +103,42 @@
       },
       "device": {
         "title": "Instellingen per apparaat",
-        "description": "Kies een apparaat, dienst of entiteit. ⚙ markeert opgeslagen instellingen; ⚠ markeert instellingen voor iets dat niet meer gevonden wordt, die je kunt wissen. Deze instellingen gelden voor elke Pulse Check-kaart en voor meldingen.",
+        "description": "Ze gelden voor elke Pulse Check-kaart en voor meldingen.\n\n{saved}",
+        "menu_options": {
+          "device_edit": "Opgeslagen instellingen bewerken",
+          "device_add": "Instellingen voor een apparaat toevoegen",
+          "device_done": "Klaar"
+        }
+      },
+      "device_edit": {
+        "title": "Opgeslagen instellingen bewerken",
+        "description": "Kies een apparaat waarvan je de instellingen wilt wijzigen of verwijderen, of een dat je negeert. ⚠ markeert instellingen voor iets dat niet meer gevonden wordt.",
+        "data": {
+          "device": "Apparaat"
+        }
+      },
+      "device_add": {
+        "title": "Instellingen voor een apparaat toevoegen",
+        "description": "Kies een apparaat, dienst of entiteit zonder instellingen.",
         "data": {
           "device": "Apparaat"
         }
       },
       "device_settings": {
         "title": "Instellingen voor {device}",
-        "description": "Laat een veld leeg voor de standaardwaarde. Deze instellingen gelden voor elke kaart en voor meldingen.",
+        "description": "{status}\n\nLaat een veld leeg voor de standaardwaarde. Deze instellingen gelden voor elke kaart en voor meldingen.",
         "data": {
           "name": "Weergavenaam",
           "area": "Ruimte",
           "battery_type": "Batterijtype",
           "battery_count": "Aantal batterijen",
-          "rechargeable": "Oplaadbaar",
+          "battery_kind": "Opgeladen of vervangen",
+          "battery_warning": "Waarschuwingsniveau batterij",
+          "battery_critical": "Kritiek niveau batterij",
           "quiet_threshold_hours": "Stil na",
           "notify_policy": "Meldingen",
           "sparkline_days": "Trenddagen",
+          "ignore": "Dit apparaat negeren",
           "clear": "Alle instellingen voor dit apparaat verwijderen"
         },
         "data_description": {
@@ -127,10 +146,13 @@
           "area": "Vervangt de ruimte van het apparaat op de kaart en in de ruimtefilters.",
           "battery_type": "Voor de boodschappenlijst op het tabblad Acties. Kies er een of typ je eigen.",
           "battery_count": "Hoeveel batterijen het gebruikt.",
-          "rechargeable": "Wordt opgeladen in plaats van vervangen: het tabblad Acties zegt opladen in plaats van vervangen.",
+          "battery_kind": "Pulse Check leidt dit af uit de geschiedenis van de batterij. Kies zelf als het fout zit: het tabblad Acties, de knoppen in meldingen en de schattingen volgen het.",
+          "battery_warning": "Op of onder dit niveau is de batterij een waarschuwing, in plaats van het algemene niveau. Voor een telefoon die elke nacht laadt bijvoorbeeld 10 %.",
+          "battery_critical": "Op of onder dit niveau is ze kritiek, in plaats van het algemene niveau.",
           "quiet_threshold_hours": "Uren zonder melding voordat dit apparaat stil is, in plaats van de algemene instelling.",
           "notify_policy": "Leeg gebruikt de standaard voor de ernst van het probleem.",
           "sparkline_days": "Hoeveel dagen de trendlijn op de kaart voor dit apparaat toont.",
+          "ignore": "Laat het helemaal weg uit Pulse Check: geen rijen, tellingen of meldingen. Hetzelfde als het toevoegen aan 'Deze apparaten negeren' in de algemene opties. De instellingen blijven bewaard.",
           "clear": "Aangevinkt worden bij opslaan alle instellingen hierboven gewist."
         }
       }
@@ -172,6 +194,13 @@
         "friday": "Vrijdag",
         "saturday": "Zaterdag",
         "sunday": "Zondag"
+      }
+    },
+    "battery_kind": {
+      "options": {
+        "auto": "Afleiden uit de geschiedenis",
+        "rechargeable": "Opgeladen (oplaadbaar)",
+        "replaceable": "Vervangen (wegwerpbatterijen)"
       }
     }
   },
@@ -234,7 +263,7 @@
         },
         "rechargeable": {
           "name": "Oplaadbaar",
-          "description": "Opladen in plaats van vervangen."
+          "description": "Aan: de batterij wordt opgeladen. Uit: ze wordt vervangen. Een lege waarde laat Pulse Check het afleiden uit de geschiedenis."
         },
         "notify_policy": {
           "name": "Meldingsbeleid",
@@ -243,6 +272,14 @@
         "sparkline_days": {
           "name": "Trenddagen",
           "description": "Hoeveel dagen geschiedenis de sparkline van de kaart voor dit apparaat toont (1 tot 365)."
+        },
+        "battery_warning": {
+          "name": "Waarschuwingsniveau batterij",
+          "description": "Eigen waarschuwingsniveau van dit apparaat, in %, in plaats van het algemene."
+        },
+        "battery_critical": {
+          "name": "Kritiek niveau batterij",
+          "description": "Eigen kritiek niveau van dit apparaat, in %, in plaats van het algemene."
         }
       }
     },
@@ -304,6 +341,9 @@
     },
     "nothing_to_undo": {
       "message": "Er is geen vastgelegde wissel of lading om ongedaan te maken voor \"{device_id}\"."
+    },
+    "critical_above_warning": {
+      "message": "Het kritieke niveau mag niet hoger zijn dan het waarschuwingsniveau."
     }
   },
   "entity": {

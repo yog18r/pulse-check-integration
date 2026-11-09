@@ -143,17 +143,8 @@ async def test_set_device_settings_changes_the_analysis(
     coordinator = hass.config_entries.async_loaded_entries(DOMAIN)[0].runtime_data
     labels = [item.label for item in coordinator.data.actions.replace]
     assert "Replace 2 × CR2450 in Bedroom Climate" in labels
-    # The card gets the same settings over the websocket.
-    assert coordinator.data.config.to_dict()["device_settings"] == [
-        {
-            "device_id": zha,
-            "quiet_threshold_hours": 48,
-            "battery_type": "CR2450",
-            "battery_count": 2,
-            "name": "Bedroom Climate",
-            "area": "Attic",
-        }
-    ]
+    # The card gets them once, as the store holds them, not again in `config`.
+    assert "device_settings" not in coordinator.data.config.to_dict()
 
     # An empty value clears a setting.
     await hass.services.async_call(

@@ -84,6 +84,22 @@ set_device_settings:
           max: 365
           unit_of_measurement: d
           mode: box
+    battery_warning:
+      example: 10
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+          mode: box
+    battery_critical:
+      example: 5
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+          mode: box
 
 mark_replaced:
   fields:

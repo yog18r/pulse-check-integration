@@ -276,20 +276,23 @@ def classify_battery(
     cycles: Sequence[Cycle],
     *,
     mobile_app: bool = False,
-    rechargeable: bool = False,
+    rechargeable: bool | None = None,
     charging_signal: bool = False,
     frequent_charges: bool = False,
 ) -> BatteryKind:
     """Charged, replaceable, or unknown.
 
-    Charged: the user said so, it is a phone or a robot vacuum, it has shown a charging
-    signal, its hourly history shows it charged at least twice, or its
-    completed cycles are short (median under 30 days). Daily means alone
+    The user's setting decides when there is one (`rechargeable` True or
+    False). Otherwise charged: it is a phone or a robot vacuum, it has
+    shown a charging signal, its hourly history shows it charged at least
+    twice, or its completed cycles are short (median under 30 days). Daily means alone
     cannot see a daily charge: every day averages out the same.
     Replaceable: every cycle so far began near full, which is what a fresh
     cell looks like. Anything else is unknown, and gets no estimate.
     """
-    if mobile_app or rechargeable or charging_signal or frequent_charges:
+    if rechargeable is not None:
+        return "charged" if rechargeable else "replaceable"
+    if mobile_app or charging_signal or frequent_charges:
         return "charged"
     completed = cycles[:-1]
     if len(completed) >= 2 and median(c.days for c in completed) < SHORT_CYCLE_DAYS:
@@ -471,7 +474,7 @@ def assess(
     *,
     warning: float,
     mobile_app: bool = False,
-    rechargeable: bool = False,
+    rechargeable: bool | None = None,
     charging_signal: bool = False,
     marks: Iterable[datetime] = (),
 ) -> BatteryInsight:

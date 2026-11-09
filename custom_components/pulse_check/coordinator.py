@@ -29,7 +29,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import EVENT_STATE_CHANGED, STATE_UNAVAILABLE
+from homeassistant.const import (
+    EVENT_HOMEASSISTANT_STOP,
+    EVENT_STATE_CHANGED,
+    STATE_UNAVAILABLE,
+)
 from homeassistant.core import (
     CALLBACK_TYPE,
     Event,
@@ -185,6 +189,14 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             async_track_time_interval(self.hass, self._handle_history_timer, HISTORY_INTERVAL)
         )
         self.config_entry.async_on_unload(self._cancel_catch_up)
+        self.config_entry.async_on_unload(
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, self._save_on_stop)
+        )
+
+    @callback
+    def _save_on_stop(self, _event: Event) -> None:
+        """Write last heard, which is saved only now and then, before the restart."""
+        self.store.async_save()
 
     @callback
     def _state_event_is_relevant(self, event_data: EventStateChangedData) -> bool:
@@ -307,10 +319,21 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             self.rebuild_config()
         config = self.core_config
         snoozes = self.store.snoozes(now)
-        devices = await self.hass.async_add_executor_job(_analyse, snapshot, config, now, snoozes)
+        heard = self.store.last_heard()
+        devices = await self.hass.async_add_executor_job(
+            _analyse, snapshot, config, now, snoozes, heard
+        )
+        self.store.note_heard(((d.device_id, d.last_heard) for d in devices), now)
         self._watched = {entity_id for device in devices for entity_id in device.entity_ids}
+        # The history's verdicts first: whether a battery gets charged
+        # decides how a rise in its level is recorded.
+        next_to_run_out = self._attach_drain_estimates(devices)
         self.replacements.observe(devices, now)
-        next_to_run_out = self._attach_drain_estimates(devices, now)
+        for device in devices:
+            self.replacements.annotate(device, now)
+        if self.hass.is_running:
+            registry = er.async_get(self.hass)
+            self.store.prune(lambda device_id: _exists(snapshot, registry, device_id), now)
         self._schedule_catch_up(devices)
         _LOGGER.debug(
             "Analysed %d entities into %d devices in %.1f ms",
@@ -346,7 +369,7 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
                 continue
             if device_id in data["device_settings"]:
                 continue  # the device has settings of its own: leave both alone
-            for section in ("device_settings", "snoozes", "history"):
+            for section in ("device_settings", "snoozes", "history", "heard"):
                 if key in data[section] and device_id not in data[section]:
                     data[section][device_id] = data[section].pop(key)
             _LOGGER.info("Moved the settings saved for %s to its device", key)
@@ -355,9 +378,7 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             self.store.async_save()
         return moved
 
-    def _attach_drain_estimates(
-        self, devices: list[DeviceHealth], now: datetime
-    ) -> DeviceHealth | None:
+    def _attach_drain_estimates(self, devices: list[DeviceHealth]) -> DeviceHealth | None:
         """Copy the battery insight onto each device; return the next to replace.
 
         That is the replaceable battery with the fewest days left, "more than
@@ -388,8 +409,23 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
                     key = (estimate.days_left, battery.level if battery.level is not None else 100)
                     if estimate.kind == "replace" and (soonest_key is None or key < soonest_key):
                         soonest, soonest_key = device, key
-            self.replacements.annotate(device, now)
         return soonest
+
+
+def _exists(snapshot: Snapshot, registry: er.EntityRegistry, device_id: str) -> bool:
+    """Whether an id still names a device, or an entity with no device.
+
+    Disabled devices are in the snapshot; disabled entities are not, so
+    the entity registry is asked as well.
+    """
+    if device_id.startswith(ORPHAN_PREFIX):
+        entity_id = device_id.removeprefix(ORPHAN_PREFIX)
+        return (
+            entity_id in snapshot["entities"]
+            or entity_id in snapshot["states"]
+            or registry.async_get(entity_id) is not None
+        )
+    return device_id in snapshot["devices"]
 
 
 def change_reason(entity_id: str, old: State | None, new: State | None) -> str | None:
@@ -434,9 +470,13 @@ def looks_like_battery(state: State | None) -> bool:
 
 
 def _analyse(
-    snapshot: Snapshot, config: CoreConfig, now: datetime, snoozes: dict[str, datetime]
+    snapshot: Snapshot,
+    config: CoreConfig,
+    now: datetime,
+    snoozes: dict[str, datetime],
+    heard: dict[str, datetime],
 ) -> list[DeviceHealth]:
-    return analyse_devices(snapshot, config, now, enhancers=ENHANCERS, snoozes=snoozes)
+    return analyse_devices(snapshot, config, now, enhancers=ENHANCERS, snoozes=snoozes, heard=heard)
 
 
 @callback

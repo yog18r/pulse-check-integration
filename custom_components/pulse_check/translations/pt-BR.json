@@ -103,23 +103,42 @@
       },
       "device": {
         "title": "Configurações por dispositivo",
-        "description": "Escolha um dispositivo, serviço ou entidade. ⚙ marca um com configurações salvas; ⚠ marca configurações salvas para algo que não é mais encontrado, que você pode limpar. Essas configurações valem para todos os cards do Pulse Check e para as notificações.",
+        "description": "Valem para todos os cards do Pulse Check e para as notificações.\n\n{saved}",
+        "menu_options": {
+          "device_edit": "Editar configurações salvas",
+          "device_add": "Adicionar configurações para um dispositivo",
+          "device_done": "Concluído"
+        }
+      },
+      "device_edit": {
+        "title": "Editar configurações salvas",
+        "description": "Escolha um dispositivo cujas configurações quer alterar ou remover, ou um que você ignorou. ⚠ marca configurações salvas para algo que não é mais encontrado.",
+        "data": {
+          "device": "Dispositivo"
+        }
+      },
+      "device_add": {
+        "title": "Adicionar configurações para um dispositivo",
+        "description": "Escolha um dispositivo, serviço ou entidade que ainda não tem configurações.",
         "data": {
           "device": "Dispositivo"
         }
       },
       "device_settings": {
         "title": "Configurações de {device}",
-        "description": "Deixe um campo vazio para usar o padrão. Essas configurações valem para todos os cards e para as notificações.",
+        "description": "{status}\n\nDeixe um campo vazio para usar o padrão. Essas configurações valem para todos os cards e para as notificações.",
         "data": {
           "name": "Nome exibido",
           "area": "Área",
           "battery_type": "Tipo de bateria",
           "battery_count": "Quantidade de baterias",
-          "rechargeable": "Recarregável",
+          "battery_kind": "Carregar ou trocar",
+          "battery_warning": "Nível de aviso da bateria",
+          "battery_critical": "Nível crítico da bateria",
           "quiet_threshold_hours": "Silencioso após",
           "notify_policy": "Notificações",
           "sparkline_days": "Dias de tendência",
+          "ignore": "Ignorar este dispositivo",
           "clear": "Remover todas as configurações deste dispositivo"
         },
         "data_description": {
@@ -127,10 +146,13 @@
           "area": "Substitui a área do dispositivo no card e nos filtros de área.",
           "battery_type": "Alimenta a lista de compras da aba Ações. Escolha um ou digite o seu.",
           "battery_count": "Quantas baterias ele usa.",
-          "rechargeable": "É carregado em vez de trocado: a aba Ações diz carregar em vez de trocar.",
+          "battery_kind": "O Pulse Check descobre isso pelo histórico da bateria. Escolha você se ele errar: a aba Ações, os botões das notificações e as estimativas seguem essa escolha.",
+          "battery_warning": "Neste nível ou abaixo a bateria é um aviso, em vez do nível geral. Um celular carregado toda noite poderia usar 10 %.",
+          "battery_critical": "Neste nível ou abaixo ela é crítica, em vez do nível geral.",
           "quiet_threshold_hours": "Horas sem relatório antes de este dispositivo ficar silencioso, em vez da configuração geral.",
           "notify_policy": "Vazio usa o padrão para a gravidade do problema.",
           "sparkline_days": "Quantos dias a linha de tendência do card mostra para este dispositivo.",
+          "ignore": "Deixa-o totalmente fora do Pulse Check: sem linhas, contagens ou notificações. O mesmo que adicioná-lo a \"Ignorar estes dispositivos\" nas opções gerais. As configurações dele são mantidas.",
           "clear": "Se marcado, todas as configurações acima são limpas ao enviar."
         }
       }
@@ -172,6 +194,13 @@
         "friday": "Sexta-feira",
         "saturday": "Sábado",
         "sunday": "Domingo"
+      }
+    },
+    "battery_kind": {
+      "options": {
+        "auto": "Descobrir pelo histórico",
+        "rechargeable": "Carregar (recarregável)",
+        "replaceable": "Trocar (pilhas descartáveis)"
       }
     }
   },
@@ -234,7 +263,7 @@
         },
         "rechargeable": {
           "name": "Recarregável",
-          "description": "Carregar em vez de trocar."
+          "description": "Ligado: a bateria é carregada. Desligado: ela é trocada. Um valor vazio deixa o Pulse Check descobrir pelo histórico."
         },
         "notify_policy": {
           "name": "Política de notificação",
@@ -243,6 +272,14 @@
         "sparkline_days": {
           "name": "Dias de tendência",
           "description": "Quantos dias de histórico o minigráfico do cartão mostra para este dispositivo (1 a 365)."
+        },
+        "battery_warning": {
+          "name": "Nível de aviso da bateria",
+          "description": "Nível de aviso próprio deste dispositivo, em %, em vez do geral."
+        },
+        "battery_critical": {
+          "name": "Nível crítico da bateria",
+          "description": "Nível crítico próprio deste dispositivo, em %, em vez do geral."
         }
       }
     },
@@ -304,6 +341,9 @@
     },
     "nothing_to_undo": {
       "message": "Não há troca ou carga registrada para desfazer em \"{device_id}\"."
+    },
+    "critical_above_warning": {
+      "message": "O nível crítico não pode ser maior que o nível de aviso."
     }
   },
   "entity": {

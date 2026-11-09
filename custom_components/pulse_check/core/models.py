@@ -117,28 +117,15 @@ class DeviceSettings:
     battery_type: str | None = None
     # How many cells the device takes. Treated as 1 when unset.
     battery_count: int | None = None
-    # Charge it rather than replace it.
+    # True: charge it. False: replace it. None: decide from its history.
     rechargeable: bool | None = None
     # Shown instead of the registry name. Does not rename the device.
     name: str | None = None
     # Area shown for this device and used by the area filters.
     area: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """The card's `DeviceSettings` shape, without unset fields."""
-        out: dict[str, Any] = {"device_id": self.device_id}
-        for key in (
-            "quiet_threshold_hours",
-            "battery_type",
-            "battery_count",
-            "rechargeable",
-            "name",
-            "area",
-        ):
-            value = getattr(self, key)
-            if value is not None:
-                out[key] = plain_number(value) if isinstance(value, float) else value
-        return out
+    # This device's own battery warning / critical levels, in %.
+    battery_warning: float | None = None
+    battery_critical: float | None = None
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> DeviceSettings:
@@ -151,6 +138,8 @@ class DeviceSettings:
             rechargeable=_optional_bool(raw.get("rechargeable")),
             name=_optional_text(raw.get("name")),
             area=_optional_text(raw.get("area")),
+            battery_warning=_optional_number(raw.get("battery_warning")),
+            battery_critical=_optional_number(raw.get("battery_critical")),
         )
 
 
@@ -190,7 +179,6 @@ class CoreConfig:
             "integration_thresholds": {
                 k: plain_number(v) for k, v in self.integration_thresholds.items()
             },
-            "device_settings": [item.to_dict() for item in self.device_settings],
         }
 
     @classmethod
@@ -351,6 +339,11 @@ class DeviceHealth:
     # Hardware, a service device, or an entity with no device. For the last
     # two, offline reads as "unavailable".
     source: Source = "device"
+    # Both battery levels as they apply, set only when the device has a
+    # level of its own (a phone that warns at 10 %), so the card judges it
+    # the same.
+    battery_warning: float | None = None
+    battery_critical: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """The card's `DeviceHealth` shape, JSON-ready."""
@@ -373,6 +366,8 @@ class DeviceHealth:
             ("model", self.model),
             ("batteryKind", self.battery_kind),
             ("unusual", self.unusual),
+            ("batteryWarning", _plain_or_none(self.battery_warning)),
+            ("batteryCritical", _plain_or_none(self.battery_critical)),
         ):
             if value is not None:
                 out[key] = value
@@ -423,6 +418,10 @@ def as_utc(moment: datetime) -> datetime:
 def plain_number(value: float) -> float | int:
     """24.0 becomes 24, so JSON output matches the card's."""
     return int(value) if float(value).is_integer() else value
+
+
+def _plain_or_none(value: float | None) -> float | int | None:
+    return plain_number(value) if value is not None else None
 
 
 def _optional_number(value: object) -> float | None:

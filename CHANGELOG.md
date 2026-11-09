@@ -4,6 +4,60 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Upgrading
+- A device saved with **Rechargeable** unticked by an older version reads
+  as "work it out from the history", as before.
+
+### Added
+- **A device's own battery levels.** Per-device settings take a warning
+  and a critical level of their own, so a phone charged every night can
+  warn at 10 % and be critical at 5 % instead of sending a critical
+  message every evening. The card colours, counts and sorts it the same.
+- **Charged or replaced, your call.** The old **Rechargeable** tick box
+  could only force "charged". It is now a choice: work it out from the
+  history (the default), **Charged** or **Replaced**, for when detection
+  gets a device wrong. The `set_device_settings` action takes
+  `rechargeable: false` for "replaced" and `battery_warning` /
+  `battery_critical`.
+- **Ignore a device from its own settings.** **Ignore this device** puts it
+  on the general options' ignore list at once, without a reload, and the
+  device stays in the per-device list so it can be taken back.
+
+### Changed
+- **Per-device settings open with a list of what is saved.** Configure →
+  Per-device settings now lists every device that has settings or is
+  ignored and what they are, such as "Kitchen H&T: 2 × CR2032 · quiet after
+  48 h · weekly digest", then offers **Edit saved settings** (only those
+  devices) or **Add settings for a device** (only devices without any),
+  instead of one long list with ⚙ marks.
+- **Saving returns to the list.** Changing several devices no longer means
+  reopening Configure for each one; **Done** closes the dialog.
+- **The settings form says what Pulse Check sees.** It opens with the
+  battery level, whether it gets charged or replaced, and what an empty
+  field falls back to, such as "quiet after 48 h" from a per-integration
+  threshold.
+- The card receives per-device settings once per update instead of twice.
+
+### Fixed
+- **Phones were listed as "Replace the battery".** The Actions tab, the
+  shopping list and the **Mark replaced / Mark charged** button on phone
+  notifications only treated a device as charged when it was ticked
+  rechargeable. They now follow the same rule as the estimates: a phone,
+  a robot vacuum or a battery whose history shows it gets charged is
+  charged, unless its settings say otherwise.
+- **"Last heard just now" after a restart.** Home Assistant gives every
+  entity of an offline device a fresh timestamp when it starts, so a
+  device last heard from hours before the restart read "last heard just
+  now". Unavailable and unknown states no longer count as being heard
+  from, and the last time a device was heard from is remembered across
+  restarts.
+- **Stored history no longer grows without end.** Each device keeps its
+  newest 200 replacements and charges (a phone records one a day), and
+  the history and snooze kept for a device or entity removed from Home
+  Assistant are dropped after it has been gone a week.
+
 ## 0.2.13 - 2026-11-09
 
 ### Upgrading

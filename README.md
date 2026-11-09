@@ -163,9 +163,20 @@ A device's own notification policy (under **Per-device settings**, or the `set_d
 
 ### Per-device settings
 
-**Configure → Per-device settings** asks for a device, service (such as Sun) or entity with no device, then shows its settings: display name, area, battery type and count, rechargeable, quiet threshold, notification policy and how many days its trend line shows. Leave a field empty for the default; **Remove all settings for this device** clears them all. They are stored by the integration, not in any card, so every card on every dashboard and every notification uses them, and saving them does not reload Pulse Check.
+**Configure → Per-device settings** opens with a list of every device that has saved settings or is ignored, and what they are, such as "Kitchen H&T: 2 × CR2032 · quiet after 48 h · weekly digest". **Edit saved settings** picks one of those; **Add settings for a device** picks any device, service (such as Sun) or entity with no device that has none yet. The form opens with what Pulse Check sees now and what an empty field falls back to ("Battery 54 % · gets charged. Empty fields use: warning at 30 % and critical at 15 %, quiet after 48 h"), then:
 
-In the list, ⚙ marks a device with saved settings and ⚠ marks settings saved for something that is no longer found, so they can be cleared. When an entity saved by its own id is later given a device by its integration, its settings, snooze and replacement history move to that device, unless the device has settings of its own. The `pulse_check.set_device_settings` action does the same from an automation.
+| Setting | Meaning |
+| --- | --- |
+| Display name, Area | Shown on the card and in notifications instead of the device's own. Renaming the device in Home Assistant is usually better; these are for entities Home Assistant cannot rename |
+| Battery type, Battery count | For the shopping list on the Actions tab |
+| Charged or replaced | Pulse Check works this out from the battery's history (see [Days left](#how-detection-works)). Choose **Charged** or **Replaced** when it gets it wrong: the Actions tab ("Charge" or "Replace"), the notification buttons and the estimates follow it |
+| Battery warning level, Battery critical level | This device's own levels instead of the general ones: a phone charged every night can warn at 10 % and be critical at 5 % instead of sending a critical message every evening. Critical may not be above warning |
+| Quiet after, Notifications, Trend days | Its quiet threshold, notification policy and the days its trend line shows |
+| Ignore this device | Leaves it out of Pulse Check altogether, the same as **Ignore these devices** in the general options (an entity with no device goes on **Ignore these entities**). It takes effect at once, without a reload, and the device stays in the list so it can be taken back |
+
+Leave a field empty for the default; **Remove all settings for this device** clears them all. Saving returns to the list for the next device; **Done** closes the dialog. The settings are stored by the integration, not in any card, so every card on every dashboard and every notification uses them, and saving them does not reload Pulse Check.
+
+Settings saved for something that is no longer found are listed with ⚠, so they can be edited away. When an entity saved by its own id is later given a device by its integration, its settings, snooze and replacement history move to that device, unless the device has settings of its own. The `pulse_check.set_device_settings` action does the same from an automation.
 
 ## The card
 
@@ -241,7 +252,7 @@ This is the contract between the integration and the card. The card, or anything
   "devices": [ ...one entry per device, see below... ],
   "summary": { "attention": 4, "critical": 2, "warning": 2, "batteryDevices": 11, "lowBatteries": 4, "criticalBatteries": 3, "offline": 1, "quiet": 2, "notProvided": 0, "snoozed": 0 },
   "actions": { "replace": [...], "charge": [...], "shopping": [{ "batteryType": "CR2450", "count": 2, "devices": 1 }] },
-  "config": { "battery_warning": 30, "battery_critical": 15, "quiet_threshold_hours": 24, "quiet_scope": "battery", "integration_thresholds": {}, "device_settings": [...] },
+  "config": { "battery_warning": 30, "battery_critical": 15, "quiet_threshold_hours": 24, "quiet_scope": "battery", "integration_thresholds": {} },
   "device_settings": { "<device id>": { "battery_type": "CR2450", "battery_count": 2, "notify_policy": "weekly" } },
   "computed_at": "2026-10-15T10:00:00.000Z",
   "maintenance_until": null,
@@ -281,7 +292,7 @@ Each device entry uses the card's `DeviceHealth` shape:
   entityIds: [binary_sensor.living_room_motion_occupancy, sensor.living_room_motion_battery, …]
 ```
 
-Each device entry also carries `deviceType` (lock, cover, vacuum, phone, media, remote, climate, motion, contact, light, switch or other); `daysLeft`, `estimate`, `batteryKind`, `usualLow`, `lastReplaced` and `unusual` when known; `snoozedUntil` while snoozed; `isNotProvided: true` for leftovers an integration no longer provides; and `source` (`service` or `entity`) for a service or an entity with no device, which reads as unavailable rather than offline.
+Each device entry also carries `deviceType` (lock, cover, vacuum, phone, media, remote, climate, motion, contact, light, switch or other); `daysLeft`, `estimate`, `batteryKind`, `usualLow`, `lastReplaced` and `unusual` when known; `batteryWarning` and `batteryCritical` when the device has levels of its own; `snoozedUntil` while snoozed; `isNotProvided: true` for leftovers an integration no longer provides; and `source` (`service` or `entity`) for a service or an entity with no device, which reads as unavailable rather than offline.
 
 Every device is in the list, except services and entities with no device that are working: those appear only while they are unavailable or not provided, snoozed, or carry a battery, so hundreds of working automations and helpers do not travel to every dashboard.
 
@@ -303,7 +314,7 @@ A target that is a companion-app service (`notify.mobile_app_<phone>`, iOS or An
 
 | Problem | Buttons |
 | --- | --- |
-| Battery low or critical | **Mark replaced** (or **Mark charged** for a device set as rechargeable), **Remind me later** |
+| Battery low or critical | **Mark replaced** (or **Mark charged** for a battery that gets charged, such as a phone), **Remind me later** |
 | Offline, unavailable, quiet or not provided | **Snooze 1 day** |
 
 Pressing one does what the service of the same name does, for that device, without opening the app. **Remind me later** changes nothing: the reminder comes when it was due anyway, so it is only offered when another reminder will actually follow. Digests and the maintenance summary cover many devices and have no buttons. Every other target (notify entities, e-mail, Telegram, a notify group) gets the plain message as before.
@@ -332,18 +343,18 @@ Every transition also fires a `pulse_check_transition` event with `device_id`, `
 | --- | --- |
 | `pulse_check.snooze` | Mute a device for `days` (default 7) or `until` a time. Its facts are still reported but it counts as ok and sends nothing |
 | `pulse_check.unsnooze` | Lift a snooze early |
-| `pulse_check.set_device_settings` | `name`, `area`, `quiet_threshold_hours`, `battery_type`, `battery_count`, `rechargeable`, `notify_policy`, `sparkline_days`. Only given fields change; an empty value clears one. Settings saved for an id that is no longer watched can still be cleared |
+| `pulse_check.set_device_settings` | `name`, `area`, `quiet_threshold_hours`, `battery_type`, `battery_count`, `rechargeable` (true: charged, false: replaced, empty: work it out), `battery_warning`, `battery_critical`, `notify_policy`, `sparkline_days`. Only given fields change; an empty value clears one. Settings saved for an id that is no longer watched can still be cleared |
 | `pulse_check.mark_replaced` | Record a replacement now (optional `battery_type`), closing the current cycle |
 | `pulse_check.mark_charged` | The same for a charge |
 | `pulse_check.undo_mark` | Take back the most recent replacement or charge, with the cycle it closed: one recorded by hand, or one detected from a rise in level that was not a new battery after all |
 | `pulse_check.refresh` | Recompute now and re-read battery history |
 | `pulse_check.maintenance_mode` | Hold every notification back for `hours` (default from the options; 0 ends it now). See [Maintenance mode](#maintenance-mode) |
 
-`device_id` is the device registry id, or the entity id of an entity that has no device (`sensor.remote_battery_template` or `entity:sensor.remote_battery_template`). Everything is stored in `.storage/pulse_check.data`.
+`device_id` is the device registry id, or the entity id of an entity that has no device (`sensor.remote_battery_template` or `entity:sensor.remote_battery_template`). Everything is stored in `.storage/pulse_check.data`. It does not grow without end: each device keeps its newest 200 replacements and charges, and the history and snooze of a device or entity that has left Home Assistant are dropped once it has been gone for a week. Per-device settings stay until you clear them (they are listed with ⚠).
 
 ## Replacement tracking
 
-`mark_replaced` and `mark_charged` record an event; the cycle that just ended is summarised (how many days it lasted, how fast it drained). A level that rises by 20 points or more in one step is detected as a replacement by itself (a charge for devices marked rechargeable, or that were charging), once the new level has held for an hour; it is dated from the rise. A level that falls straight back was a glitch (some Zigbee and Z-Wave devices report 100 % once on rejoining) and is ignored. `undo_mark` takes back a detected one as well as one recorded by hand. Once a device has completed cycles on record, a current drain rate more than twice its own average is flagged as `unusual: "draining 3× faster than usual"`; a sudden drop of 20 points is flagged for a week. Days left always comes from the current drain estimate.
+`mark_replaced` and `mark_charged` record an event; the cycle that just ended is summarised (how many days it lasted, how fast it drained). A level that rises by 20 points or more in one step is detected as a replacement by itself (a charge for a battery that gets charged, or one that was charging), once the new level has held for an hour; it is dated from the rise. A level that falls straight back was a glitch (some Zigbee and Z-Wave devices report 100 % once on rejoining) and is ignored. `undo_mark` takes back a detected one as well as one recorded by hand. Once a device has completed cycles on record, a current drain rate more than twice its own average is flagged as `unusual: "draining 3× faster than usual"`; a sudden drop of 20 points is flagged for a week. Days left always comes from the current drain estimate.
 
 ### Automation examples
 
@@ -382,9 +393,9 @@ These rules are shared with the card and checked against the same test fixture (
 
 **Not provided.** When an integration stops providing an entity (or a YAML entity is removed from the configuration while its platform runs), typically after an update, Home Assistant keeps its registry entry and shows a placeholder `unavailable` state. A device made only of such leftovers would otherwise read as offline. Instead, while the integration itself is running, it reads as *not provided*: a warning, shown on the Connectivity tab as "no longer provided by UniFi Network" and notified under the warning policy (the weekly digest by default). It is stale configuration to delete from the device page, not hardware that stopped answering. While an integration fails to start, its entities show the same placeholder and may really be down, so they still count as offline, as does a device with even one genuinely unavailable entity among the leftovers.
 
-**Last heard and quiet.** The newest `last_reported` across the device's live entities. Settings-type entities (`number`, `select`, `button`, `update`, `text`, `scene`, `script`, and anything `entity_category: config`) do not count: changing a setting an hour ago says nothing about whether the sensor is alive. A device is quiet when that timestamp is older than its threshold. By default only battery devices can be quiet: a mains light nobody has touched for two days is fine, not quiet. Offline devices are not also counted as quiet.
+**Last heard and quiet.** The newest `last_reported` across the device's live entities. An `unavailable` or `unknown` state is not a report, and the time is remembered across restarts, so a device that was already offline does not read "last heard just now" after Home Assistant starts. Settings-type entities (`number`, `select`, `button`, `update`, `text`, `scene`, `script`, and anything `entity_category: config`) do not count: changing a setting an hour ago says nothing about whether the sensor is alive. A device is quiet when that timestamp is older than its threshold. By default only battery devices can be quiet: a mains light nobody has touched for two days is fine, not quiet. Offline devices are not also counted as quiet.
 
-**Severity.** *Critical*: offline, battery at or below the critical level (default 15 %), a binary low-battery sensor, or a dead Z-Wave node. *Warning*: battery at or below the warning level (default 30 %), quiet, or not provided. A service or an entity with no device that is unavailable is critical, like an offline device. Snoozed devices read as ok.
+**Severity.** *Critical*: offline, battery at or below the critical level (default 15 %, or the device's own), a binary low-battery sensor, or a dead Z-Wave node. *Warning*: battery at or below the warning level (default 30 %, or the device's own), quiet, or not provided. A service or an entity with no device that is unavailable is critical, like an offline device. Snoozed devices read as ok.
 
 **Grouping.** By device registry entry, child devices (Home Assistant 2026.10) included as devices of their own. Entities with no device get a synthetic id `entity:<entity_id>` each. Disabled devices are skipped, and Pulse Check's own entities, including the per-device sensors it adds to devices, never count towards any device. The device's integration is the most common platform among its entities.
 
@@ -398,7 +409,7 @@ Entities without a `unique_id`, such as YAML template sensors and some MQTT enti
 
 From the cycles each battery gets a *kind*, published as `batteryKind`:
 
-- **charged**: the device is a phone (`mobile_app`) or a robot vacuum, is marked rechargeable in its settings, has shown a charging signal, has charged at least twice in the last fortnight's hourly history, or has completed cycles with a median length under 30 days. A charge in the hourly history is a rise of 15 points or more from a low within 48 hours, however gradual (a home battery charging 10 points an hour counts), that stays up for more than one reading. A reading glitch that lasts a few hours is not one: a sudden fall that comes back to where it was (a lock reading 42 % for three hours, then 61 % again), or a sudden rise that drops straight back. Daily means alone cannot see a battery charged every day, since every day averages out the same.
+- **charged**: its settings say **Charged**, or (unless they say **Replaced**) the device is a phone (`mobile_app`) or a robot vacuum, has shown a charging signal, has charged at least twice in the last fortnight's hourly history, or has completed cycles with a median length under 30 days. A charge in the hourly history is a rise of 15 points or more from a low within 48 hours, however gradual (a home battery charging 10 points an hour counts), that stays up for more than one reading. A reading glitch that lasts a few hours is not one: a sudden fall that comes back to where it was (a lock reading 42 % for three hours, then 61 % again), or a sudden rise that drops straight back. Daily means alone cannot see a battery charged every day, since every day averages out the same.
 - **replaceable**: every cycle so far began near full (85 % or more), which is what a fresh cell looks like.
 - **unknown**: anything else, such as a partial top-up. No estimate is made; nothing is ever invented.
 
@@ -478,7 +489,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (201 tests) runs in under a minute.
+The test suite (251 tests) runs in about a minute.
 
 **Card.** Node 24, in `frontend/`:
 
@@ -486,7 +497,7 @@ The test suite (201 tests) runs in under a minute.
 cd frontend
 npm ci
 npm run dev      # demo page with a fake subscription, no Home Assistant needed
-npm run check    # typecheck, lint, format check, tests (115), build
+npm run check    # typecheck, lint, format check, tests (112), build
 ```
 
 With the demo running, `python frontend/docs/screenshots.py` retakes the README screenshots from it.

@@ -221,4 +221,8 @@ export interface DeviceHealth {
   lastReplaced?: Date;
   /** A note when the battery behaves unlike its own past, e.g. "draining 3× faster than usual". */
   unusual?: string;
+  /** This device's own battery warning level, when it differs from the integration's. */
+  batteryWarning?: number;
+  /** This device's own battery critical level, when it differs from the integration's. */
+  batteryCritical?: number;
 }

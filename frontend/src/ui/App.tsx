@@ -30,7 +30,11 @@ import { filterActions, type ActionKind } from '../core/actions';
 import { filterDevices } from '../core/filters';
 import { batteryList, connectivityList } from '../core/sort';
 import { breakdown, headline, summarise } from '../core/summarise';
-import { batterySeverity, connectivitySeverity, hasConnectivityProblem } from '../core/thresholds';
+import {
+  connectivitySeverity,
+  deviceBatterySeverity,
+  hasConnectivityProblem,
+} from '../core/thresholds';
 import { formatClock, formatRelative } from '../core/time';
 import type { DeviceHealth, HassBox } from '../core/types';
 import { languageOf, translator } from '../i18n';
@@ -153,7 +157,7 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
     [devices, rules, config.sort, histories],
   );
   const problemBatteries = useMemo(
-    () => batteries.filter((d) => batterySeverity(d.battery, rules) !== 'ok'),
+    () => batteries.filter((d) => deviceBatterySeverity(d, rules) !== 'ok'),
     [batteries, rules],
   );
   const shownBatteries = config.problems_only ? problemBatteries : batteries;
@@ -404,7 +408,7 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
                   <DeviceRow
                     key={d.deviceId}
                     device={d}
-                    severity={batterySeverity(d.battery, rules)}
+                    severity={deviceBatterySeverity(d, rules)}
                     mode="battery"
                     history={d.battery ? histories?.get(d.battery.entityId) : undefined}
                     sparkline={config.show_sparklines}

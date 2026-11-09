@@ -65,7 +65,7 @@ def summarise(devices: Iterable[DeviceHealth], config: CoreConfig) -> Summary:
             summary.attention += 1
         if device.battery is not None:
             summary.battery_devices += 1
-            battery = battery_severity(device.battery, config)
+            battery = battery_severity(device.battery, config, device.device_id)
             if battery != "ok":
                 summary.low_batteries += 1
             if battery == "critical":

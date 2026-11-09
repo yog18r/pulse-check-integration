@@ -27,6 +27,7 @@ from .const import (
     NOTIFY_POLICIES,
 )
 from .core.group import ORPHAN_PREFIX
+from .options import levels_clash
 
 if TYPE_CHECKING:
     from .coordinator import PulseCheckCoordinator
@@ -84,6 +85,12 @@ SET_DEVICE_SETTINGS_SCHEMA = probatio.Schema(
         probatio.Optional("notify_policy"): probatio.Any(None, "", probatio.In(NOTIFY_POLICIES)),
         probatio.Optional("sparkline_days"): probatio.Any(
             None, "", probatio.All(probatio.Coerce(int), probatio.Range(min=1, max=365))
+        ),
+        probatio.Optional("battery_warning"): probatio.Any(
+            None, "", probatio.All(probatio.Coerce(float), probatio.Range(min=0, max=100))
+        ),
+        probatio.Optional("battery_critical"): probatio.Any(
+            None, "", probatio.All(probatio.Coerce(float), probatio.Range(min=0, max=100))
         ),
     }
 )
@@ -162,6 +169,11 @@ async def _set_device_settings(call: ServiceCall) -> None:
     coordinator = _coordinator(call.hass)
     device_id = _settings_id(coordinator, call.data[ATTR_DEVICE_ID])
     updates = {key: value for key, value in call.data.items() if key != ATTR_DEVICE_ID}
+    merged = {**coordinator.store.device_settings.get(device_id, {}), **updates}
+    if levels_clash(coordinator.core_config, {k: v for k, v in merged.items() if v != ""}):
+        raise ServiceValidationError(
+            translation_domain=DOMAIN, translation_key="critical_above_warning"
+        )
     coordinator.store.update_device_settings(device_id, updates)
     coordinator.rebuild_config()
     await coordinator.async_refresh()

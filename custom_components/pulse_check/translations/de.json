@@ -103,23 +103,42 @@
       },
       "device": {
         "title": "Einstellungen pro Gerät",
-        "description": "Wähle ein Gerät, einen Dienst oder eine Entität. ⚙ kennzeichnet gespeicherte Einstellungen; ⚠ kennzeichnet Einstellungen für etwas, das nicht mehr gefunden wird und gelöscht werden kann. Die Einstellungen gelten für jede Pulse-Check-Karte und für Benachrichtigungen.",
+        "description": "Sie gelten für jede Pulse-Check-Karte und für Benachrichtigungen.\n\n{saved}",
+        "menu_options": {
+          "device_edit": "Gespeicherte Einstellungen bearbeiten",
+          "device_add": "Einstellungen für ein Gerät hinzufügen",
+          "device_done": "Fertig"
+        }
+      },
+      "device_edit": {
+        "title": "Gespeicherte Einstellungen bearbeiten",
+        "description": "Wähle ein Gerät, dessen Einstellungen du ändern oder entfernen möchtest, oder eines, das du ignorierst. ⚠ kennzeichnet Einstellungen für etwas, das nicht mehr gefunden wird.",
+        "data": {
+          "device": "Gerät"
+        }
+      },
+      "device_add": {
+        "title": "Einstellungen für ein Gerät hinzufügen",
+        "description": "Wähle ein Gerät, einen Dienst oder eine Entität ohne Einstellungen.",
         "data": {
           "device": "Gerät"
         }
       },
       "device_settings": {
         "title": "Einstellungen für {device}",
-        "description": "Leere Felder verwenden die Voreinstellung. Die Einstellungen gelten für jede Karte und für Benachrichtigungen.",
+        "description": "{status}\n\nLeere Felder verwenden die Voreinstellung. Die Einstellungen gelten für jede Karte und für Benachrichtigungen.",
         "data": {
           "name": "Anzeigename",
           "area": "Bereich",
           "battery_type": "Batterietyp",
           "battery_count": "Anzahl Batterien",
-          "rechargeable": "Wiederaufladbar",
+          "battery_kind": "Geladen oder gewechselt",
+          "battery_warning": "Batterie-Warnstufe",
+          "battery_critical": "Kritische Batteriestufe",
           "quiet_threshold_hours": "Stumm nach",
           "notify_policy": "Benachrichtigungen",
           "sparkline_days": "Verlaufstage",
+          "ignore": "Dieses Gerät ignorieren",
           "clear": "Alle Einstellungen für dieses Gerät entfernen"
         },
         "data_description": {
@@ -127,10 +146,13 @@
           "area": "Ersetzt den Bereich des Geräts auf der Karte und in den Bereichsfiltern.",
           "battery_type": "Für die Einkaufsliste im Tab Aktionen. Auswählen oder selbst eingeben.",
           "battery_count": "Wie viele Batterien es braucht.",
-          "rechargeable": "Wird geladen statt gewechselt: Der Tab Aktionen sagt laden statt wechseln.",
+          "battery_kind": "Pulse Check erkennt das am Verlauf der Batterie. Wähle selbst, wenn es falsch liegt: Der Tab Aktionen, die Schaltflächen in Benachrichtigungen und die Schätzungen richten sich danach.",
+          "battery_warning": "Ab diesem Stand ist die Batterie eine Warnung, statt der allgemeinen Stufe. Für ein Handy, das jede Nacht lädt, etwa 10 %.",
+          "battery_critical": "Ab diesem Stand ist sie kritisch, statt der allgemeinen Stufe.",
           "quiet_threshold_hours": "Stunden ohne Meldung, bis dieses Gerät als stumm gilt, statt der allgemeinen Einstellung.",
           "notify_policy": "Leer verwendet die Voreinstellung für den Schweregrad des Problems.",
           "sparkline_days": "Wie viele Tage die Verlaufslinie der Karte für dieses Gerät zeigt.",
+          "ignore": "Lässt es in Pulse Check ganz weg: keine Zeilen, Zählungen oder Benachrichtigungen. Wie „Diese Geräte ignorieren“ in den allgemeinen Optionen. Seine Einstellungen bleiben erhalten.",
           "clear": "Wenn angehakt, werden beim Absenden alle Einstellungen oben gelöscht."
         }
       }
@@ -172,6 +194,13 @@
         "friday": "Freitag",
         "saturday": "Samstag",
         "sunday": "Sonntag"
+      }
+    },
+    "battery_kind": {
+      "options": {
+        "auto": "Aus dem Verlauf erkennen",
+        "rechargeable": "Geladen (Akku)",
+        "replaceable": "Gewechselt (Einwegbatterien)"
       }
     }
   },
@@ -234,7 +263,7 @@
         },
         "rechargeable": {
           "name": "Wiederaufladbar",
-          "description": "Wird geladen statt ersetzt."
+          "description": "An: Der Akku wird geladen. Aus: Die Batterie wird gewechselt. Ein leerer Wert lässt Pulse Check es aus dem Verlauf erkennen."
         },
         "notify_policy": {
           "name": "Benachrichtigungsregel",
@@ -243,6 +272,14 @@
         "sparkline_days": {
           "name": "Trendtage",
           "description": "Wie viele Tage Verlauf die Sparkline der Karte für dieses Gerät zeigt (1 bis 365)."
+        },
+        "battery_warning": {
+          "name": "Batterie-Warnstufe",
+          "description": "Eigene Warnstufe dieses Geräts in %, statt der allgemeinen."
+        },
+        "battery_critical": {
+          "name": "Kritische Batteriestufe",
+          "description": "Eigene kritische Stufe dieses Geräts in %, statt der allgemeinen."
         }
       }
     },
@@ -304,6 +341,9 @@
     },
     "nothing_to_undo": {
       "message": "Für „{device_id}“ gibt es keinen erfassten Wechsel oder Ladevorgang zum Rückgängigmachen."
+    },
+    "critical_above_warning": {
+      "message": "Die kritische Stufe darf nicht höher als die Warnstufe sein."
     }
   },
   "entity": {

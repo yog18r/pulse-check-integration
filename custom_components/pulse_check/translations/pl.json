@@ -103,23 +103,42 @@
       },
       "device": {
         "title": "Ustawienia urządzeń",
-        "description": "Wybierz urządzenie, usługę lub encję. ⚙ oznacza zapisane ustawienia; ⚠ oznacza ustawienia zapisane dla czegoś, czego już nie ma, i można je wyczyścić. Ustawienia dotyczą każdej karty Pulse Check i powiadomień.",
+        "description": "Dotyczą każdej karty Pulse Check i powiadomień.\n\n{saved}",
+        "menu_options": {
+          "device_edit": "Edytuj zapisane ustawienia",
+          "device_add": "Dodaj ustawienia urządzenia",
+          "device_done": "Gotowe"
+        }
+      },
+      "device_edit": {
+        "title": "Edytuj zapisane ustawienia",
+        "description": "Wybierz urządzenie, którego ustawienia chcesz zmienić lub usunąć, albo urządzenie pomijane. ⚠ oznacza ustawienia zapisane dla czegoś, czego już nie ma.",
+        "data": {
+          "device": "Urządzenie"
+        }
+      },
+      "device_add": {
+        "title": "Dodaj ustawienia urządzenia",
+        "description": "Wybierz urządzenie, usługę lub encję bez ustawień.",
         "data": {
           "device": "Urządzenie"
         }
       },
       "device_settings": {
         "title": "Ustawienia: {device}",
-        "description": "Puste pole oznacza wartość domyślną. Ustawienia dotyczą każdej karty i powiadomień.",
+        "description": "{status}\n\nPuste pole oznacza wartość domyślną. Ustawienia dotyczą każdej karty i powiadomień.",
         "data": {
           "name": "Wyświetlana nazwa",
           "area": "Obszar",
           "battery_type": "Typ baterii",
           "battery_count": "Liczba baterii",
-          "rechargeable": "Ładowalna",
+          "battery_kind": "Ładowanie czy wymiana",
+          "battery_warning": "Poziom ostrzeżenia baterii",
+          "battery_critical": "Krytyczny poziom baterii",
           "quiet_threshold_hours": "Cichy po",
           "notify_policy": "Powiadomienia",
           "sparkline_days": "Dni trendu",
+          "ignore": "Pomijaj to urządzenie",
           "clear": "Usuń wszystkie ustawienia tego urządzenia"
         },
         "data_description": {
@@ -127,10 +146,13 @@
           "area": "Zastępuje obszar urządzenia na karcie i w filtrach obszarów.",
           "battery_type": "Do listy zakupów na karcie Działania. Wybierz lub wpisz własny.",
           "battery_count": "Ile baterii używa.",
-          "rechargeable": "Ładowana zamiast wymieniana: karta Działania mówi naładuj zamiast wymień.",
+          "battery_kind": "Pulse Check ustala to z historii baterii. Wybierz sam, jeśli się myli: zakładka Działania, przyciski w powiadomieniach i prognozy się do tego stosują.",
+          "battery_warning": "Na tym poziomie lub niżej bateria to ostrzeżenie, zamiast poziomu ogólnego. Telefon ładowany co noc może mieć 10 %.",
+          "battery_critical": "Na tym poziomie lub niżej jest krytyczna, zamiast poziomu ogólnego.",
           "quiet_threshold_hours": "Godziny bez zgłoszenia, po których to urządzenie jest ciche, zamiast ustawienia ogólnego.",
           "notify_policy": "Puste oznacza wartość domyślną dla wagi problemu.",
           "sparkline_days": "Ile dni pokazuje linia trendu na karcie dla tego urządzenia.",
+          "ignore": "Całkiem wyłącza je z Pulse Check: bez wierszy, liczników i powiadomień. Tak samo jak dodanie go do „Pomijaj te urządzenia” w opcjach ogólnych. Jego ustawienia zostają zachowane.",
           "clear": "Zaznaczone: po zatwierdzeniu wszystkie ustawienia powyżej zostaną wyczyszczone."
         }
       }
@@ -172,6 +194,13 @@
         "friday": "Piątek",
         "saturday": "Sobota",
         "sunday": "Niedziela"
+      }
+    },
+    "battery_kind": {
+      "options": {
+        "auto": "Ustal z historii",
+        "rechargeable": "Ładowana (akumulator)",
+        "replaceable": "Wymieniana (baterie jednorazowe)"
       }
     }
   },
@@ -234,7 +263,7 @@
         },
         "rechargeable": {
           "name": "Akumulator",
-          "description": "Ładuj zamiast wymieniać."
+          "description": "Włączone: akumulator się ładuje. Wyłączone: baterię się wymienia. Pusta wartość pozwala Pulse Check ustalić to z historii."
         },
         "notify_policy": {
           "name": "Zasady powiadomień",
@@ -243,6 +272,14 @@
         "sparkline_days": {
           "name": "Dni trendu",
           "description": "Ile dni historii pokazuje wykres trendu na karcie dla tego urządzenia (od 1 do 365)."
+        },
+        "battery_warning": {
+          "name": "Poziom ostrzeżenia baterii",
+          "description": "Własny poziom ostrzeżenia tego urządzenia, w %, zamiast ogólnego."
+        },
+        "battery_critical": {
+          "name": "Krytyczny poziom baterii",
+          "description": "Własny poziom krytyczny tego urządzenia, w %, zamiast ogólnego."
         }
       }
     },
@@ -304,6 +341,9 @@
     },
     "nothing_to_undo": {
       "message": "Brak zapisanej wymiany lub ładowania do cofnięcia dla „{device_id}”."
+    },
+    "critical_above_warning": {
+      "message": "Poziom krytyczny nie może być wyższy niż poziom ostrzeżenia."
     }
   },
   "entity": {

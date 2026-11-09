@@ -2,6 +2,7 @@
 
 Resolution order for the quiet threshold, most specific wins:
   device override > integration override > global default
+Battery warning and critical levels: device override > global default.
 
 Severity rules for a device:
   critical  offline, battery at/below critical %, binary "low battery", or an
@@ -45,8 +46,27 @@ def resolve_quiet_threshold(config: CoreConfig, integration: str, device_id: str
     return config.quiet_threshold_hours
 
 
-def battery_severity(battery: BatteryReading | None, config: CoreConfig) -> Severity:
-    """Severity from the battery reading alone."""
+def battery_levels(config: CoreConfig, device_id: str | None = None) -> tuple[float, float]:
+    """The warning and critical levels for one device: its own, else the options'.
+
+    One level of a device's own is checked against the options when it is
+    saved, but the options can change later, so critical is capped at
+    warning here.
+    """
+    override = settings_for_device(config, device_id) if device_id is not None else None
+    warning = config.battery_warning
+    critical = config.battery_critical
+    if override is not None and override.battery_warning is not None:
+        warning = override.battery_warning
+    if override is not None and override.battery_critical is not None:
+        critical = override.battery_critical
+    return warning, min(critical, warning)
+
+
+def battery_severity(
+    battery: BatteryReading | None, config: CoreConfig, device_id: str | None = None
+) -> Severity:
+    """Severity from the battery reading alone, at the device's own levels when it has them."""
     if battery is None:
         return "ok"
     if battery.is_charging:
@@ -55,9 +75,10 @@ def battery_severity(battery: BatteryReading | None, config: CoreConfig) -> Seve
         return "critical"
     if battery.level is None:
         return "ok"  # binary sensor saying "not low"
-    if battery.level <= config.battery_critical:
+    warning, critical = battery_levels(config, device_id)
+    if battery.level <= critical:
         return "critical"
-    if battery.level <= config.battery_warning:
+    if battery.level <= warning:
         return "warning"
     return "ok"
 

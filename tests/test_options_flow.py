@@ -14,6 +14,7 @@ from custom_components.pulse_check.config_flow import flatten_options, nest_opti
 from custom_components.pulse_check.const import (
     CONF_BATTERY_CRITICAL,
     CONF_BATTERY_WARNING,
+    CONF_EXCLUDE_DEVICES,
     CONF_EXCLUDE_ENTITIES,
     CONF_EXCLUDE_INTEGRATIONS,
     CONF_INTEGRATION_THRESHOLDS,
@@ -164,6 +165,94 @@ async def test_configure_opens_with_a_menu(
     assert result["menu_options"] == ["general", "device"]
 
 
+def _placeholders(result: Any) -> dict[str, str]:
+    return dict(result["description_placeholders"] or {})
+
+
+async def _set_up_with_settings(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> dict[str, str]:
+    freezer.move_to(fixed_now)
+    device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    store = config_entry.runtime_data.store
+    store.update_device_settings(
+        device_ids["dev_shelly_ht"],
+        {"battery_type": "CR2032", "battery_count": 2, "quiet_threshold_hours": 48.0},
+    )
+    store.update_device_settings("entity:sensor.gone", {"name": "Old", "notify_policy": "weekly"})
+    return device_ids
+
+
+async def _open_devices(hass: HomeAssistant, entry_id: str) -> Any:
+    result = await hass.config_entries.options.async_init(entry_id)
+    return await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "device"}
+    )
+
+
+async def test_the_per_device_menu_lists_what_is_saved(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    await _set_up_with_settings(hass, config_entry, fixture_snapshot, freezer, fixed_now)
+    result = await _open_devices(hass, config_entry.entry_id)
+    assert result["type"] is FlowResultType.MENU
+    assert result["menu_options"] == ["device_edit", "device_add", "device_done"]
+    saved = _placeholders(result)["saved"]
+    assert "- **Kitchen H&T (" in saved
+    assert "2 × CR2032 · quiet after 48 h" in saved
+    assert "- **⚠ entity:sensor.gone**: shown as “Old” · weekly digest · no longer found" in saved
+
+
+async def test_with_nothing_saved_or_to_add_the_menu_only_closes(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    result = await _open_devices(hass, config_entry.entry_id)
+    assert result["menu_options"] == ["device_done"]  # no devices: nothing to add
+    assert _placeholders(result)["saved"] == "No device has saved settings yet."
+
+
+async def test_edit_lists_only_saved_and_add_only_the_rest(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    device_ids = await _set_up_with_settings(
+        hass, config_entry, fixture_snapshot, freezer, fixed_now
+    )
+    kitchen = device_ids["dev_shelly_ht"]
+
+    result = await _open_devices(hass, config_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "device_edit"}
+    )
+    options = result["data_schema"].schema["device"].config["options"]  # type: ignore[union-attr]
+    assert {o["value"] for o in options} == {kitchen, "entity:sensor.gone"}
+
+    result = await _open_devices(hass, config_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "device_add"}
+    )
+    options = result["data_schema"].schema["device"].config["options"]  # type: ignore[union-attr]
+    values = {o["value"] for o in options}
+    assert kitchen not in values
+    assert "entity:sensor.gone" not in values
+    assert device_ids["dev_zwave_lock"] in values
+
+
 async def test_per_device_settings_are_saved_to_the_store_without_a_reload(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
@@ -172,40 +261,36 @@ async def test_per_device_settings_are_saved_to_the_store_without_a_reload(
     fixed_now: datetime,
 ) -> None:
     """Every card and notification reads them; the options stay as they were."""
-    freezer.move_to(fixed_now)
-    device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
-    assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    device_ids = await _set_up_with_settings(
+        hass, config_entry, fixture_snapshot, freezer, fixed_now
+    )
     coordinator = config_entry.runtime_data
     kitchen = device_ids["dev_shelly_ht"]
-    coordinator.store.update_device_settings("entity:sensor.gone", {"name": "Old"})
-    coordinator.store.update_device_settings(kitchen, {"battery_type": "CR2032"})
-
-    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result = await _open_devices(hass, config_entry.entry_id)
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"next_step_id": "device"}
+        result["flow_id"], {"next_step_id": "device_edit"}
     )
-    assert result["step_id"] == "device"
-    options = result["data_schema"].schema["device"].config["options"]  # type: ignore[union-attr]
-    labels = {o["value"]: o["label"] for o in options}
-    # Saved settings first: the watched device, and the stale entry to clear.
-    assert {options[0]["value"], options[1]["value"]} == {kitchen, "entity:sensor.gone"}
-    assert labels[kitchen].startswith("⚙ Kitchen H&T")
-    assert labels["entity:sensor.gone"] == "⚠ entity:sensor.gone"
-
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"device": kitchen}
     )
     assert result["step_id"] == "device_settings"
-    assert result["description_placeholders"] == {"device": "Kitchen H&T"}
+    placeholders = _placeholders(result)
+    assert placeholders["device"].startswith("Kitchen H&T (")
+    assert "Empty fields use: warning at 30 % and critical at 15 %" in placeholders["status"]
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
             "name": " Kitchen sensor ",
             "battery_type": "CR2450",
             "battery_count": 2.0,
-            "rechargeable": False,
+            "battery_kind": "auto",
         },
+    )
+    # Back to the list, which shows the change, until Done.
+    assert result["type"] is FlowResultType.MENU
+    assert "Kitchen sensor" in _placeholders(result)["saved"]
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "device_done"}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert coordinator.store.device_settings[kitchen] == {
@@ -226,20 +311,126 @@ async def test_per_device_settings_can_be_cleared(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    freezer.move_to(fixed_now)
-    await load_fixture_into_hass(hass, fixture_snapshot)
-    assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await _set_up_with_settings(hass, config_entry, fixture_snapshot, freezer, fixed_now)
     store = config_entry.runtime_data.store
-    store.update_device_settings("entity:sensor.gone", {"name": "Old", "rechargeable": True})
-
-    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result = await _open_devices(hass, config_entry.entry_id)
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"next_step_id": "device"}
+        result["flow_id"], {"next_step_id": "device_edit"}
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"device": "entity:sensor.gone"}
     )
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"clear": True})
-    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["type"] is FlowResultType.MENU
     assert "entity:sensor.gone" not in store.device_settings
+
+
+async def _edit(hass: HomeAssistant, entry_id: str, step: str, device_id: str) -> Any:
+    result = await _open_devices(hass, entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": step}
+    )
+    return await hass.config_entries.options.async_configure(
+        result["flow_id"], {"device": device_id}
+    )
+
+
+async def test_charged_or_replaced_and_own_levels(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    device_ids = await _set_up_with_settings(
+        hass, config_entry, fixture_snapshot, freezer, fixed_now
+    )
+    store = config_entry.runtime_data.store
+    phone = device_ids["dev_phone"]
+    result = await _edit(hass, config_entry.entry_id, "device_add", phone)
+    # Critical above warning (10 % own warning, 15 % default critical) is refused.
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"battery_kind": "replaceable", "battery_warning": 10}
+    )
+    assert result["errors"] == {"base": "critical_above_warning"}
+    assert phone not in store.device_settings
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"battery_kind": "replaceable", "battery_warning": 10, "battery_critical": 5},
+    )
+    assert store.device_settings[phone] == {
+        "rechargeable": False,
+        "battery_warning": 10.0,
+        "battery_critical": 5.0,
+    }
+    assert (
+        "replaced, not charged · warning at 10 % · critical at 5 %"
+        in (_placeholders(result)["saved"])
+    )
+    device = config_entry.runtime_data.data.by_id[phone]
+    assert (device.battery_warning, device.battery_critical) == (10, 5)
+
+    # The form shows the choice again, and "work it out" clears it.
+    result = await _edit(hass, config_entry.entry_id, "device_edit", phone)
+    suggested = {
+        str(key): key.description["suggested_value"]
+        for key in result["data_schema"].schema
+        if key.description and "suggested_value" in key.description
+    }
+    assert suggested["battery_kind"] == "replaceable"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"battery_kind": "auto"}
+    )
+    assert phone not in store.device_settings
+
+
+async def test_ignore_a_device_from_its_settings(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """It goes on the options' ignore list at once, without a reload, and can come back."""
+    device_ids = await _set_up_with_settings(
+        hass, config_entry, fixture_snapshot, freezer, fixed_now
+    )
+    coordinator = config_entry.runtime_data
+    lock = device_ids["dev_zwave_lock"]
+    result = await _edit(hass, config_entry.entry_id, "device_add", lock)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"battery_kind": "auto", "ignore": True}
+    )
+    assert config_entry.options[CONF_EXCLUDE_DEVICES] == [lock]
+    assert lock not in coordinator.data.by_id
+    assert "ignored" in _placeholders(result)["saved"]
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "device_done"}
+    )
+    await hass.async_block_till_done()
+    assert config_entry.runtime_data is coordinator  # no reload
+
+    result = await _edit(hass, config_entry.entry_id, "device_edit", lock)
+    assert "Ignored" in _placeholders(result)["status"]
+    await hass.config_entries.options.async_configure(
+        result["flow_id"], {"battery_kind": "auto", "ignore": False}
+    )
+    assert CONF_EXCLUDE_DEVICES not in config_entry.options
+    assert lock in coordinator.data.by_id
+
+
+async def test_ignoring_an_entity_with_no_device_uses_the_entity_list(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    await _set_up_with_settings(hass, config_entry, fixture_snapshot, freezer, fixed_now)
+    orphan = "entity:sensor.remote_battery_template"
+    result = await _edit(hass, config_entry.entry_id, "device_add", orphan)
+    await hass.config_entries.options.async_configure(
+        result["flow_id"], {"battery_kind": "auto", "ignore": True}
+    )
+    assert config_entry.options[CONF_EXCLUDE_ENTITIES] == ["sensor.remote_battery_template"]
+    assert orphan not in config_entry.runtime_data.data.by_id

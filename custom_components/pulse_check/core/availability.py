@@ -13,6 +13,8 @@
   to clean up, not hardware that stopped answering.
 - A device's LAST HEARD timestamp is the newest `last_reported` across its
   live entities (`last_updated` when an entity has no `last_reported`).
+  An `unavailable` or `unknown` state is not a report: Home Assistant
+  sets those, with a fresh timestamp, at every restart.
 - A device is QUIET when that timestamp is older than a threshold.
 """
 
@@ -29,6 +31,9 @@ if TYPE_CHECKING:
     from .models import EntityEntry, EntityState
 
 UNAVAILABLE = "unavailable"
+# States Home Assistant writes itself, not the device: they say nothing
+# about when the device was heard from.
+NOT_HEARD = frozenset({UNAVAILABLE, "unknown"})
 
 
 def is_primary(entity: EntityEntry) -> bool:
@@ -120,11 +125,12 @@ def detect_last_heard(
     Static entities (settings, buttons, update checkers) are ignored so that
     "I changed a setting an hour ago" does not count as "the sensor
     reported an hour ago". If a device has nothing but static entities,
-    they are used as a last resort.
+    they are used as a last resort. Unavailable and unknown states are
+    never used: after a restart they would all read "just now".
     """
     registry = registry or {}
     live = [s for s in states if not is_static_entity(s["entity_id"], registry.get(s["entity_id"]))]
-    candidates = live or list(states)
+    candidates = [s for s in (live or list(states)) if s["state"] not in NOT_HEARD]
     latest: datetime | None = None
     for state in candidates:
         moment = reported_at(state)

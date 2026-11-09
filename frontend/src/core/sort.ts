@@ -8,7 +8,7 @@
  */
 import type { SortOrder } from '../card/config';
 import {
-  batterySeverity,
+  deviceBatterySeverity,
   hasConnectivityProblem,
   SEVERITY_RANK,
   type Thresholds,
@@ -55,8 +55,8 @@ export function batteryList(
       // Worst battery severity first: a critical battery is urgent whatever
       // the trend says.
       const sev =
-        SEVERITY_RANK[batterySeverity(b.battery, thresholds)] -
-        SEVERITY_RANK[batterySeverity(a.battery, thresholds)];
+        SEVERITY_RANK[deviceBatterySeverity(b, thresholds)] -
+        SEVERITY_RANK[deviceBatterySeverity(a, thresholds)];
       if (sev !== 0) return sev;
 
       // A charging device is being dealt with: after the others in its band.

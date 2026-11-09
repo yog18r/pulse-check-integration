@@ -3,7 +3,7 @@
  * the card makes from them.
  */
 import { EN, type Translator } from '../i18n';
-import { batterySeverity, type Thresholds } from './thresholds';
+import { deviceBatterySeverity, type Thresholds } from './thresholds';
 import type { DeviceHealth } from './types';
 
 /** The `summary` the integration sends. */
@@ -56,7 +56,7 @@ export function summarise(devices: DeviceHealth[], thresholds: Thresholds): Summ
     if (d.severity !== 'ok') summary.attention += 1;
     if (d.battery) {
       summary.batteryDevices += 1;
-      const battery = batterySeverity(d.battery, thresholds);
+      const battery = deviceBatterySeverity(d, thresholds);
       if (battery !== 'ok') summary.lowBatteries += 1;
       if (battery === 'critical') summary.criticalBatteries += 1;
     }

@@ -13,7 +13,23 @@ from typing import TYPE_CHECKING
 from .group import ORPHAN_PREFIX
 
 if TYPE_CHECKING:
-    from .models import CoreConfig, DeviceSettings
+    from .models import CoreConfig, DeviceHealth, DeviceSettings
+
+
+def is_charged(device: DeviceHealth, rechargeable: bool | None) -> bool:
+    """Whether a device's battery gets charged rather than replaced.
+
+    The user's setting wins (`rechargeable` True or False). Without one,
+    what the history showed (`battery_kind`), and before there is any
+    history, what the device is: a companion-app phone or a robot vacuum.
+    Every place that says "charge" or "replace" asks this, so the Actions
+    tab, the notification buttons and the replacement tracker agree.
+    """
+    if rechargeable is not None:
+        return rechargeable
+    if device.battery_kind is not None:
+        return device.battery_kind == "charged"
+    return device.integration == "mobile_app" or device.device_type == "vacuum"
 
 
 def settings_for_device(config: CoreConfig, device_id: str) -> DeviceSettings | None:

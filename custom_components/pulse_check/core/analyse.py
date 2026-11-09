@@ -31,6 +31,7 @@ from .group import (
 from .models import DeviceHealth, Severity, as_utc
 from .settings import settings_for_device
 from .thresholds import (
+    battery_levels,
     battery_severity,
     connectivity_severity,
     extras_severity,
@@ -108,6 +109,7 @@ def analyse_devices(
     now: datetime,
     enhancers: Iterable[Enhancer] = (),
     snoozes: Mapping[str, datetime] | None = None,
+    heard: Mapping[str, datetime] | None = None,
 ) -> list[DeviceHealth]:
     """Analyse every device in the snapshot.
 
@@ -117,6 +119,8 @@ def analyse_devices(
         now: the moment to judge "quiet" and snoozes against.
         enhancers: integration-specific extras, usually `enhancers.ENHANCERS`.
         snoozes: device id -> when the user's snooze ends.
+        heard: device id -> when it was last heard from, remembered from
+            earlier runs (before a restart, or before it went offline).
     """
     now = as_utc(now)
     enhancers = tuple(enhancers)
@@ -169,6 +173,9 @@ def analyse_devices(
             last_heard is None or enhanced.last_heard > last_heard
         ):
             last_heard = enhanced.last_heard
+        remembered = heard.get(group.device_id) if heard else None
+        if remembered is not None and (last_heard is None or remembered > last_heard):
+            last_heard = remembered
 
         # Quiet detection only makes sense for devices expected to report on
         # their own. By default that is battery devices; mains devices go
@@ -189,13 +196,21 @@ def analyse_devices(
             "ok"
             if snoozed
             else worst_severity(
-                battery_severity(battery, config),
+                battery_severity(battery, config, group.device_id),
                 connectivity_severity(is_offline, quiet, not_provided),
                 extras_severity(enhanced.extras),
             )
         )
 
         settings = settings_for_device(config, group.device_id)
+        # Both levels, as they apply, when the device has either of its own,
+        # so the card judges it exactly as here.
+        own_levels: tuple[float | None, float | None] = (
+            battery_levels(config, group.device_id)
+            if settings is not None
+            and (settings.battery_warning is not None or settings.battery_critical is not None)
+            else (None, None)
+        )
         device = group.device
         results.append(
             DeviceHealth(
@@ -219,6 +234,8 @@ def analyse_devices(
                 battery=battery,
                 last_heard=last_heard,
                 snoozed_until=as_utc(snoozed_until) if snoozed and snoozed_until else None,
+                battery_warning=own_levels[0],
+                battery_critical=own_levels[1],
             )
         )
 

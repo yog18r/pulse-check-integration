@@ -2,7 +2,7 @@
  * The action list: what to actually do about each low battery.
  *
  *   replace   "Replace 2 × AA in Kitchen Mini Switch"
- *   charge    "Charge Office 1 Large"  (rechargeable: true in the device's settings)
+ *   charge    "Charge Office 1 Large"  (a battery that gets charged)
  *
  * plus a shopping summary: how many of each battery type to buy, totalled
  * across the devices that need replacing. The integration builds the list;

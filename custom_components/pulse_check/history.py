@@ -36,6 +36,8 @@ from .core.battery import parse_numeric
 from .core.cycles import BatteryInsight, assess
 from .core.drain import DrainPoint, daily_means, hourly_means, rows_to_points
 from .core.models import as_utc
+from .core.thresholds import battery_levels
+from .storage import stored_rechargeable
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -178,7 +180,7 @@ class HistoryTracker:
         """Re-read history for every battery device with a numeric level.
 
         The store supplies what the history alone cannot: the user's
-        rechargeable setting, recorded replacements and charges (cycle
+        charged-or-replaced setting, recorded replacements and charges (cycle
         boundaries), and whether a charging signal has been seen.
         """
         if not self.available:
@@ -232,12 +234,12 @@ class HistoryTracker:
                 hourly.get(entity_id, []),
                 battery.level,
                 now,
-                warning=config.battery_warning,
+                warning=battery_levels(config, device.device_id)[0],
                 # Companion-app phones and robot vacuums are charged by nature,
                 # whether or not they report a charging signal. Not every
                 # "phone" device type: GPS trackers on a collar are those too.
                 mobile_app=device.integration == "mobile_app" or device.device_type == "vacuum",
-                rechargeable=bool(settings.get("rechargeable")),
+                rechargeable=stored_rechargeable(settings),
                 charging_signal=charging_signal,
                 marks=marks,
             )

@@ -52,6 +52,22 @@ def integration_thresholds_from_options(options: Mapping[str, Any]) -> dict[str,
     return thresholds
 
 
+def levels_clash(config: CoreConfig, settings: Mapping[str, Any]) -> bool:
+    """True when a device's critical level would sit above its warning level.
+
+    Each level is the device's own when `settings` has one, else the
+    options'. A device warned at 10 % under a 15 % critical default would
+    otherwise go straight from fine to critical.
+    """
+    warning = settings.get("battery_warning")
+    critical = settings.get("battery_critical")
+    if warning is None and critical is None:
+        return False
+    warning = config.battery_warning if warning is None else float(warning)
+    critical = config.battery_critical if critical is None else float(critical)
+    return critical > warning
+
+
 def core_config_from_options(
     options: Mapping[str, Any],
     device_settings: Mapping[str, Mapping[str, Any]] | None = None,

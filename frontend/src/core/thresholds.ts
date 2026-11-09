@@ -4,8 +4,9 @@
  * The integration already decided each device's overall `severity`. The
  * Batteries tab colours rows by the battery alone, though, and the
  * Connectivity tab by connectivity alone, so those two small rules live
- * here as well. The thresholds come from the integration's snapshot, so
- * the card can never disagree with the server.
+ * here as well. The thresholds come from the integration's snapshot, and
+ * a device with levels of its own (a phone that warns at 10 %) carries
+ * them, so the card can never disagree with the server.
  *
  *   critical  battery at/below critical %, or a binary "low battery"
  *   warning   battery at/below warning %
@@ -33,6 +34,19 @@ export function batterySeverity(
   if (battery.level <= thresholds.battery_critical) return 'critical';
   if (battery.level <= thresholds.battery_warning) return 'warning';
   return 'ok';
+}
+
+/** A device's own battery levels where it has them, else the snapshot's. */
+export function thresholdsFor(device: DeviceHealth, thresholds: Thresholds): Thresholds {
+  return {
+    battery_warning: device.batteryWarning ?? thresholds.battery_warning,
+    battery_critical: device.batteryCritical ?? thresholds.battery_critical,
+  };
+}
+
+/** A device's battery severity, at its own levels when it has them. */
+export function deviceBatterySeverity(device: DeviceHealth, thresholds: Thresholds): Severity {
+  return batterySeverity(device.battery, thresholdsFor(device, thresholds));
 }
 
 export function connectivitySeverity(

@@ -27,7 +27,11 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
-from homeassistant.helpers import area_registry as ar, entity_registry as er
+from homeassistant.helpers import (
+    area_registry as ar,
+    device_registry as dr,
+    entity_registry as er,
+)
 from homeassistant.helpers.selector import (
     AreaSelector,
     AreaSelectorConfig,
@@ -101,13 +105,19 @@ from .const import (
     QUIET_SCOPES,
     WEEKDAYS,
 )
+from .core.group import ORPHAN_PREFIX
+from .core.models import plain_number
+from .messages import async_load_messages
+from .options import levels_clash
+from .storage import stored_rechargeable
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Iterable, Mapping
 
     from homeassistant.core import HomeAssistant
 
     from .coordinator import PulseCheckCoordinator
+    from .messages import Catalog
 
 # The options form is split into two collapsible sections. The form
 # submits them nested (`{"thresholds": {...}, "filters": {...}}`); the
@@ -399,43 +409,231 @@ COMMON_BATTERY_TYPES = [
     "ER14250",
     "ER14505",
 ]
-# The form's fields, in the store's names. Leaving one empty clears it.
+# The form's fields that map one to one onto stored settings. Leaving one
+# empty clears it. `battery_kind` and `ignore` are handled on their own.
 DEVICE_FIELDS = (
     "name",
     "area",
     "battery_type",
     "battery_count",
-    "rechargeable",
+    "battery_warning",
+    "battery_critical",
     "quiet_threshold_hours",
     "notify_policy",
     "sparkline_days",
 )
 CONF_DEVICE = "device"
 CONF_CLEAR = "clear"
-# Marks in the device list: a device with saved settings, and settings
-# saved for something that is no longer watched (so they can be cleared).
-HAS_SETTINGS = "\u2699 "
-NOT_FOUND = "\u26a0 "
+CONF_IGNORE = "ignore"
+# Charged or replaced: worked out from the history, or the user's say.
+CONF_BATTERY_KIND = "battery_kind"
+KIND_AUTO = "auto"
+KIND_RECHARGEABLE = "rechargeable"
+KIND_REPLACEABLE = "replaceable"
+BATTERY_KINDS = (KIND_AUTO, KIND_RECHARGEABLE, KIND_REPLACEABLE)
+# Marks settings saved for something that is no longer found.
+NOT_FOUND = "⚠ "
 
 
-def _device_options(coordinator: PulseCheckCoordinator) -> list[SelectOptionDict]:
-    """Every watched device, service and lone entity, those with settings first."""
-    saved = coordinator.store.device_settings
-    options: list[tuple[int, str, SelectOptionDict]] = []
-    for device in coordinator.data.devices:
+def _bare_entity(device_id: str) -> str | None:
+    return device_id.removeprefix(ORPHAN_PREFIX) if device_id.startswith(ORPHAN_PREFIX) else None
+
+
+def _is_ignored(options: Mapping[str, Any], device_id: str) -> bool:
+    """Whether the general options' ignore lists leave this device out."""
+    devices = options.get(CONF_EXCLUDE_DEVICES) or []
+    if device_id in devices:
+        return True
+    entity_id = _bare_entity(device_id)
+    return entity_id is not None and (
+        entity_id in devices or entity_id in (options.get(CONF_EXCLUDE_ENTITIES) or [])
+    )
+
+
+def _with_ignore(options: Mapping[str, Any], device_id: str, ignore: bool) -> dict[str, Any]:
+    """The options with this device added to, or taken off, the ignore lists.
+
+    A device goes on "Ignore these devices"; an entity with no device on
+    "Ignore these entities", where the general options show it by name.
+    """
+    updated = dict(options)
+    entity_id = _bare_entity(device_id)
+    devices = [
+        d for d in options.get(CONF_EXCLUDE_DEVICES) or [] if d not in (device_id, entity_id)
+    ]
+    entities = [e for e in options.get(CONF_EXCLUDE_ENTITIES) or [] if e != entity_id]
+    if ignore and entity_id is not None:
+        entities.append(entity_id)
+    elif ignore:
+        devices.append(device_id)
+    for key, values in ((CONF_EXCLUDE_DEVICES, devices), (CONF_EXCLUDE_ENTITIES, entities)):
+        if values:
+            updated[key] = values
+        else:
+            updated.pop(key, None)
+    return updated
+
+
+def _ignored_ids(hass: HomeAssistant, options: Mapping[str, Any]) -> set[str]:
+    """Devices, and entities with no device, that the ignore lists leave out.
+
+    An ignored entity of a device is not one of them: it leaves out one
+    reading, not the device.
+    """
+    entities = er.async_get(hass)
+    ids: set[str] = set()
+    for raw in options.get(CONF_EXCLUDE_DEVICES) or []:
+        ids.add(ORPHAN_PREFIX + raw if "." in raw and not raw.startswith(ORPHAN_PREFIX) else raw)
+    for entity_id in options.get(CONF_EXCLUDE_ENTITIES) or []:
+        entry = entities.async_get(entity_id)
+        if entry is None or entry.device_id is None:
+            ids.add(ORPHAN_PREFIX + entity_id)
+    return ids
+
+
+def _registry_name(hass: HomeAssistant, device_id: str) -> str | None:
+    """The name of a device or entity Pulse Check does not watch (ignored), if it exists."""
+    entity_id = _bare_entity(device_id)
+    if entity_id is None:
+        device = dr.async_get(hass).async_get(device_id)
+        return (device.name_by_user or device.name or device_id) if device else None
+    state = hass.states.get(entity_id)
+    if state is not None:
+        return state.name
+    entry = er.async_get(hass).async_get(entity_id)
+    return (entry.name or entry.original_name or entity_id) if entry else None
+
+
+class _Devices:
+    """What the per-device steps need to know about every device, read once per screen."""
+
+    def __init__(self, hass: HomeAssistant, coordinator: PulseCheckCoordinator) -> None:
+        self.hass = hass
+        self.coordinator = coordinator
+        self.saved = coordinator.store.device_settings
+        self.options = coordinator.config_entry.options
+        self.ignored = _ignored_ids(hass, self.options)
+
+    def label(self, device_id: str) -> str:
+        """Name with area and integration; ⚠ and the id when it is gone."""
+        device = self.coordinator.data.by_id.get(device_id)
+        if device is None:
+            name = _registry_name(self.hass, device_id)
+            return name if name is not None else NOT_FOUND + device_id
         context = " · ".join(part for part in (device.area, device.integration) if part)
-        label = f"{device.name} ({context})" if context else device.name
-        has = device.device_id in saved
-        shown = (HAS_SETTINGS if has else "") + label
-        options.append(
-            (0 if has else 1, label.lower(), {"value": device.device_id, "label": shown})
+        return f"{device.name} ({context})" if context else device.name
+
+    def gone(self, device_id: str) -> bool:
+        """Neither watched nor in Home Assistant's registries any more."""
+        return (
+            device_id not in self.coordinator.data.by_id
+            and _registry_name(self.hass, device_id) is None
         )
-    watched = {device.device_id for device in coordinator.data.devices}
-    for device_id in saved:
-        if device_id not in watched:
-            label = NOT_FOUND + device_id
-            options.append((0, label.lower(), {"value": device_id, "label": label}))
-    return [option for _, _, option in sorted(options, key=lambda o: (o[0], o[1]))]
+
+    def choices(self, ids: Iterable[str]) -> list[SelectOptionDict]:
+        """Dropdown options for these ids, sorted by label."""
+        labelled = [(self.label(device_id), device_id) for device_id in ids]
+        return [
+            {"value": device_id, "label": label}
+            for label, device_id in sorted(labelled, key=lambda pair: pair[0].lower())
+        ]
+
+    def editable(self) -> set[str]:
+        """Devices with saved settings or ignored, those no longer found included."""
+        return set(self.saved) | self.ignored
+
+    def addable(self) -> list[str]:
+        """Every watched device, service and lone entity with nothing saved yet."""
+        return [d.device_id for d in self.coordinator.data.devices if d.device_id not in self.saved]
+
+
+def _setting_parts(settings: Mapping[str, Any], text: Catalog) -> list[str]:
+    """One device's saved settings in a few words each."""
+    parts: list[str] = []
+    if settings.get("name"):
+        parts.append(text("settings_shown_as", value=settings["name"]))
+    if settings.get("area"):
+        parts.append(text("settings_area", value=settings["area"]))
+    battery_type = settings.get("battery_type")
+    count = settings.get("battery_count")
+    if battery_type and count:
+        parts.append(f"{count} × {battery_type}")
+    elif battery_type:
+        parts.append(str(battery_type))
+    elif count:
+        parts.append(text("settings_battery_count", count=int(count)))
+    rechargeable = stored_rechargeable(settings)
+    if rechargeable is not None:
+        parts.append(text("settings_rechargeable" if rechargeable else "settings_replaceable"))
+    if settings.get("battery_warning") is not None:
+        parts.append(text("settings_warning", level=plain_number(settings["battery_warning"])))
+    if settings.get("battery_critical") is not None:
+        parts.append(text("settings_critical", level=plain_number(settings["battery_critical"])))
+    if settings.get("quiet_threshold_hours") is not None:
+        hours = plain_number(float(settings["quiet_threshold_hours"]))
+        parts.append(text("settings_quiet", hours=hours))
+    if settings.get("notify_policy") in NOTIFY_POLICIES:
+        parts.append(text(f"settings_policy_{settings['notify_policy']}"))
+    if settings.get("sparkline_days"):
+        parts.append(text("settings_trend", days=settings["sparkline_days"]))
+    return parts
+
+
+def _saved_summary(devices: _Devices, text: Catalog) -> str:
+    """Every device with saved settings or ignored, as a Markdown list for the menu."""
+    ids = devices.editable()
+    if not ids:
+        return text("settings_none")
+    lines = []
+    for label, device_id in sorted(
+        ((devices.label(device_id), device_id) for device_id in ids),
+        key=lambda pair: pair[0].lower(),
+    ):
+        parts = _setting_parts(devices.saved.get(device_id, {}), text)
+        if device_id in devices.ignored:
+            parts.append(text("settings_ignored"))
+        if devices.gone(device_id):
+            parts.append(text("settings_not_found"))
+        lines.append(f"- **{label}**: {' · '.join(parts)}")
+    return "\n".join(lines)
+
+
+def _status(devices: _Devices, device_id: str, text: Catalog) -> str:
+    """What Pulse Check sees for the device now, and what an empty field falls back to."""
+    if devices.gone(device_id):
+        return text("settings_not_found")
+    device = devices.coordinator.data.by_id.get(device_id)
+    if device is None:
+        return text("status_ignored")
+    config = devices.coordinator.core_config
+    parts: list[str] = []
+    battery = device.battery
+    if battery is not None:
+        if battery.level is not None:
+            parts.append(text("status_battery", level=plain_number(battery.level)))
+        elif battery.is_low:
+            parts.append(text("status_battery_low"))
+        kind = (
+            device.battery_kind if device.battery_kind in ("charged", "replaceable") else "unknown"
+        )
+        parts.append(text(f"status_kind_{kind}"))
+    now = " · ".join(parts)
+    defaults: list[str] = []
+    if battery is not None:
+        defaults.append(
+            text(
+                "status_default_levels",
+                warning=plain_number(config.battery_warning),
+                critical=plain_number(config.battery_critical),
+            )
+        )
+    if device.source == "device" and (battery is not None or config.quiet_scope == "all"):
+        hours = config.integration_thresholds.get(device.integration, config.quiet_threshold_hours)
+        defaults.append(text("status_default_quiet", hours=plain_number(hours)))
+    if defaults:
+        fallback = text("status_defaults", defaults=", ".join(defaults))
+        return f"{now}\n\n{fallback}" if now else fallback
+    return now
 
 
 def _device_schema(hass: HomeAssistant) -> probatio.Schema:
@@ -458,7 +656,15 @@ def _device_schema(hass: HomeAssistant) -> probatio.Schema:
             probatio.Optional("battery_count"): NumberSelector(
                 NumberSelectorConfig(min=1, max=20, step=1, mode=NumberSelectorMode.BOX)
             ),
-            probatio.Optional("rechargeable"): BooleanSelector(),
+            probatio.Required(CONF_BATTERY_KIND, default=KIND_AUTO): SelectSelector(
+                SelectSelectorConfig(
+                    options=list(BATTERY_KINDS),
+                    mode=SelectSelectorMode.DROPDOWN,
+                    translation_key=CONF_BATTERY_KIND,
+                )
+            ),
+            probatio.Optional("battery_warning"): _percent(),
+            probatio.Optional("battery_critical"): _percent(),
             probatio.Optional("quiet_threshold_hours"): _hours(),
             probatio.Optional("notify_policy"): _policy(),
             probatio.Optional("sparkline_days"): NumberSelector(
@@ -466,28 +672,43 @@ def _device_schema(hass: HomeAssistant) -> probatio.Schema:
                     min=1, max=365, step=1, unit_of_measurement="d", mode=NumberSelectorMode.BOX
                 )
             ),
+            probatio.Optional(CONF_IGNORE, default=False): BooleanSelector(),
             probatio.Optional(CONF_CLEAR, default=False): BooleanSelector(),
         }
     )
 
 
+def _form_values(settings: Mapping[str, Any], ignored: bool) -> dict[str, Any]:
+    """Stored settings -> the form's suggested values."""
+    values = {key: settings[key] for key in DEVICE_FIELDS if key in settings}
+    rechargeable = stored_rechargeable(settings)
+    if rechargeable is None:
+        values[CONF_BATTERY_KIND] = KIND_AUTO
+    else:
+        values[CONF_BATTERY_KIND] = KIND_RECHARGEABLE if rechargeable else KIND_REPLACEABLE
+    values[CONF_IGNORE] = ignored
+    return values
+
+
 def _device_updates(user_input: Mapping[str, Any]) -> dict[str, Any]:
-    """The form's answer as store updates: an empty field, or unticked rechargeable, clears."""
+    """The form's answer as store updates: an empty field clears that setting."""
     if user_input.get(CONF_CLEAR):
-        return dict.fromkeys(DEVICE_FIELDS, "")
+        return dict.fromkeys((*DEVICE_FIELDS, "rechargeable"), "")
     updates: dict[str, Any] = {}
     for key in DEVICE_FIELDS:
         value = user_input.get(key)
-        if value in (None, "", False):
+        if value in (None, ""):
             updates[key] = ""
         elif key in ("battery_count", "sparkline_days"):
             updates[key] = int(value)
-        elif key == "quiet_threshold_hours":
+        elif key in ("quiet_threshold_hours", "battery_warning", "battery_critical"):
             updates[key] = float(value)
         elif isinstance(value, str):
             updates[key] = value.strip()
         else:
             updates[key] = value
+    kind = user_input.get(CONF_BATTERY_KIND, KIND_AUTO)
+    updates["rechargeable"] = "" if kind == KIND_AUTO else kind == KIND_RECHARGEABLE
     return updates
 
 
@@ -495,8 +716,10 @@ class PulseCheckOptionsFlow(OptionsFlowWithReload):
     """The Configure dialog: general options, or one device's settings.
 
     Per-device settings live in the integration's store, not in the
-    options: every card and every notification reads them. Saving them
-    leaves the options as they are, so nothing reloads.
+    options: every card and every notification reads them. Each device's
+    settings are saved as its form is submitted, and the dialog returns to
+    the list for the next one; nothing reloads. Ignoring a device changes
+    the options' ignore lists straight away, without a reload either.
     """
 
     _device_id: str | None = None
@@ -525,10 +748,57 @@ class PulseCheckOptionsFlow(OptionsFlowWithReload):
             errors=errors,
         )
 
-    async def async_step_device(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Choose the device, service or entity to edit."""
+    def _devices(self) -> _Devices | None:
         coordinator = self.hass.data.get(DATA_COORDINATOR)
         if coordinator is None or coordinator.data is None:
+            return None
+        return _Devices(self.hass, coordinator)
+
+    async def _text(self) -> Catalog:
+        return (await async_load_messages(self.hass)).catalog(self.hass.config.language)
+
+    async def async_step_device(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """What is saved or ignored for which device, then edit one, add another, or finish."""
+        devices = self._devices()
+        if devices is None:
+            return self.async_abort(reason="not_loaded")
+        menu = ["device_done"]
+        if devices.addable():
+            menu.insert(0, "device_add")
+        if devices.editable():
+            menu.insert(0, "device_edit")
+        return self.async_show_menu(
+            step_id="device",
+            menu_options=menu,
+            description_placeholders={"saved": _saved_summary(devices, await self._text())},
+        )
+
+    async def async_step_device_done(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Close the dialog. Everything was saved as it was submitted."""
+        return self.async_create_entry(data=dict(self.config_entry.options))
+
+    async def async_step_device_edit(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose one of the devices that have saved settings or are ignored."""
+        return await self._choose_device("device_edit", lambda d: d.editable(), user_input)
+
+    async def async_step_device_add(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose a device, service or entity that has no settings yet."""
+        return await self._choose_device("device_add", lambda d: d.addable(), user_input)
+
+    async def _choose_device(
+        self,
+        step_id: str,
+        ids: Callable[[_Devices], Iterable[str]],
+        user_input: dict[str, Any] | None,
+    ) -> ConfigFlowResult:
+        devices = self._devices()
+        if devices is None:
             return self.async_abort(reason="not_loaded")
         if user_input is not None:
             self._device_id = user_input[CONF_DEVICE]
@@ -537,34 +807,56 @@ class PulseCheckOptionsFlow(OptionsFlowWithReload):
             {
                 probatio.Required(CONF_DEVICE): SelectSelector(
                     SelectSelectorConfig(
-                        options=_device_options(coordinator), mode=SelectSelectorMode.DROPDOWN
+                        options=devices.choices(ids(devices)), mode=SelectSelectorMode.DROPDOWN
                     )
                 )
             }
         )
-        return self.async_show_form(step_id="device", data_schema=schema)
+        return self.async_show_form(step_id=step_id, data_schema=schema)
 
     async def async_step_device_settings(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """One device's settings, saved to the integration's store."""
-        coordinator = self.hass.data.get(DATA_COORDINATOR)
+        """One device's settings, saved to the integration's store, then back to the list."""
+        devices = self._devices()
         device_id = self._device_id
-        if coordinator is None or device_id is None:
+        if devices is None or device_id is None:
             return self.async_abort(reason="not_loaded")
+        coordinator = devices.coordinator
+        errors: dict[str, str] = {}
         if user_input is not None:
-            coordinator.store.update_device_settings(device_id, _device_updates(user_input))
-            coordinator.rebuild_config()
-            await coordinator.async_refresh()
-            # The options are unchanged, so Home Assistant does not reload.
-            return self.async_create_entry(data=dict(self.config_entry.options))
+            updates = _device_updates(user_input)
+            kept = {key: value for key, value in updates.items() if value != ""}
+            if levels_clash(coordinator.core_config, kept):
+                errors["base"] = "critical_above_warning"
+            else:
+                coordinator.store.update_device_settings(device_id, updates)
+                ignore = bool(user_input.get(CONF_IGNORE))
+                if ignore != _is_ignored(devices.options, device_id):
+                    # Straight into the options, so the analysis drops (or
+                    # takes back) the device now. The dialog's own result
+                    # then matches them, so Home Assistant does not reload.
+                    self.hass.config_entries.async_update_entry(
+                        self.config_entry,
+                        options=_with_ignore(devices.options, device_id, ignore),
+                    )
+                coordinator.rebuild_config()
+                await coordinator.async_refresh()
+                self._device_id = None
+                return await self.async_step_device()
 
-        device = coordinator.data.by_id.get(device_id)
-        name = device.name if device is not None else device_id
+        stored = devices.saved.get(device_id, {})
+        current = (
+            user_input
+            if user_input is not None
+            else _form_values(stored, _is_ignored(devices.options, device_id))
+        )
         return self.async_show_form(
             step_id="device_settings",
-            data_schema=self.add_suggested_values_to_schema(
-                _device_schema(self.hass), coordinator.store.device_settings.get(device_id, {})
-            ),
-            description_placeholders={"device": name},
+            data_schema=self.add_suggested_values_to_schema(_device_schema(self.hass), current),
+            errors=errors,
+            description_placeholders={
+                "device": devices.label(device_id).removeprefix(NOT_FOUND),
+                "status": _status(devices, device_id, await self._text()),
+            },
         )

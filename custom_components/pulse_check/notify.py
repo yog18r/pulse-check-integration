@@ -116,6 +116,7 @@ from .const import (
     WEEKDAYS,
 )
 from .core.models import as_utc, to_iso
+from .core.settings import is_charged
 from .core.thresholds import battery_severity
 from .messages import Catalog, Messages
 from .notify_actions import (
@@ -129,6 +130,7 @@ from .notify_actions import (
     is_our_action,
     notification_actions,
 )
+from .storage import stored_rechargeable
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -250,7 +252,7 @@ def device_issues(
         issues["not_provided"] = Issue("not_provided", "warning", message)
     battery = device.battery
     if battery is not None:
-        severity = battery_severity(battery, config)
+        severity = battery_severity(battery, config, device.device_id)
         if battery.level is not None:
             level = text("level_percent", level=battery.level)
         else:
@@ -741,7 +743,7 @@ class Notifier:
         return notification_actions(
             issue.key,
             device.device_id,
-            rechargeable=bool(settings.get("rechargeable")),
+            rechargeable=is_charged(device, stored_rechargeable(settings)),
             another_reminder=reminders_sent < self.reminder_max,
             titles={verb: text(key) for verb, key in ACTION_TITLE_KEYS.items()},
         )

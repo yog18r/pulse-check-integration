@@ -1,15 +1,15 @@
 """The action list: what to actually do about each low battery.
 
   replace   "Replace 2 × AA in Kitchen Mini Switch"
-  charge    "Charge Office 1 Large"  (rechargeable: true in the device settings)
+  charge    "Charge Office 1 Large"  (a battery that gets charged, see `is_charged`)
 
 plus a shopping summary: how many of each battery type to buy, totalled
 across the devices that need replacing.
 
 A device is on the list when its battery is at or below the warning
 threshold or its binary sensor says "low", unless it is charging or
-snoozed. Battery type, count and rechargeable come from the user's device
-settings; Home Assistant has no reliable way to know them.
+snoozed. Battery type and count come from the user's device settings;
+Home Assistant has no reliable way to know them.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
-from .settings import settings_for_device
+from .settings import is_charged, settings_for_device
 from .thresholds import battery_severity
 
 if TYPE_CHECKING:
@@ -95,7 +95,7 @@ def needs_attention(device: DeviceHealth, config: CoreConfig) -> bool:
     """True when the device's battery is low enough to act on and not muted."""
     if device.battery is None or device.snoozed_until is not None:
         return False
-    return battery_severity(device.battery, config) != "ok"
+    return battery_severity(device.battery, config, device.device_id) != "ok"
 
 
 def _describe(kind: ActionKind, device: DeviceHealth, battery_type: str, count: int) -> str:
@@ -121,14 +121,14 @@ def action_list(devices: Iterable[DeviceHealth], config: CoreConfig) -> ActionLi
         if not needs_attention(device, config) or device.battery is None:
             continue
         settings = settings_for_device(config, device.device_id)
-        rechargeable = settings is not None and settings.rechargeable is True
-        kind: ActionKind = "charge" if rechargeable else "replace"
+        charged = is_charged(device, settings.rechargeable if settings else None)
+        kind: ActionKind = "charge" if charged else "replace"
         battery_type = (settings.battery_type if settings else None) or UNKNOWN_BATTERY_TYPE
         count = (settings.battery_count if settings else None) or 1
         item = ActionItem(
             kind=kind,
             device=device,
-            severity=battery_severity(device.battery, config),
+            severity=battery_severity(device.battery, config, device.device_id),
             battery_type=battery_type,
             count=count,
             label=_describe(kind, device, battery_type, count),

@@ -103,23 +103,42 @@
       },
       "device": {
         "title": "Nastavení zařízení",
-        "description": "Vyberte zařízení, službu nebo entitu. ⚙ označuje uložená nastavení; ⚠ označuje nastavení uložená pro něco, co už nelze najít, a lze je vymazat. Tato nastavení platí pro každou kartu Pulse Check i pro oznámení.",
+        "description": "Platí pro každou kartu Pulse Check i pro oznámení.\n\n{saved}",
+        "menu_options": {
+          "device_edit": "Upravit uložená nastavení",
+          "device_add": "Přidat nastavení zařízení",
+          "device_done": "Hotovo"
+        }
+      },
+      "device_edit": {
+        "title": "Upravit uložená nastavení",
+        "description": "Vyberte zařízení, jehož nastavení chcete změnit nebo odstranit, nebo zařízení, které ignorujete. ⚠ označuje nastavení uložená pro něco, co už nelze najít.",
+        "data": {
+          "device": "Zařízení"
+        }
+      },
+      "device_add": {
+        "title": "Přidat nastavení zařízení",
+        "description": "Vyberte zařízení, službu nebo entitu bez nastavení.",
         "data": {
           "device": "Zařízení"
         }
       },
       "device_settings": {
         "title": "Nastavení pro {device}",
-        "description": "Prázdné pole použije výchozí hodnotu. Tato nastavení platí pro každou kartu i pro oznámení.",
+        "description": "{status}\n\nPrázdné pole použije výchozí hodnotu. Tato nastavení platí pro každou kartu i pro oznámení.",
         "data": {
           "name": "Zobrazovaný název",
           "area": "Oblast",
           "battery_type": "Typ baterie",
           "battery_count": "Počet baterií",
-          "rechargeable": "Nabíjecí",
+          "battery_kind": "Nabíjí se, nebo mění",
+          "battery_warning": "Úroveň varování baterie",
+          "battery_critical": "Kritická úroveň baterie",
           "quiet_threshold_hours": "Tiché po",
           "notify_policy": "Oznámení",
           "sparkline_days": "Dny trendu",
+          "ignore": "Ignorovat toto zařízení",
           "clear": "Odebrat všechna nastavení tohoto zařízení"
         },
         "data_description": {
@@ -127,10 +146,13 @@
           "area": "Nahrazuje oblast zařízení na kartě a ve filtrech oblastí.",
           "battery_type": "Pro nákupní seznam na kartě Akce. Vyberte nebo napište vlastní.",
           "battery_count": "Kolik baterií potřebuje.",
-          "rechargeable": "Nabíjí se místo výměny: karta Akce říká nabít místo vyměnit.",
+          "battery_kind": "Pulse Check to pozná z historie baterie. Pokud se mýlí, vyberte sami: řídí se tím karta Akce, tlačítka v oznámeních i odhady.",
+          "battery_warning": "Na této úrovni nebo pod ní je baterie varováním, místo obecné úrovně. Pro telefon nabíjený každou noc třeba 10 %.",
+          "battery_critical": "Na této úrovni nebo pod ní je kritická, místo obecné úrovně.",
           "quiet_threshold_hours": "Hodiny bez hlášení, po kterých je zařízení tiché, místo obecného nastavení.",
           "notify_policy": "Prázdné použije výchozí hodnotu podle závažnosti problému.",
           "sparkline_days": "Kolik dní ukazuje čára trendu na kartě pro toto zařízení.",
+          "ignore": "Úplně ho vynechá z Pulse Check: žádné řádky, počty ani oznámení. Stejné jako přidat ho do „Ignorovat tato zařízení“ v obecných možnostech. Jeho nastavení zůstanou zachována.",
           "clear": "Je-li zaškrtnuto, po odeslání se všechna nastavení výše vymažou."
         }
       }
@@ -172,6 +194,13 @@
         "friday": "Pátek",
         "saturday": "Sobota",
         "sunday": "Neděle"
+      }
+    },
+    "battery_kind": {
+      "options": {
+        "auto": "Poznat z historie",
+        "rechargeable": "Nabíjí se (akumulátor)",
+        "replaceable": "Mění se (jednorázové baterie)"
       }
     }
   },
@@ -234,7 +263,7 @@
         },
         "rechargeable": {
           "name": "Nabíjecí",
-          "description": "Nabíjí se místo výměny."
+          "description": "Zapnuto: baterie se nabíjí. Vypnuto: mění se. Prázdná hodnota nechá Pulse Check poznat to z historie."
         },
         "notify_policy": {
           "name": "Pravidlo oznámení",
@@ -243,6 +272,14 @@
         "sparkline_days": {
           "name": "Dny trendu",
           "description": "Kolik dní historie ukazuje minigraf karty pro toto zařízení (1 až 365)."
+        },
+        "battery_warning": {
+          "name": "Úroveň varování baterie",
+          "description": "Vlastní úroveň varování tohoto zařízení v %, místo obecné."
+        },
+        "battery_critical": {
+          "name": "Kritická úroveň baterie",
+          "description": "Vlastní kritická úroveň tohoto zařízení v %, místo obecné."
         }
       }
     },
@@ -304,6 +341,9 @@
     },
     "nothing_to_undo": {
       "message": "Pro „{device_id}“ není zaznamenaná žádná výměna ani nabití k vrácení."
+    },
+    "critical_above_warning": {
+      "message": "Kritická úroveň nesmí být vyšší než úroveň varování."
     }
   },
   "entity": {

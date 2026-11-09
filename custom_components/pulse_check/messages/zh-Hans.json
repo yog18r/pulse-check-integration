@@ -28,5 +28,32 @@
   "action_mark_replaced": "标记已更换",
   "action_mark_charged": "标记已充电",
   "action_remind_later": "稍后提醒",
-  "action_snooze_day": "静音 1 天"
+  "action_snooze_day": "静音 1 天",
+  "settings_none": "还没有设备保存了设置。",
+  "settings_shown_as": "显示为“{value}”",
+  "settings_area": "区域 {value}",
+  "settings_battery_count": {
+    "other": "{count} 节电池"
+  },
+  "settings_rechargeable": "可充电",
+  "settings_quiet": "{hours} 小时后静默",
+  "settings_policy_instant": "立即通知",
+  "settings_policy_daily": "每日摘要",
+  "settings_policy_weekly": "每周摘要",
+  "settings_policy_none": "从不通知",
+  "settings_trend": "趋势 {days} 天",
+  "settings_not_found": "已找不到",
+  "settings_replaceable": "更换，不充电",
+  "settings_warning": "{level} % 时警告",
+  "settings_critical": "{level} % 时严重",
+  "settings_ignored": "已忽略",
+  "status_ignored": "已忽略：Pulse Check 目前不监控它。",
+  "status_battery": "电池 {level} %",
+  "status_battery_low": "电量低",
+  "status_kind_charged": "需要充电",
+  "status_kind_replaceable": "需要更换电池",
+  "status_kind_unknown": "尚不确定是充电还是更换",
+  "status_default_levels": "{warning} % 时警告，{critical} % 时严重",
+  "status_defaults": "留空的字段使用：{defaults}。",
+  "status_default_quiet": "{hours} 小时后静默"
 }

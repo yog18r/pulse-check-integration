@@ -103,23 +103,42 @@
       },
       "device": {
         "title": "Réglages par appareil",
-        "description": "Choisissez un appareil, un service ou une entité. ⚙ indique des réglages enregistrés ; ⚠ indique des réglages enregistrés pour quelque chose d'introuvable, que vous pouvez effacer. Ces réglages s'appliquent à toutes les cartes Pulse Check et aux notifications.",
+        "description": "Ils s'appliquent à toutes les cartes Pulse Check et aux notifications.\n\n{saved}",
+        "menu_options": {
+          "device_edit": "Modifier les réglages enregistrés",
+          "device_add": "Ajouter des réglages pour un appareil",
+          "device_done": "Terminé"
+        }
+      },
+      "device_edit": {
+        "title": "Modifier les réglages enregistrés",
+        "description": "Choisissez un appareil dont modifier ou supprimer les réglages, ou un appareil ignoré. ⚠ indique des réglages enregistrés pour quelque chose d'introuvable.",
+        "data": {
+          "device": "Appareil"
+        }
+      },
+      "device_add": {
+        "title": "Ajouter des réglages pour un appareil",
+        "description": "Choisissez un appareil, un service ou une entité sans réglages.",
         "data": {
           "device": "Appareil"
         }
       },
       "device_settings": {
         "title": "Réglages de {device}",
-        "description": "Laissez un champ vide pour utiliser la valeur par défaut. Ces réglages s'appliquent à toutes les cartes et aux notifications.",
+        "description": "{status}\n\nLaissez un champ vide pour utiliser la valeur par défaut. Ces réglages s'appliquent à toutes les cartes et aux notifications.",
         "data": {
           "name": "Nom affiché",
           "area": "Pièce",
           "battery_type": "Type de pile",
           "battery_count": "Nombre de piles",
-          "rechargeable": "Rechargeable",
+          "battery_kind": "Rechargé ou remplacé",
+          "battery_warning": "Niveau d'avertissement de la batterie",
+          "battery_critical": "Niveau critique de la batterie",
           "quiet_threshold_hours": "Silencieux après",
           "notify_policy": "Notifications",
           "sparkline_days": "Jours de tendance",
+          "ignore": "Ignorer cet appareil",
           "clear": "Supprimer tous les réglages de cet appareil"
         },
         "data_description": {
@@ -127,10 +146,13 @@
           "area": "Remplace la pièce de l'appareil sur la carte et dans les filtres de pièces.",
           "battery_type": "Alimente la liste d'achats de l'onglet Actions. Choisissez ou saisissez le vôtre.",
           "battery_count": "Combien de piles il utilise.",
-          "rechargeable": "Rechargé plutôt que remplacé : l'onglet Actions indique recharger au lieu de remplacer.",
+          "battery_kind": "Pulse Check le déduit de l'historique de la batterie. Choisissez si c'est faux : l'onglet Actions, les boutons des notifications et les estimations en tiennent compte.",
+          "battery_warning": "À ce niveau ou en dessous, la batterie est un avertissement, au lieu du niveau général. Pour un téléphone rechargé chaque nuit, 10 % par exemple.",
+          "battery_critical": "À ce niveau ou en dessous, elle est critique, au lieu du niveau général.",
           "quiet_threshold_hours": "Heures sans rapport avant que cet appareil soit silencieux, au lieu du réglage général.",
           "notify_policy": "Vide utilise la valeur par défaut selon la gravité du problème.",
           "sparkline_days": "Nombre de jours affichés par la courbe de tendance de la carte pour cet appareil.",
+          "ignore": "Le retire complètement de Pulse Check : ni lignes, ni compteurs, ni notifications. Comme l'ajouter à « Ignorer ces appareils » dans les options générales. Ses réglages sont conservés.",
           "clear": "Si coché, tous les réglages ci-dessus sont effacés à la validation."
         }
       }
@@ -172,6 +194,13 @@
         "friday": "Vendredi",
         "saturday": "Samedi",
         "sunday": "Dimanche"
+      }
+    },
+    "battery_kind": {
+      "options": {
+        "auto": "Le déduire de l'historique",
+        "rechargeable": "Rechargé (batterie rechargeable)",
+        "replaceable": "Remplacé (piles jetables)"
       }
     }
   },
@@ -234,7 +263,7 @@
         },
         "rechargeable": {
           "name": "Rechargeable",
-          "description": "À recharger plutôt qu'à remplacer."
+          "description": "Activé : la batterie se recharge. Désactivé : on la remplace. Une valeur vide laisse Pulse Check le déduire de l'historique."
         },
         "notify_policy": {
           "name": "Politique de notification",
@@ -243,6 +272,14 @@
         "sparkline_days": {
           "name": "Jours de tendance",
           "description": "Nombre de jours d'historique affichés par la mini-courbe de la carte pour cet appareil (1 à 365)."
+        },
+        "battery_warning": {
+          "name": "Niveau d'avertissement de la batterie",
+          "description": "Niveau d'avertissement propre à cet appareil, en %, au lieu du niveau général."
+        },
+        "battery_critical": {
+          "name": "Niveau critique de la batterie",
+          "description": "Niveau critique propre à cet appareil, en %, au lieu du niveau général."
         }
       }
     },
@@ -304,6 +341,9 @@
     },
     "nothing_to_undo": {
       "message": "Aucun remplacement ou charge enregistré à annuler pour « {device_id} »."
+    },
+    "critical_above_warning": {
+      "message": "Le niveau critique ne doit pas être supérieur au niveau d'avertissement."
     }
   },
   "entity": {
