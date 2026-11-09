@@ -291,6 +291,19 @@ class EstimateInfo:
         return out
 
 
+@dataclass(frozen=True, slots=True)
+class UnavailablePart:
+    """A main entity of a working device that has been unavailable a while."""
+
+    entity_id: str
+    # The entity's name without the device's, e.g. "Daily active watering time".
+    name: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """The card's `UnavailablePart` shape."""
+        return {"entityId": self.entity_id, "name": self.name}
+
+
 @dataclass(slots=True)
 class DeviceHealth:
     """Everything known about one device's health."""
@@ -344,6 +357,9 @@ class DeviceHealth:
     # the same.
     battery_warning: float | None = None
     battery_critical: float | None = None
+    # Main entities unavailable while the device is not offline: shown for
+    # a look, never alerted on.
+    unavailable_parts: list[UnavailablePart] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """The card's `DeviceHealth` shape, JSON-ready."""
@@ -389,6 +405,8 @@ class DeviceHealth:
             out["source"] = self.source
         if self.usual_low is not None:
             out["usualLow"] = round(self.usual_low)
+        if self.unavailable_parts:
+            out["unavailableParts"] = [part.to_dict() for part in self.unavailable_parts]
         return out
 
 

@@ -9,11 +9,15 @@ fails, while the Zigbee radio carries on working.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from custom_components.pulse_check.core import CoreConfig, Snapshot, analyse_devices, summarise
-from custom_components.pulse_check.core.availability import detect_last_heard, detect_offline
+from custom_components.pulse_check.core.availability import (
+    UNAVAILABLE_PART_AFTER,
+    detect_last_heard,
+    detect_offline,
+)
 from custom_components.pulse_check.core.models import EntityEntry, EntityState
 
 NOW = datetime(2026, 10, 23, 12, 0, tzinfo=UTC)
@@ -31,7 +35,8 @@ def _states(**states: str) -> dict[str, EntityState]:
     """`update_firmware="unavailable"` -> {"update.firmware": {...}}."""
     out: dict[str, EntityState] = {}
     for key, state in states.items():
-        entity_id = key.replace("_", ".", 1)
+        domain = "binary_sensor" if key.startswith("binary_sensor_") else key.split("_", 1)[0]
+        entity_id = f"{domain}.{key[len(domain) + 1 :]}"
         out[entity_id] = {
             "entity_id": entity_id,
             "state": state,
@@ -171,3 +176,93 @@ def test_unavailable_and_unknown_are_not_heard_from() -> None:
     assert detect_last_heard([states["sensor.temp"], restarted]) == datetime.fromisoformat(EARLIER)
     unknown: EntityState = {**restarted, "state": "unknown"}
     assert detect_last_heard([restarted, unknown]) is None
+
+
+def test_a_device_that_says_it_is_connected_is_not_offline() -> None:
+    """Hydrawise: the daily watering time comes from a slower request than the rest."""
+    entities = [
+        _entity("binary_sensor.controller_connectivity", "diagnostic"),
+        _entity("sensor.controller_daily_active_watering_time"),
+    ]
+    states = _states(
+        binary_sensor_controller_connectivity="on",
+        sensor_controller_daily_active_watering_time="unavailable",
+    )
+    states["binary_sensor.controller_connectivity"]["attributes"] = {"device_class": "connectivity"}
+    assert not detect_offline(entities, states)
+    states["binary_sensor.controller_connectivity"]["state"] = "off"
+    assert detect_offline(entities, states)
+
+
+def _controller(entities: list[EntityEntry], states: dict[str, EntityState]) -> Snapshot:
+    """One device, "Controller", with the given entities."""
+    snapshot = _unifi_policy(*entities, states=states)
+    snapshot["devices"]["dev"]["name"] = "Controller"
+    return snapshot
+
+
+def _hydrawise() -> tuple[list[EntityEntry], dict[str, EntityState]]:
+    """A connected controller whose daily watering time is unavailable."""
+    hidden = _entity("sensor.controller_hidden")
+    hidden["hidden"] = True
+    entities = [
+        _entity("binary_sensor.controller_connectivity", "diagnostic"),
+        _entity("sensor.controller_daily_active_watering_time"),
+        _entity("switch.controller_zone_1"),
+        _entity("sensor.controller_signal", "diagnostic"),
+        hidden,
+        _not_provided("sensor.controller_old"),
+    ]
+    states = _states(
+        binary_sensor_controller_connectivity="on",
+        sensor_controller_daily_active_watering_time="unavailable",
+        switch_controller_zone_1="off",
+        sensor_controller_signal="unavailable",
+        sensor_controller_hidden="unavailable",
+        sensor_controller_old="unavailable",
+    )
+    states["binary_sensor.controller_connectivity"]["attributes"] = {"device_class": "connectivity"}
+    states["sensor.controller_daily_active_watering_time"]["attributes"] = {
+        "friendly_name": "Controller Daily active watering time"
+    }
+    return entities, states
+
+
+def test_unavailable_parts_of_a_working_device_are_listed_not_alerted() -> None:
+    """Only main entities count; diagnostic, hidden and no-longer-provided ones do not."""
+    entities, states = _hydrawise()
+    [device] = analyse_devices(_controller(entities, states), CoreConfig(), NOW)
+    assert (device.is_offline, device.severity) == (False, "ok")
+    assert device.to_dict()["unavailableParts"] == [
+        {
+            "entityId": "sensor.controller_daily_active_watering_time",
+            "name": "Daily active watering time",
+        }
+    ]
+    assert summarise([device], CoreConfig()).to_dict()["attention"] == 0
+
+
+def test_a_part_unavailable_only_moments_ago_is_not_listed_yet() -> None:
+    """A restart or a quick reconnect clears itself."""
+    entities, states = _hydrawise()
+    moments_ago = (NOW - UNAVAILABLE_PART_AFTER + timedelta(minutes=1)).isoformat()
+    states["sensor.controller_daily_active_watering_time"]["last_changed"] = moments_ago
+    [device] = analyse_devices(_controller(entities, states), CoreConfig(), NOW)
+    assert device.unavailable_parts == []
+    assert "unavailableParts" not in device.to_dict()
+
+
+def test_an_offline_device_has_no_unavailable_parts() -> None:
+    entities, states = _hydrawise()
+    states["binary_sensor.controller_connectivity"]["state"] = "off"
+    states["switch.controller_zone_1"]["state"] = "unavailable"
+    [device] = analyse_devices(_controller(entities, states), CoreConfig(), NOW)
+    assert device.is_offline
+    assert device.unavailable_parts == []
+
+
+def test_an_unknown_part_is_not_listed() -> None:
+    entities, states = _hydrawise()
+    states["sensor.controller_daily_active_watering_time"]["state"] = "unknown"
+    [device] = analyse_devices(_controller(entities, states), CoreConfig(), NOW)
+    assert device.unavailable_parts == []

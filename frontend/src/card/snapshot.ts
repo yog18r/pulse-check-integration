@@ -35,6 +35,7 @@ import type {
   Estimate,
   HassLike,
   Severity,
+  UnavailablePart,
   UnsubscribeFunc,
 } from '../core/types';
 
@@ -214,7 +215,22 @@ export function parseDevice(raw: unknown): DeviceHealth | undefined {
   if (lastReplaced) device.lastReplaced = lastReplaced;
   const unusual = str(raw.unusual);
   if (unusual !== undefined) device.unusual = unusual;
+  const parts = parseUnavailableParts(raw.unavailableParts);
+  if (parts.length > 0) device.unavailableParts = parts;
   return device;
+}
+
+/** The integration's `unavailableParts` list; unusable entries are dropped. */
+function parseUnavailableParts(raw: unknown): UnavailablePart[] {
+  if (!Array.isArray(raw)) return [];
+  const parts: UnavailablePart[] = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const entityId = str(item.entityId);
+    if (entityId === undefined) continue;
+    parts.push({ entityId, name: str(item.name) ?? entityId });
+  }
+  return parts;
 }
 
 function parseSummary(raw: unknown): Summary {

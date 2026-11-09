@@ -15,6 +15,9 @@ export const nl: Catalog = {
   'app.snoozed': { one: '{count} gepauzeerd', other: '{count} gepauzeerd' },
   'app.show': 'tonen',
   'app.hide': 'verbergen',
+  'app.look_at': { one: '{count} om na te kijken', other: '{count} om na te kijken' },
+  'app.look_at_title':
+    'Online, maar sommige van hun entiteiten zijn al een tijdje niet beschikbaar. Alleen ter info, zonder meldingen.',
   'app.updated': 'Pulse Check is bijgewerkt naar {version}. Vernieuw om de nieuwe kaart te laden.',
   'app.refresh': 'Vernieuwen',
   'app.stale':
@@ -58,6 +61,7 @@ export const nl: Catalog = {
   'row.not_provided_by': 'niet meer geleverd door {integration}',
   'row.quiet': 'Stil',
   'row.online': 'Online',
+  'row.unavailable_parts': 'Niet beschikbaar: {names}',
   'row.charging': 'laadt op',
   'row.charging_title': 'Opladen',
   'row.snoozed_until': 'tot {date}',

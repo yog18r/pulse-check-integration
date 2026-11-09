@@ -55,7 +55,7 @@ async def test_snooze_mutes_a_device_and_is_persisted(
     # Written to .storage (after the short save delay) so it survives a restart.
     freezer.tick(timedelta(seconds=5))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     saved = hass_storage["pulse_check.data"]["data"]
     assert saved["snoozes"] == {lock: "2026-10-17T10:00:00.000Z"}
 

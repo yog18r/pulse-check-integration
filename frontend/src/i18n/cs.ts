@@ -19,6 +19,13 @@ export const cs: Catalog = {
   },
   'app.show': 'zobrazit',
   'app.hide': 'skrýt',
+  'app.look_at': {
+    one: '{count} ke kontrole',
+    few: '{count} ke kontrole',
+    other: '{count} ke kontrole',
+  },
+  'app.look_at_title':
+    'Online, ale některé jejich entity jsou už chvíli nedostupné. Jen pro přehled, bez upozornění.',
   'app.updated':
     'Pulse Check byl aktualizován na {version}. Obnovte stránku pro načtení nové karty.',
   'app.refresh': 'Obnovit',
@@ -75,6 +82,7 @@ export const cs: Catalog = {
   'row.not_provided_by': 'už neposkytováno integrací {integration}',
   'row.quiet': 'Neozývá se',
   'row.online': 'Online',
+  'row.unavailable_parts': 'Nedostupné: {names}',
   'row.charging': 'nabíjí se',
   'row.charging_title': 'Nabíjí se',
   'row.snoozed_until': 'do {date}',

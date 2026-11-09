@@ -225,4 +225,16 @@ export interface DeviceHealth {
   batteryWarning?: number;
   /** This device's own battery critical level, when it differs from the integration's. */
   batteryCritical?: number;
+  /**
+   * Main entities that have been unavailable a while although the device is
+   * not offline. Listed for a look ("to look at"), never alerted on.
+   */
+  unavailableParts?: UnavailablePart[];
+}
+
+/** One main entity of a working device that has stopped. */
+export interface UnavailablePart {
+  entityId: string;
+  /** The entity's name without the device's, e.g. "Daily active watering time". */
+  name: string;
 }

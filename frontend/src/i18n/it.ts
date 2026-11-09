@@ -14,6 +14,9 @@ export const it: Catalog = {
   'app.snoozed': { one: '{count} posticipato', other: '{count} posticipati' },
   'app.show': 'mostra',
   'app.hide': 'nascondi',
+  'app.look_at': { one: '{count} da controllare', other: '{count} da controllare' },
+  'app.look_at_title':
+    "Online, ma alcune delle loro entità non sono disponibili da un po'. Solo da controllare, senza avvisi.",
   'app.updated':
     'Pulse Check è stato aggiornato alla {version}. Ricarica per usare la nuova scheda.',
   'app.refresh': 'Ricarica',
@@ -53,6 +56,7 @@ export const it: Catalog = {
   'row.not_provided_by': 'non più fornito da {integration}',
   'row.quiet': 'Silenzioso',
   'row.online': 'Online',
+  'row.unavailable_parts': 'Non disponibile: {names}',
   'row.charging': 'in carica',
   'row.charging_title': 'In carica',
   'row.snoozed_until': 'fino al {date}',

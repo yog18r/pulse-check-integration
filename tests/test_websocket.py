@@ -58,7 +58,7 @@ async def test_subscribe_sends_the_snapshot_now_and_after_each_recompute(
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
     freezer.tick(timedelta(seconds=DEBOUNCE_SECONDS + 1))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     second = await client.receive_json()
     kitchen = next(d for d in second["event"]["devices"] if d["name"] == "Kitchen H&T")
     assert kitchen["battery"]["level"] == 5

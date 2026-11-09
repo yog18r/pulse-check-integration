@@ -14,6 +14,9 @@ export const fr: Catalog = {
   'app.snoozed': { one: '{count} en sourdine', other: '{count} en sourdine' },
   'app.show': 'afficher',
   'app.hide': 'masquer',
+  'app.look_at': { one: '{count} à vérifier', other: '{count} à vérifier' },
+  'app.look_at_title':
+    'En ligne, mais certaines de leurs entités sont indisponibles depuis un moment. Pour information, sans alerte.',
   'app.updated':
     'Pulse Check a été mis à jour en {version}. Actualisez pour charger la nouvelle carte.',
   'app.refresh': 'Actualiser',
@@ -53,6 +56,7 @@ export const fr: Catalog = {
   'row.not_provided_by': 'n’est plus fourni par {integration}',
   'row.quiet': 'Silencieux',
   'row.online': 'En ligne',
+  'row.unavailable_parts': 'Indisponible : {names}',
   'row.charging': 'en charge',
   'row.charging_title': 'En charge',
   'row.snoozed_until': "jusqu'au {date}",

@@ -71,6 +71,23 @@ describe('parseSnapshot', () => {
     expect(device.unusual).toBe('draining 3× faster than usual');
     expect(device.deviceType).toBe('other'); // unknown types fall back
   });
+
+  it('parses unavailable parts and drops unusable ones', () => {
+    const device = parseDevice({
+      ...deviceEntry('Living Room Motion'),
+      unavailableParts: [
+        { entityId: 'sensor.daily_time', name: 'Daily active watering time' },
+        { entityId: 'sensor.unnamed' },
+        { name: 'no entity id' },
+        'junk',
+      ],
+    })!;
+    expect(device.unavailableParts).toEqual([
+      { entityId: 'sensor.daily_time', name: 'Daily active watering time' },
+      { entityId: 'sensor.unnamed', name: 'sensor.unnamed' },
+    ]);
+    expect(parseDevice(deviceEntry('Living Room Motion'))!.unavailableParts).toBeUndefined();
+  });
 });
 
 describe('subscribeSnapshots', () => {

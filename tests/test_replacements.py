@@ -23,14 +23,14 @@ async def _set_level(hass: HomeAssistant, freezer: FrozenDateTimeFactory, level:
     hass.states.async_set("sensor.kitchen_ht_battery", str(level), BATTERY)
     freezer.tick(timedelta(seconds=DEBOUNCE_SECONDS + 1))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
 
 async def _hold(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
     """Let a rise in level hold long enough to count, and recompute."""
     freezer.tick(timedelta(seconds=JUMP_CONFIRM_SECONDS + 60))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
 
 async def _set_up(
@@ -182,7 +182,7 @@ async def test_a_phone_losing_charge_quickly_is_not_unusual(
     hass.states.async_set("sensor.pixel_9_battery_level", "40", BATTERY)
     freezer.tick(timedelta(seconds=DEBOUNCE_SECONDS + 1))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     phone = _device(hass, "Pixel 9")
     assert phone["battery"]["level"] == 40
     assert "unusual" not in phone

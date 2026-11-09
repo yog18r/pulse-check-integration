@@ -110,6 +110,13 @@ export function DeviceRow({
                 {extra.label}: {extra.value}
               </span>
             ))}
+            {mode === 'connectivity' && device.unavailableParts && (
+              <span className="badge" data-kind="parts" title={t.t('app.look_at_title')}>
+                {t.t('row.unavailable_parts', {
+                  names: device.unavailableParts.map((p) => p.name).join(', '),
+                })}
+              </span>
+            )}
             {device.unusual !== undefined && (
               <span className="badge" data-severity="warning" title={t.t('row.unusual_title')}>
                 ⚠ {translateUnusual(device.unusual, t)}

@@ -4,6 +4,21 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Added
+- **To look at.** The Connectivity tab lists working devices with a part
+  that has stopped, such as a Hydrawise controller whose daily watering
+  time is unavailable, under "🔍 to look at" beside the snoozed devices.
+  Only main entities unavailable for 10 minutes or more count. They are
+  listed for a look only: no alerts, and the severity is unchanged.
+
+### Fixed
+- **A Hydrawise controller showed as offline while connected.** Its daily
+  watering time comes from a separate, slower cloud request and can be
+  unavailable on its own. A device whose connectivity sensor reads "on"
+  is no longer called offline, whatever its other entities show.
+
 ## 0.2.14 - 2026-11-09
 
 ### Upgrading

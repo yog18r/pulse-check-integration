@@ -14,6 +14,9 @@ export const ptBR: Catalog = {
   'app.snoozed': { one: '{count} silenciado', other: '{count} silenciados' },
   'app.show': 'mostrar',
   'app.hide': 'ocultar',
+  'app.look_at': { one: '{count} para verificar', other: '{count} para verificar' },
+  'app.look_at_title':
+    'Online, mas algumas das suas entidades estão indisponíveis há algum tempo. Só para verificar, sem alertas.',
   'app.updated': 'O Pulse Check foi atualizado para {version}. Recarregue para usar o novo cartão.',
   'app.refresh': 'Recarregar',
   'app.stale':
@@ -56,6 +59,7 @@ export const ptBR: Catalog = {
   'row.not_provided_by': 'não é mais fornecido por {integration}',
   'row.quiet': 'Inativo',
   'row.online': 'Online',
+  'row.unavailable_parts': 'Indisponível: {names}',
   'row.charging': 'carregando',
   'row.charging_title': 'Carregando',
   'row.snoozed_until': 'até {date}',

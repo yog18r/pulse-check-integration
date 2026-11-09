@@ -107,6 +107,7 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
   // re-renders this component with the new value.
   const [selected, setSelected] = useState<TabId>(config.default_tab);
   const [showSnoozed, setShowSnoozed] = useState(false);
+  const [showLookAt, setShowLookAt] = useState(false);
   // If the config changes so the selected tab is hidden, fall back gracefully.
   const activeTab: TabId = config.show_tabs.includes(selected)
     ? selected
@@ -163,6 +164,13 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
   const shownBatteries = config.problems_only ? problemBatteries : batteries;
   const connectivity = useMemo(() => connectivityList(devices), [devices]);
   const snoozed = useMemo(() => devices.filter((d) => d.snoozedUntil), [devices]);
+  // Working devices with a part that stopped: listed for a look, never alerted on.
+  const lookAt = useMemo(
+    () => devices.filter((d) => d.unavailableParts && !d.snoozedUntil),
+    [devices],
+  );
+  const showSnoozedFooter = snoozed.length > 0 && activeTab !== 'batteries';
+  const showLookAtFooter = lookAt.length > 0 && activeTab === 'connectivity';
   const byId = useMemo(() => new Map(devices.map((d) => [d.deviceId, d])), [devices]);
   const summary = useMemo(() => summarise(devices, rules), [devices, rules]);
   const actions = useMemo(
@@ -470,20 +478,52 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
           )}
         </div>
 
-        {snoozed.length > 0 && activeTab !== 'batteries' && (
+        {(showSnoozedFooter || showLookAtFooter) && (
           <footer className="footer">
-            <button
-              type="button"
-              className="footerbutton"
-              aria-expanded={showSnoozed}
-              onClick={() => {
-                setShowSnoozed((s) => !s);
-              }}
-            >
-              💤 {t.tn('app.snoozed', snoozed.length)} ·{' '}
-              {showSnoozed ? t.t('app.hide') : t.t('app.show')}
-            </button>
-            {showSnoozed && (
+            <div className="footerbuttons">
+              {showSnoozedFooter && (
+                <button
+                  type="button"
+                  className="footerbutton"
+                  aria-expanded={showSnoozed}
+                  onClick={() => {
+                    setShowSnoozed((s) => !s);
+                  }}
+                >
+                  💤 {t.tn('app.snoozed', snoozed.length)} ·{' '}
+                  {showSnoozed ? t.t('app.hide') : t.t('app.show')}
+                </button>
+              )}
+              {showLookAtFooter && (
+                <button
+                  type="button"
+                  className="footerbutton"
+                  data-side="end"
+                  aria-expanded={showLookAt}
+                  title={t.t('app.look_at_title')}
+                  onClick={() => {
+                    setShowLookAt((s) => !s);
+                  }}
+                >
+                  🔍 {t.tn('app.look_at', lookAt.length)} ·{' '}
+                  {showLookAt ? t.t('app.hide') : t.t('app.show')}
+                </button>
+              )}
+            </div>
+            {showLookAtFooter && showLookAt && (
+              <ul className="rows" data-list="look-at">
+                {lookAt.map((d) => (
+                  <DeviceRow
+                    key={d.deviceId}
+                    device={d}
+                    severity="ok"
+                    mode="connectivity"
+                    {...rowProps}
+                  />
+                ))}
+              </ul>
+            )}
+            {showSnoozedFooter && showSnoozed && (
               <ul className="rows">
                 {snoozed.map((d) => (
                   <DeviceRow

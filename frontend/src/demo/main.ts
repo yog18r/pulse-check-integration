@@ -89,12 +89,31 @@ const DEMO_SETTINGS: Record<string, Record<string, unknown>> = {
 };
 const TRACKER_LEVEL = 23;
 
+/** A working controller with one part that stopped: shown under "to look at". */
+const LOOK_AT_DEVICE = {
+  deviceId: 'dev_hydrawise',
+  name: 'Irrigation Controller',
+  integration: 'hydrawise',
+  area: 'Garden',
+  deviceType: 'other',
+  isOffline: false,
+  isQuiet: false,
+  quietThresholdHours: 24,
+  severity: 'ok',
+  extras: [],
+  entityIds: ['binary_sensor.irrigation_controller', 'sensor.irrigation_daily_active_time'],
+  unavailableParts: [
+    { entityId: 'sensor.irrigation_daily_active_time', name: 'Daily active watering time' },
+  ],
+};
+
 function dressed(raw: Record<string, unknown>): Record<string, unknown> {
   const devices = (raw.devices as Record<string, unknown>[]).map((d) => {
     if (d.deviceId !== 'dev_legacy_tracker') return d;
     const battery = d.battery as Record<string, unknown>;
     return { ...d, severity: 'warning', battery: { ...battery, level: TRACKER_LEVEL } };
   });
+  devices.push(LOOK_AT_DEVICE);
   const byId = new Map(devices.map((d) => [String(d.deviceId), d]));
   const replace: Record<string, unknown>[] = [];
   const charge: Record<string, unknown>[] = [];

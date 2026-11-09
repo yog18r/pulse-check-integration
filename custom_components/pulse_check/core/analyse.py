@@ -15,6 +15,7 @@ from .availability import (
     detect_not_provided,
     detect_offline,
     is_quiet,
+    unavailable_parts,
 )
 from .battery import detect_battery
 from .device_type import classify_device
@@ -28,7 +29,7 @@ from .group import (
     dominant_integration,
     group_source,
 )
-from .models import DeviceHealth, Severity, as_utc
+from .models import DeviceHealth, Severity, UnavailablePart, as_utc
 from .settings import settings_for_device
 from .thresholds import (
     battery_levels,
@@ -44,7 +45,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from .enhancers import Enhancer
-    from .models import CoreConfig, Snapshot
+    from .models import CoreConfig, EntityEntry, Snapshot
 
 
 def _list_has(items: Iterable[str], *values: str | None) -> bool:
@@ -203,6 +204,17 @@ def analyse_devices(
         )
 
         settings = settings_for_device(config, group.device_id)
+        name = settings.name if settings and settings.name else display_name(group)
+        # Parts of a working device that stopped: listed for a look only,
+        # so they never change the severity.
+        parts = (
+            [
+                UnavailablePart(e["entity_id"], _part_name(e, snapshot, display_name(group)))
+                for e in unavailable_parts(group.entities, snapshot["states"], now)
+            ]
+            if watched and not is_offline and not not_provided
+            else []
+        )
         # Both levels, as they apply, when the device has either of its own,
         # so the card judges it exactly as here.
         own_levels: tuple[float | None, float | None] = (
@@ -217,7 +229,7 @@ def analyse_devices(
                 device_id=group.device_id,
                 # The user's display name wins over the registry's. It changes
                 # only what is shown; the device itself keeps its name.
-                name=settings.name if settings and settings.name else display_name(group),
+                name=name,
                 integration=integration,
                 is_offline=is_offline,
                 is_not_provided=not_provided,
@@ -236,7 +248,21 @@ def analyse_devices(
                 snoozed_until=as_utc(snoozed_until) if snoozed and snoozed_until else None,
                 battery_warning=own_levels[0],
                 battery_critical=own_levels[1],
+                unavailable_parts=parts,
             )
         )
 
     return results
+
+
+def _part_name(entity: EntityEntry, snapshot: Snapshot, device_name: str) -> str:
+    """An entity's name without its device's name in front, as Home Assistant shows it."""
+    state = snapshot["states"].get(entity["entity_id"])
+    friendly = state["attributes"].get("friendly_name") if state else None
+    name = friendly if isinstance(friendly, str) and friendly else entity.get("name")
+    if not name:
+        return entity["entity_id"]
+    prefix = f"{device_name} "
+    if name.lower().startswith(prefix.lower()) and len(name) > len(prefix):
+        return name[len(prefix) :]
+    return name

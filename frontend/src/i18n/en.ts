@@ -25,6 +25,9 @@ export const en = {
   'app.snoozed': { one: '{count} snoozed', other: '{count} snoozed' },
   'app.show': 'show',
   'app.hide': 'hide',
+  'app.look_at': { one: '{count} to look at', other: '{count} to look at' },
+  'app.look_at_title':
+    'Online, but some of their entities have been unavailable a while. Shown for a look; no alerts.',
   'app.updated': 'Pulse Check was updated to {version}. Refresh to load the new card.',
   'app.refresh': 'Refresh',
   'app.stale': 'Pulse Check last updated {time}; the data below may be out of date.',
@@ -67,6 +70,7 @@ export const en = {
   'row.not_provided_by': 'no longer provided by {integration}',
   'row.quiet': 'Quiet',
   'row.online': 'Online',
+  'row.unavailable_parts': 'Unavailable: {names}',
   'row.charging': 'charging',
   'row.charging_title': 'Charging',
   'row.snoozed_until': 'until {date}',

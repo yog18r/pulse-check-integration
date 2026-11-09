@@ -1,8 +1,9 @@
 """Availability and "last heard from".
 
 - A device is OFFLINE when every one of its primary entities is
-  `unavailable`. Primary means no `entity_category`; diagnostic and config
-  entities (signal strength, firmware, identify buttons) are ignored
+  `unavailable`, unless a connectivity sensor of its own reads "on".
+  Primary means no `entity_category`; diagnostic and config entities
+  (signal strength, firmware, identify buttons) are ignored
   because integrations often leave those available even when the hardware
   is gone, or vice versa. A device with no primary entities is judged by
   its diagnostic ones; settings and update checkers never decide it, so a
@@ -16,6 +17,10 @@
   An `unavailable` or `unknown` state is not a report: Home Assistant
   sets those, with a fresh timestamp, at every restart.
 - A device is QUIET when that timestamp is older than a threshold.
+- A device that is not offline can still have UNAVAILABLE PARTS: main
+  entities that have been `unavailable` for a while. They are listed for
+  a look, never alerted on (a Hydrawise controller's daily watering time
+  comes from a separate cloud request that can fail on its own).
 """
 
 from __future__ import annotations
@@ -50,9 +55,31 @@ def detect_offline(entities: Sequence[EntityEntry], states: Mapping[str, EntityS
     the hardware answers. A firmware update entity goes unavailable when
     its check fails, as Home Assistant's SkyConnect does while the radio
     works normally. A device with nothing left to judge by is not offline.
+
+    A device that says itself it is connected is not offline either: a
+    connectivity sensor reading "on" (ESPHome's status, Hydrawise's
+    controller) outranks other entities that are unavailable for their own
+    reasons, such as Hydrawise's daily watering time, which comes from a
+    separate, slower cloud request.
     """
+    if _says_connected(entities, states):
+        return False
     deciding = _deciding_entities(entities, states)
     return bool(deciding) and all(states[e["entity_id"]]["state"] == UNAVAILABLE for e in deciding)
+
+
+def _says_connected(entities: Sequence[EntityEntry], states: Mapping[str, EntityState]) -> bool:
+    """True when one of the device's connectivity sensors reads "on"."""
+    for entity in entities:
+        state = states.get(entity["entity_id"])
+        if (
+            state is not None
+            and entity["entity_id"].startswith("binary_sensor.")
+            and state["attributes"].get("device_class") == "connectivity"
+            and state["state"] == "on"
+        ):
+            return True
+    return False
 
 
 def detect_not_provided(entities: Sequence[EntityEntry], states: Mapping[str, EntityState]) -> bool:
@@ -68,6 +95,36 @@ def detect_not_provided(entities: Sequence[EntityEntry], states: Mapping[str, En
         and all(states[e["entity_id"]]["state"] == UNAVAILABLE for e in deciding)
         and all(e.get("not_provided", False) for e in deciding)
     )
+
+
+# How long a main entity must have been unavailable before it is listed:
+# a restart or a quick reconnect clears itself.
+UNAVAILABLE_PART_AFTER = timedelta(minutes=10)
+
+
+def unavailable_parts(
+    entities: Sequence[EntityEntry], states: Mapping[str, EntityState], now: datetime
+) -> list[EntityEntry]:
+    """Main entities unavailable for at least `UNAVAILABLE_PART_AFTER`.
+
+    Meant for a device that is not offline. Diagnostic and config entities,
+    hidden ones and those the integration no longer provides are skipped.
+    """
+    parts: list[EntityEntry] = []
+    for entity in entities:
+        state = states.get(entity["entity_id"])
+        if (
+            state is None
+            or state["state"] != UNAVAILABLE
+            or not is_primary(entity)
+            or entity.get("hidden", False)
+            or entity.get("not_provided", False)
+        ):
+            continue
+        since = parse_timestamp(state.get("last_changed") or state["last_updated"])
+        if since is not None and as_utc(now) - since >= UNAVAILABLE_PART_AFTER:
+            parts.append(entity)
+    return parts
 
 
 def can_be_offline(entities: Sequence[EntityEntry]) -> bool:

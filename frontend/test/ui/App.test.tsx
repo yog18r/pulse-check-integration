@@ -106,6 +106,42 @@ describe('App', () => {
     expect(cells.queryByText('Offline')).not.toBeInTheDocument();
   });
 
+  it('lists working devices with unavailable parts under "to look at", without alerting', async () => {
+    const { emit } = renderApp();
+    await screen.findByText('⚠️ 7 devices need attention');
+    const controller = {
+      deviceId: 'dev_hydrawise',
+      name: 'Irrigation Controller',
+      integration: 'hydrawise',
+      deviceType: 'other',
+      isOffline: false,
+      isQuiet: false,
+      quietThresholdHours: 24,
+      severity: 'ok',
+      extras: [],
+      entityIds: ['binary_sensor.controller', 'sensor.daily_time'],
+      unavailableParts: [{ entityId: 'sensor.daily_time', name: 'Daily active watering time' }],
+    };
+    const devices = SNAPSHOT_PAYLOAD.devices as unknown[];
+    emit({ ...SNAPSHOT_PAYLOAD, devices: [...devices, controller] });
+    // Not counted as needing attention.
+    expect(await screen.findByText('⚠️ 7 devices need attention')).toBeInTheDocument();
+    // Only on the Connectivity tab.
+    expect(screen.queryByRole('button', { name: /to look at/ })).not.toBeInTheDocument();
+
+    await user().click(screen.getByRole('tab', { name: /Connectivity/ }));
+    expect(screen.queryByText('Irrigation Controller')).not.toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: '🔍 1 to look at · show' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await user().click(toggle);
+    expect(toggle).toHaveTextContent('🔍 1 to look at · hide');
+    const row = screen.getByText('Irrigation Controller').closest('li');
+    const cells = within(row!);
+    expect(cells.getByText('Unavailable: Daily active watering time')).toBeInTheDocument();
+    expect(cells.getByText('Online')).toBeInTheDocument();
+  });
+
   it('shows a service or an entity with no device as unavailable', async () => {
     const { emit } = renderApp();
     await screen.findByText('⚠️ 7 devices need attention');

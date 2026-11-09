@@ -19,6 +19,14 @@ export const pl: Catalog = {
   },
   'app.show': 'pokaż',
   'app.hide': 'ukryj',
+  'app.look_at': {
+    one: '{count} do sprawdzenia',
+    few: '{count} do sprawdzenia',
+    many: '{count} do sprawdzenia',
+    other: '{count} do sprawdzenia',
+  },
+  'app.look_at_title':
+    'Online, ale niektóre ich encje są od pewnego czasu niedostępne. Tylko do wglądu, bez powiadomień.',
   'app.updated': 'Pulse Check zaktualizowano do {version}. Odśwież, aby załadować nową kartę.',
   'app.refresh': 'Odśwież',
   'app.stale': 'Pulse Check ostatnio zaktualizowano {time}; dane poniżej mogą być nieaktualne.',
@@ -82,6 +90,7 @@ export const pl: Catalog = {
   'row.not_provided_by': 'nie jest już dostarczane przez {integration}',
   'row.quiet': 'Milczy',
   'row.online': 'Online',
+  'row.unavailable_parts': 'Niedostępne: {names}',
   'row.charging': 'ładowanie',
   'row.charging_title': 'Ładowanie',
   'row.snoozed_until': 'do {date}',

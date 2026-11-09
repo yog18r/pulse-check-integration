@@ -22,7 +22,7 @@ async def _settle(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
     """Let the debounce cooldown pass and every scheduled task finish."""
     freezer.tick(timedelta(seconds=15))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
 
 def _attributes(hass: HomeAssistant, entity_id: str) -> dict[str, Any]:

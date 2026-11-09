@@ -345,7 +345,7 @@ async def test_a_battery_that_reports_late_is_read_soon_after(
     hass.states.async_set(late, "40", attributes)
     freezer.tick(timedelta(seconds=DEBOUNCE_SECONDS + 1))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert recorder["statistics"] == []  # not straight away
     freezer.tick(HISTORY_CATCH_UP_DELAY + timedelta(seconds=1))
     async_fire_time_changed(hass)

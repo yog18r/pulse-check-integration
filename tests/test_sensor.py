@@ -87,7 +87,7 @@ async def test_a_state_change_refreshes_after_the_debounce(
 
     freezer.tick(timedelta(seconds=DEBOUNCE_SECONDS + 1))
     async_fire_time_changed(hass)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert int(hass.states.get(ENTITY_ID).state) == before + 1  # type: ignore[union-attr]
 
 

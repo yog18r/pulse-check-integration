@@ -15,6 +15,9 @@ export const de: Catalog = {
   'app.snoozed': { one: '{count} pausiert', other: '{count} pausiert' },
   'app.show': 'anzeigen',
   'app.hide': 'ausblenden',
+  'app.look_at': { one: '{count} zum Prüfen', other: '{count} zum Prüfen' },
+  'app.look_at_title':
+    'Online, aber einige ihrer Entitäten sind seit einer Weile nicht verfügbar. Nur zur Übersicht, ohne Benachrichtigung.',
   'app.updated':
     'Pulse Check wurde auf {version} aktualisiert. Neu laden, um die neue Karte zu verwenden.',
   'app.refresh': 'Neu laden',
@@ -62,6 +65,7 @@ export const de: Catalog = {
   'row.not_provided_by': 'von {integration} nicht mehr bereitgestellt',
   'row.quiet': 'Stumm',
   'row.online': 'Online',
+  'row.unavailable_parts': 'Nicht verfügbar: {names}',
   'row.charging': 'lädt',
   'row.charging_title': 'Wird geladen',
   'row.snoozed_until': 'bis {date}',

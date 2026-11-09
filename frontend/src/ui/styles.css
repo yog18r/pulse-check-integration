@@ -514,6 +514,21 @@
   color: var(--primary-text-color, #212121);
 }
 
+/* Snoozed on the left, "to look at" on the right. */
+.footerbuttons {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.footerbuttons .footerbutton {
+  width: auto;
+}
+
+.footerbutton[data-side='end'] {
+  margin-left: auto;
+  text-align: right;
+}
+
 /* ---- sparkline -------------------------------------------------------- */
 
 .gauge {

@@ -181,7 +181,7 @@ Settings saved for something that is no longer found are listed with ⚠, so the
 ## The card
 
 - **🔋 Batteries**: every battery-powered device, lowest first (or soonest to run out), with a coloured bar, a trend sparkline, "~12d left" (for a battery charged every day, "charge in ~6h · usually lowest 24%", or just "usually lowest 47%" when it never runs down to the warning level, like a home battery topped up by solar), and a note when a battery is draining much faster than it used to
-- **📡 Connectivity**: anything offline, not heard from within its threshold, or no longer provided by its integration, and services or entities with no device that have stopped working (shown as *Unavailable*)
+- **📡 Connectivity**: anything offline, not heard from within its threshold, or no longer provided by its integration, and services or entities with no device that have stopped working (shown as *Unavailable*). Underneath, **🔍 to look at** lists working devices with a part that has stopped, such as a Hydrawise controller whose daily watering time is unavailable. They are only listed: no alert, no notification, and they never count as needing attention
 - **🛠️ Actions** (optional tab): "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", a to-buy total, and a **Done** button that records the replacement. For ten seconds afterwards an **Undo** takes a mistaken tap back
 - **Snooze** a device for 1, 7 or 30 days. Snoozes live in the integration, so every dashboard, phone and notification agrees
 - **Group by** area, integration or device type. Tap a row to open the device in Home Assistant
@@ -292,7 +292,7 @@ Each device entry uses the card's `DeviceHealth` shape:
   entityIds: [binary_sensor.living_room_motion_occupancy, sensor.living_room_motion_battery, …]
 ```
 
-Each device entry also carries `deviceType` (lock, cover, vacuum, phone, media, remote, climate, motion, contact, light, switch or other); `daysLeft`, `estimate`, `batteryKind`, `usualLow`, `lastReplaced` and `unusual` when known; `batteryWarning` and `batteryCritical` when the device has levels of its own; `snoozedUntil` while snoozed; `isNotProvided: true` for leftovers an integration no longer provides; and `source` (`service` or `entity`) for a service or an entity with no device, which reads as unavailable rather than offline.
+Each device entry also carries `deviceType` (lock, cover, vacuum, phone, media, remote, climate, motion, contact, light, switch or other); `daysLeft`, `estimate`, `batteryKind`, `usualLow`, `lastReplaced` and `unusual` when known; `batteryWarning` and `batteryCritical` when the device has levels of its own; `snoozedUntil` while snoozed; `isNotProvided: true` for leftovers an integration no longer provides; `unavailableParts` (each `{ entityId, name }`) for a working device whose main entities have been unavailable a while; and `source` (`service` or `entity`) for a service or an entity with no device, which reads as unavailable rather than offline.
 
 Every device is in the list, except services and entities with no device that are working: those appear only while they are unavailable or not provided, snoozed, or carry a battery, so hundreds of working automations and helpers do not travel to every dashboard.
 
@@ -389,7 +389,9 @@ These rules are shared with the card and checked against the same test fixture (
 
 **Charging.** A `binary_sensor` with `device_class: battery_charging` that is on; a battery-state sensor reading `charging` or `full`; a docked vacuum; or `is_charging` / `charging` / `battery_charging` / `battery_state` attributes. A charging device is never flagged for its level.
 
-**Offline.** Every primary entity (no entity category) is `unavailable`. Diagnostic and config entities are ignored, because integrations often leave those available when the hardware is gone, or vice versa. A device with no primary entities is judged by its diagnostic ones, never by settings or update checkers: a firmware update entity goes unavailable when its check fails, as on Home Assistant's SkyConnect, while the hardware works normally. A device with nothing else to judge by is never offline. A Z-Wave JS node reported `dead` is offline regardless.
+**Offline.** Every primary entity (no entity category) is `unavailable`. Diagnostic and config entities are ignored, because integrations often leave those available when the hardware is gone, or vice versa. A device with no primary entities is judged by its diagnostic ones, never by settings or update checkers: a firmware update entity goes unavailable when its check fails, as on Home Assistant's SkyConnect, while the hardware works normally. A device with nothing else to judge by is never offline. A device whose own connectivity sensor reads "on" is never offline: a Hydrawise controller's daily watering time comes from a separate, slower cloud request and can be unavailable while the controller is connected. A Z-Wave JS node reported `dead` is offline regardless.
+
+**To look at.** A device that is not offline, but has main entities (no entity category) that have been `unavailable` for 10 minutes or more. Diagnostic and config entities, hidden ones and those the integration no longer provides are skipped, and `unknown` does not count. These are listed on the card under *to look at* and change nothing else: not the severity, the sensors or the notifications. An entity that is unavailable by design can be left out with the entities-to-exclude option.
 
 **Not provided.** When an integration stops providing an entity (or a YAML entity is removed from the configuration while its platform runs), typically after an update, Home Assistant keeps its registry entry and shows a placeholder `unavailable` state. A device made only of such leftovers would otherwise read as offline. Instead, while the integration itself is running, it reads as *not provided*: a warning, shown on the Connectivity tab as "no longer provided by UniFi Network" and notified under the warning policy (the weekly digest by default). It is stale configuration to delete from the device page, not hardware that stopped answering. While an integration fails to start, its entities show the same placeholder and may really be down, so they still count as offline, as does a device with even one genuinely unavailable entity among the leftovers.
 
@@ -489,7 +491,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (251 tests) runs in about a minute.
+The test suite (256 tests) runs in about a minute.
 
 **Card.** Node 24, in `frontend/`:
 
@@ -497,7 +499,7 @@ The test suite (251 tests) runs in about a minute.
 cd frontend
 npm ci
 npm run dev      # demo page with a fake subscription, no Home Assistant needed
-npm run check    # typecheck, lint, format check, tests (112), build
+npm run check    # typecheck, lint, format check, tests (114), build
 ```
 
 With the demo running, `python frontend/docs/screenshots.py` retakes the README screenshots from it.
