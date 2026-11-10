@@ -12,6 +12,11 @@ the update.
   time is unavailable, under "🔍 to look at" beside the snoozed devices.
   Only main entities unavailable for 10 minutes or more count. They are
   listed for a look only: no alerts, and the severity is unchanged.
+- **Phone notifications clear themselves.** When a problem goes away, its
+  notification is removed from companion-app phones, so an overnight blip
+  leaves nothing behind by morning. Reminders replace the earlier
+  notification instead of stacking up. On by default; turn **Clear phone
+  notifications once resolved** off under Notifications to keep them.
 
 ### Fixed
 - **A Hydrawise controller showed as offline while connected.** Its daily

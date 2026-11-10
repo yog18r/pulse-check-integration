@@ -88,6 +88,7 @@ from homeassistant.loader import IntegrationNotLoaded, async_get_loaded_integrat
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_CLEAR_RESOLVED,
     CONF_CONFIRM_MINUTES,
     CONF_DIGEST_TIME,
     CONF_DIGEST_WEEKDAY,
@@ -100,6 +101,7 @@ from .const import (
     CONF_RESTART_TIMEOUT_MINUTES,
     CONF_STARTUP_GRACE_MINUTES,
     CONF_WEEKLY_ALL_CLEAR,
+    DEFAULT_CLEAR_RESOLVED,
     DEFAULT_CONFIRM_MINUTES,
     DEFAULT_DIGEST_TIME,
     DEFAULT_DIGEST_WEEKDAY,
@@ -184,6 +186,15 @@ class Issue:
 SEND_TIMEOUT = 30  # seconds
 SEND_RETRY = timedelta(minutes=15)
 SEND_ATTEMPTS = 4
+# The companion app's message that removes the notification with a tag.
+CLEAR_NOTIFICATION = "clear_notification"
+
+
+def notification_tag(device_id: str, issue: str) -> str:
+    """The tag of a device's notification about one issue: reminders replace it."""
+    return f"pulse_check:{device_id}:{issue}"
+
+
 # What must outlive a reload of the entry (saving the options) but not a
 # restart of Home Assistant: when it started, which devices have been seen
 # working since, and the per-integration send times.
@@ -332,6 +343,11 @@ class Notifier:
         if per_device in ("instant", "daily", "weekly", "none"):
             return per_device  # type: ignore[no-any-return]
         return self.default_policy(severity)
+
+    @property
+    def clear_resolved(self) -> bool:
+        """Remove a problem's phone notification once the problem is gone."""
+        return bool(self.entry.options.get(CONF_CLEAR_RESOLVED, DEFAULT_CLEAR_RESOLVED))
 
     @property
     def reminder_interval(self) -> timedelta:
@@ -672,6 +688,8 @@ class Notifier:
             resolved = Issue(key, severity, message)  # type: ignore[arg-type]
             policy = self.policy_for(device.device_id, severity)
             self._fire(device, resolved, "resolved", policy)
+            if record.get("tagged") and self.clear_resolved:
+                await self._clear(notification_tag(device.device_id, key))
         return changed
 
     async def _announce(
@@ -686,7 +704,8 @@ class Notifier:
             if self._hold_back(device, issue, record, now):
                 return
             actions = self._actions(device, issue, reminders_sent=0)
-            if await self._deliver(issue.message, actions, record, now):
+            tag = notification_tag(device.device_id, issue.key)
+            if await self._deliver(issue.message, actions, record, now, tag):
                 record["notified_at"] = to_iso(now)
 
     async def _maybe_remind(
@@ -706,7 +725,8 @@ class Notifier:
             if record.get("notified_at") is None:
                 # The first message never arrived: try it again.
                 actions = self._actions(device, issue, reminders_sent=0)
-                if await self._deliver(issue.message, actions, record, now):
+                tag = notification_tag(device.device_id, issue.key)
+                if await self._deliver(issue.message, actions, record, now, tag):
                     record["notified_at"] = to_iso(now)
                 return True
         if record.get("reminders", 0) >= self.reminder_max:
@@ -724,6 +744,7 @@ class Notifier:
             self._actions(device, issue, reminders_sent=reminders),
             record,
             now,
+            notification_tag(device.device_id, issue.key),
         )
         if delivered:
             record["notified_at"] = to_iso(now)
@@ -1000,6 +1021,7 @@ class Notifier:
         actions: list[dict[str, str]] | None,
         record: dict[str, Any],
         now: datetime,
+        tag: str | None = None,
     ) -> bool:
         """Send a message about one record. True when it counts as sent.
 
@@ -1008,7 +1030,9 @@ class Notifier:
         that it counts as sent anyway, so reminders follow their schedule;
         the repair issue raised by `_send` tells the user why nothing came.
         """
-        if await self._send(message, actions):
+        if await self._send(message, actions, tag):
+            if tag is not None and self._phone_targets():
+                record["tagged"] = True  # there is a phone notification to clear
             record.pop("retry_at", None)
             record.pop("attempts", None)
             return True
@@ -1022,11 +1046,17 @@ class Notifier:
         record["retry_at"] = to_iso(as_utc(now) + SEND_RETRY)
         return False
 
-    async def _send(self, message: str, actions: list[dict[str, str]] | None = None) -> bool:
+    async def _send(
+        self,
+        message: str,
+        actions: list[dict[str, str]] | None = None,
+        tag: str | None = None,
+    ) -> bool:
         """Deliver to every target: a legacy `notify.<name>` service or a notify entity.
 
-        `actions` become buttons for companion-app targets only; every
-        other target gets the title and message alone, as it always has.
+        `actions` become buttons, and `tag` names the notification so a
+        reminder replaces it and `_clear` can remove it, for companion-app
+        targets only; every other target gets the title and message alone.
         True when at least one target accepted the message, or when there
         are no targets (notifications are off, nothing to retry). A target
         that does not exist or fails gets a repair issue, removed again
@@ -1042,8 +1072,14 @@ class Notifier:
                 async with asyncio.timeout(SEND_TIMEOUT):
                     if domain == "notify" and self.hass.services.has_service("notify", name):
                         data: dict[str, Any] = {"title": TITLE, "message": message}
-                        if actions and is_mobile_app_target(target):
-                            data["data"] = {"actions": actions}
+                        if is_mobile_app_target(target):
+                            extra: dict[str, Any] = {}
+                            if actions:
+                                extra["actions"] = actions
+                            if tag is not None:
+                                extra["tag"] = tag
+                            if extra:
+                                data["data"] = extra
                         await self.hass.services.async_call("notify", name, data, blocking=True)
                     elif domain == "notify" and self.hass.states.get(target) is not None:
                         await self.hass.services.async_call(
@@ -1061,6 +1097,34 @@ class Notifier:
             delivered = True
             self._target_works(target)
         return delivered
+
+    def _phone_targets(self) -> list[str]:
+        """The companion-app targets that exist: the ones a notification can be cleared on."""
+        return [
+            target
+            for target in self.targets
+            if is_mobile_app_target(target)
+            and self.hass.services.has_service("notify", target.partition(".")[2])
+        ]
+
+    async def _clear(self, tag: str) -> None:
+        """Remove the notification with this tag from every phone.
+
+        Best effort: a phone that is off gets the request when it is back,
+        and a failure only leaves a notification behind, so it is logged
+        and raises no repair issue.
+        """
+        for target in self._phone_targets():
+            try:
+                async with asyncio.timeout(SEND_TIMEOUT):
+                    await self.hass.services.async_call(
+                        "notify",
+                        target.partition(".")[2],
+                        {"message": CLEAR_NOTIFICATION, "data": {"tag": tag}},
+                        blocking=True,
+                    )
+            except Exception:
+                _LOGGER.debug("Could not clear %s on %s", tag, target, exc_info=True)
 
     @callback
     def _target_failed(self, target: str, issue: str, err: Exception | None) -> None:

@@ -125,7 +125,8 @@ async def test_an_instant_message_has_buttons_on_the_phone_only(
             "actions": [
                 {"action": f"PULSE_CHECK_MARK_REPLACED:{kitchen}", "title": "Mark replaced"},
                 {"action": f"PULSE_CHECK_REMIND_LATER:{kitchen}", "title": "Remind me later"},
-            ]
+            ],
+            "tag": f"pulse_check:{kitchen}:battery_critical",
         },
     }
     # Any other target gets exactly what it got before buttons existed.

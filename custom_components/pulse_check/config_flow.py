@@ -56,6 +56,7 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_BATTERY_CRITICAL,
     CONF_BATTERY_WARNING,
+    CONF_CLEAR_RESOLVED,
     CONF_CONFIRM_MINUTES,
     CONF_DIGEST_TIME,
     CONF_DIGEST_WEEKDAY,
@@ -85,6 +86,7 @@ from .const import (
     DATA_COORDINATOR,
     DEFAULT_BATTERY_CRITICAL,
     DEFAULT_BATTERY_WARNING,
+    DEFAULT_CLEAR_RESOLVED,
     DEFAULT_CONFIRM_MINUTES,
     DEFAULT_DIGEST_TIME,
     DEFAULT_DIGEST_WEEKDAY,
@@ -148,6 +150,7 @@ NOTIFICATION_KEYS = (
     CONF_NOTIFY_WARNING,
     CONF_REMINDER_DAYS,
     CONF_REMINDER_MAX,
+    CONF_CLEAR_RESOLVED,
     CONF_INTEGRATION_LIMIT,
     CONF_DIGEST_TIME,
     CONF_DIGEST_WEEKDAY,
@@ -327,6 +330,9 @@ def _options_schema(platforms: list[str], notify_targets: list[str]) -> probatio
             probatio.Required(CONF_REMINDER_MAX, default=DEFAULT_REMINDER_MAX): NumberSelector(
                 NumberSelectorConfig(min=0, max=100, step=1, mode=NumberSelectorMode.BOX)
             ),
+            probatio.Required(
+                CONF_CLEAR_RESOLVED, default=DEFAULT_CLEAR_RESOLVED
+            ): BooleanSelector(),
             probatio.Required(
                 CONF_INTEGRATION_LIMIT, default=DEFAULT_INTEGRATION_LIMIT
             ): NumberSelector(

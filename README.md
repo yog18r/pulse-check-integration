@@ -144,6 +144,7 @@ The option keys match the card's YAML (`battery_warning`, `exclude_entities`, `i
 | Warnings | Weekly digest | Default delivery for quiet devices and low batteries |
 | Remind after | 3 days | How long an instant notification may stay unresolved before it is sent again |
 | Reminders at most | 3 | 0 turns reminders off |
+| Clear phone notifications once resolved | on | Remove a problem's notification from companion-app phones when it goes away |
 | Offline and quiet messages per integration | 3 | At most this many offline or quiet messages per integration in an hour; the rest follow as one message. 0 means no limit. See [Outages](#outages) |
 | Digest time | 09:00 | When the daily digest goes out, and the weekly one on its day. One missed while Home Assistant was off goes out once after the next start |
 | Weekly digest day | Monday | |
@@ -298,7 +299,7 @@ Every device is in the list, except services and entities with no device that ar
 
 ## Notifications
 
-A message is sent when a device *enters* a state: goes offline, goes quiet, or its battery drops to warning or critical. Nothing is sent on every update, and the states each device is in are stored, so a restart does not repeat old news. After a restart nothing is judged until Home Assistant has started plus a quiet period (default five minutes), and the first look after that only records what is wrong rather than announcing it; an offline or quiet state must then persist for a confirmation window (default five minutes) before it counts, so a brief hiccup never notifies. A device that has not been seen online at all since the restart is treated as not loaded yet rather than offline, so integrations that are slow to come up never look like outages. That lasts until the restart timeout (default 30 minutes after the start): a device still not seen working by then counts as offline, and the message says "offline since the restart" ("unavailable since the restart" for a service or an entity with no device). It died while Home Assistant was off, or its integration never came up; for the latter the per-integration limit keeps it to a few messages. What was already known before the restart is kept: a device that was offline then and is still down is not reported as resolved, its reminders carry on, and it is not announced a second time. When the problem goes away nothing is sent either, but the event below fires with `kind: resolved`.
+A message is sent when a device *enters* a state: goes offline, goes quiet, or its battery drops to warning or critical. Nothing is sent on every update, and the states each device is in are stored, so a restart does not repeat old news. After a restart nothing is judged until Home Assistant has started plus a quiet period (default five minutes), and the first look after that only records what is wrong rather than announcing it; an offline or quiet state must then persist for a confirmation window (default five minutes) before it counts, so a brief hiccup never notifies. A device that has not been seen online at all since the restart is treated as not loaded yet rather than offline, so integrations that are slow to come up never look like outages. That lasts until the restart timeout (default 30 minutes after the start): a device still not seen working by then counts as offline, and the message says "offline since the restart" ("unavailable since the restart" for a service or an entity with no device). It died while Home Assistant was off, or its integration never came up; for the latter the per-integration limit keeps it to a few messages. What was already known before the restart is kept: a device that was offline then and is still down is not reported as resolved, its reminders carry on, and it is not announced a second time. When the problem goes away nothing is sent either, but the event below fires with `kind: resolved`, and a phone's notification about it is cleared (below).
 
 Saving the options reloads Pulse Check but is not a restart: it records what is wrong under the new settings at once, without a new quiet period, and devices already seen working stay seen.
 
@@ -320,6 +321,10 @@ A target that is a companion-app service (`notify.mobile_app_<phone>`, iOS or An
 Pressing one does what the service of the same name does, for that device, without opening the app. **Remind me later** changes nothing: the reminder comes when it was due anyway, so it is only offered when another reminder will actually follow. Digests and the maintenance summary cover many devices and have no buttons. Every other target (notify entities, e-mail, Telegram, a notify group) gets the plain message as before.
 
 The buttons follow the companion app's [actionable notifications](https://companion.home-assistant.io/docs/notifications/actionable-notifications/): each has an `action` identifier of the form `PULSE_CHECK_SNOOZE_DAY:<device id>`, and the app fires `mobile_app_notification_action` with it when pressed. Your own automations can listen for the same event.
+
+### Cleared once resolved
+
+On a companion-app target, each problem's notification carries a tag (`pulse_check:<device id>:<issue>`). A reminder uses the same tag, so it replaces the earlier notification instead of piling up beside it. When the problem goes away (the device is back, the battery replaced, or the device snoozed), Pulse Check sends the companion app's `clear_notification` with that tag, and the notification disappears from the phone: a weather service that drops out for an hour overnight leaves nothing behind by morning. Turn **Clear phone notifications once resolved** off under Notifications to keep them as a record. Digests, grouped messages and the maintenance summary are not cleared, and other targets cannot take a message back. Notifications sent before this version have no tag and stay.
 
 ### Outages
 
@@ -491,7 +496,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (314 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
+The test suite (321 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
 
 `tests/fixtures/card_contract.json` pins what the integration sends the card: a device with every optional field, a summary and a history result. Python fails if it emits something different, and the card's `contract.test.ts` fails if it stops reading a field. After a deliberate change, regenerate it with `PULSE_CHECK_UPDATE_CONTRACT=1 pytest tests/test_card_contract.py` and update the card to match.
 

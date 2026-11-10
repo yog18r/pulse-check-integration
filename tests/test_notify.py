@@ -153,10 +153,10 @@ async def test_a_new_battery_problem_is_announced_at_once(
     await advance(hass, freezer, timedelta(minutes=6))
     assert len(calls) == 1
 
-    # Back to 90 %: resolved, event only, no message.
+    # Back to 90 %: resolved. No message, only the phone's notification cleared.
     hass.states.async_set("sensor.kitchen_ht_battery", "90", BATTERY)
     await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
-    assert len(calls) == 1
+    assert sent_messages(calls) == ["Kitchen H&T: battery critical (5 %)", "clear_notification"]
     assert [(e.data["kind"], e.data["issue"]) for e in events if "Kitchen" in e.data["name"]] == [
         ("entered", "battery_critical"),
         ("resolved", "battery_critical"),
