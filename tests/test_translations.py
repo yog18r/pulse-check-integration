@@ -19,7 +19,14 @@ from custom_components.pulse_check.messages import (
     pick_language,
     plural_category,
 )
-from tests.test_notify import BATTERY, _local, _messages, _ready, _set_up, _tick
+from tests.helpers import (
+    BATTERY,
+    advance,
+    local_time,
+    past_grace,
+    sent_messages,
+    set_up_notify,
+)
 
 INTEGRATION = Path(__file__).parent.parent / "custom_components" / "pulse_check"
 STRINGS = json.loads((INTEGRATION / "strings.json").read_text(encoding="utf-8"))
@@ -129,18 +136,20 @@ async def test_messages_follow_the_language_setting(
 ) -> None:
     """Changing the language needs no restart: each message is worded as it is sent."""
     await hass.config.async_update(language="de")
-    _, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    _, _, calls = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
     german = load_messages().catalog("de")
 
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=11))
+    await advance(hass, freezer, timedelta(seconds=11))
     level = german("level_percent", level=5)
-    assert _messages(calls) == [german("issue_battery_critical", name="Kitchen H&T", level=level)]
+    assert sent_messages(calls) == [
+        german("issue_battery_critical", name="Kitchen H&T", level=level)
+    ]
     assert calls[0].data["data"]["actions"][0]["title"] == german("action_mark_replaced")
 
     await hass.config.async_update(language="pl")
-    await _tick(hass, freezer, _local(15, 9, 1) - fixed_now)
+    await advance(hass, freezer, local_time(15, 9, 1) - fixed_now)
     polish = load_messages().catalog("pl")
-    weekly = [m for m in _messages(calls) if m.startswith(polish("digest_weekly"))]
-    assert len(weekly) == 1, _messages(calls)  # Thursday is the weekly digest day
+    weekly = [m for m in sent_messages(calls) if m.startswith(polish("digest_weekly"))]
+    assert len(weekly) == 1, sent_messages(calls)  # Thursday is the weekly digest day

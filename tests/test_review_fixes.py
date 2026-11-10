@@ -31,18 +31,19 @@ from custom_components.pulse_check.const import (
     DOMAIN,
 )
 from custom_components.pulse_check.coordinator import build_snapshot
-from custom_components.pulse_check.core import CoreConfig, Snapshot, analyse_devices
+from custom_components.pulse_check.core import CoreConfig, analyse_devices
 from custom_components.pulse_check.notify import DATA_RUNTIME, SEND_RETRY
-from tests.conftest import open_general_options
-from tests.test_integration_limit import _ht_offline, _plug_offline
-from tests.test_notify import (
+from tests.helpers import (
     BATTERY,
-    OPTIONS,
+    NOTIFY_OPTIONS,
     TEMPERATURE,
-    _messages,
-    _ready,
-    _set_up,
-    _tick,
+    advance,
+    ht_offline,
+    open_general_options,
+    past_grace,
+    plug_offline,
+    sent_messages,
+    set_up_notify,
 )
 
 TARGET = "notify.mobile_app_test"
@@ -65,8 +66,8 @@ async def test_a_slow_send_does_not_announce_twice(
     fixed_now: datetime,
 ) -> None:
     """A second recompute while the first is still sending waits for it."""
-    entry, _, _ = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    entry, _, _ = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
     gate = asyncio.Event()
     sent: list[str] = []
 
@@ -95,8 +96,8 @@ async def test_a_failed_send_is_retried_and_raises_a_repair_issue(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
     working = False
     sent: list[str] = []
 
@@ -107,7 +108,7 @@ async def test_a_failed_send_is_retried_and_raises_a_repair_issue(
 
     hass.services.async_register("notify", "mobile_app_test", flaky)
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     issues = ir.async_get(hass)
     issue = issues.async_get_issue(DOMAIN, f"notify_failed_{TARGET}")
     assert issue is not None
@@ -115,7 +116,7 @@ async def test_a_failed_send_is_retried_and_raises_a_repair_issue(
 
     # The target works again; the message goes out at the next retry.
     working = True
-    await _tick(hass, freezer, SEND_RETRY + timedelta(minutes=5))
+    await advance(hass, freezer, SEND_RETRY + timedelta(minutes=5))
     assert sent == ["Kitchen H&T: battery critical (5 %)"]
     assert issues.async_get_issue(DOMAIN, f"notify_failed_{TARGET}") is None
 
@@ -126,11 +127,11 @@ async def test_a_missing_target_raises_a_repair_issue(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    options = {**OPTIONS, CONF_NOTIFY_TARGETS: ["notify.old_phone"]}
-    await _set_up(hass, fixture_snapshot, freezer, fixed_now, options)
-    await _ready(hass, freezer)
+    options = {**NOTIFY_OPTIONS, CONF_NOTIFY_TARGETS: ["notify.old_phone"]}
+    await set_up_notify(hass, fixture_snapshot, freezer, fixed_now, options)
+    await past_grace(hass, freezer)
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     issue = ir.async_get(hass).async_get_issue(DOMAIN, "notify_target_missing_notify.old_phone")
     assert issue is not None
     assert issue.translation_key == "notify_target_missing"
@@ -142,11 +143,11 @@ async def test_no_targets_is_not_a_failure(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    options = {k: v for k, v in OPTIONS.items() if k != CONF_NOTIFY_TARGETS}
-    await _set_up(hass, fixture_snapshot, freezer, fixed_now, options)
-    await _ready(hass, freezer)
+    options = {k: v for k, v in NOTIFY_OPTIONS.items() if k != CONF_NOTIFY_TARGETS}
+    await set_up_notify(hass, fixture_snapshot, freezer, fixed_now, options)
+    await past_grace(hass, freezer)
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     assert ir.async_get(hass).issues == {}
 
 
@@ -160,24 +161,24 @@ async def test_saving_options_keeps_watching(
     fixed_now: datetime,
 ) -> None:
     """A device that fails just after an options save is still announced."""
-    entry, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    entry, _, calls = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
     result = await open_general_options(hass, entry.entry_id)
     await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
             "thresholds": {"battery_warning": 30, "battery_critical": 15},
             # A longer quiet period after start does not start another one.
-            "notifications": {**OPTIONS, CONF_STARTUP_GRACE_MINUTES: 30},
+            "notifications": {**NOTIFY_OPTIONS, CONF_STARTUP_GRACE_MINUTES: 30},
         },
     )
     await hass.async_block_till_done(wait_background_tasks=True)
-    await _tick(hass, freezer, timedelta(minutes=1))
+    await advance(hass, freezer, timedelta(minutes=1))
 
     hass.states.async_set("sensor.kitchen_ht_temperature", "unavailable", TEMPERATURE)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
-    await _tick(hass, freezer, timedelta(minutes=DEFAULT_CONFIRM_MINUTES + 1))
-    assert _messages(calls) == ["Kitchen H&T: offline"]
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(minutes=DEFAULT_CONFIRM_MINUTES + 1))
+    assert sent_messages(calls) == ["Kitchen H&T: offline"]
 
 
 async def test_a_timeout_inside_the_grace_period_still_announces(
@@ -187,13 +188,13 @@ async def test_a_timeout_inside_the_grace_period_still_announces(
     fixed_now: datetime,
 ) -> None:
     """A one-minute timeout must not let the baseline swallow the dead lock."""
-    options = {**OPTIONS, CONF_RESTART_TIMEOUT_MINUTES: 1}
-    _, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now, options)
-    await _ready(hass, freezer)
+    options = {**NOTIFY_OPTIONS, CONF_RESTART_TIMEOUT_MINUTES: 1}
+    _, _, calls = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now, options)
+    await past_grace(hass, freezer)
     assert calls == []
-    await _tick(hass, freezer, timedelta(minutes=2))
-    await _tick(hass, freezer, timedelta(minutes=DEFAULT_CONFIRM_MINUTES + 1))
-    assert _messages(calls) == ["Front Door Lock: offline since the restart"]
+    await advance(hass, freezer, timedelta(minutes=2))
+    await advance(hass, freezer, timedelta(minutes=DEFAULT_CONFIRM_MINUTES + 1))
+    assert sent_messages(calls) == ["Front Door Lock: offline since the restart"]
 
 
 # -- the snapshot -----------------------------------------------------------------
@@ -251,75 +252,6 @@ async def test_a_yaml_leftover_is_not_provided_once_its_platform_runs(
     assert build_snapshot(hass)["entities"][entity.entity_id]["not_provided"] is True
 
 
-# -- own entities never decide ----------------------------------------------------
-
-
-def test_pulse_check_entities_on_a_device_are_ignored() -> None:
-    """The per-device sensors update every run; they must not make a device look alive."""
-    long_ago = "2026-09-01T00:00:00.000Z"
-    just_now = "2026-11-08T11:59:00.000Z"
-
-    def state(entity_id: str, value: str, at: str, **attributes: Any) -> dict[str, Any]:
-        return {
-            "entity_id": entity_id,
-            "state": value,
-            "attributes": attributes,
-            "last_changed": at,
-            "last_updated": at,
-            "last_reported": at,
-        }
-
-    # Built by hand, so loosely typed; the core reads it as a Snapshot.
-    snapshot: dict[str, Any] = {
-        "states": {
-            "sensor.door_battery": state(
-                "sensor.door_battery", "60", long_ago, device_class="battery"
-            ),
-            "sensor.door_battery_days_left": state("sensor.door_battery_days_left", "40", just_now),
-            "sensor.door_battery_last_replaced": state(
-                "sensor.door_battery_last_replaced", "x", just_now
-            ),
-        },
-        "entities": {
-            "sensor.door_battery": {
-                "entity_id": "sensor.door_battery",
-                "device_id": "dev",
-                "platform": "zha",
-            },
-            "sensor.door_battery_days_left": {
-                "entity_id": "sensor.door_battery_days_left",
-                "device_id": "dev",
-                "platform": "pulse_check",
-                "entity_category": "diagnostic",
-            },
-            "sensor.door_battery_last_replaced": {
-                "entity_id": "sensor.door_battery_last_replaced",
-                "device_id": "dev",
-                "platform": "pulse_check",
-                "entity_category": "diagnostic",
-            },
-        },
-        "devices": {
-            "dev": {
-                "id": "dev",
-                "name": "Door",
-                "name_by_user": None,
-                "manufacturer": None,
-                "model": None,
-                "area_id": None,
-                "entry_type": None,
-                "disabled_by": None,
-            }
-        },
-        "areas": {},
-    }
-    typed: Snapshot = snapshot  # type: ignore[assignment]
-    [door] = analyse_devices(typed, CoreConfig(), datetime(2026, 11, 8, 12, 0, tzinfo=UTC))
-    assert door.integration == "zha"  # not "pulse_check", which would drop it
-    assert door.is_quiet
-    assert door.entity_ids == ["sensor.door_battery"]
-
-
 # -- second review -------------------------------------------------------------
 
 
@@ -330,12 +262,12 @@ async def test_held_messages_wait_between_failed_attempts(
     fixed_now: datetime,
 ) -> None:
     """A failing target is tried every 15 minutes, not on every evaluation."""
-    options = {**OPTIONS, CONF_INTEGRATION_LIMIT: 1}
-    _, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now, options)
-    await _ready(hass, freezer)
-    await _plug_offline(hass, freezer)
-    await _ht_offline(hass, freezer)  # held: the allowance is used up
-    assert _messages(calls) == ["Office Plug: offline"]
+    options = {**NOTIFY_OPTIONS, CONF_INTEGRATION_LIMIT: 1}
+    _, _, calls = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now, options)
+    await past_grace(hass, freezer)
+    await plug_offline(hass, freezer)
+    await ht_offline(hass, freezer)  # held: the allowance is used up
+    assert sent_messages(calls) == ["Office Plug: offline"]
 
     attempts = 0
     working = False
@@ -349,14 +281,14 @@ async def test_held_messages_wait_between_failed_attempts(
         sent.append(call.data["message"])
 
     hass.services.async_register("notify", "mobile_app_test", flaky)
-    await _tick(hass, freezer, timedelta(minutes=65))  # the hour is up: first try
+    await advance(hass, freezer, timedelta(minutes=65))  # the hour is up: first try
     assert attempts == 1
     for _ in range(2):  # evaluations in between do not try again
-        await _tick(hass, freezer, timedelta(minutes=5))
+        await advance(hass, freezer, timedelta(minutes=5))
     assert attempts == 1
 
     working = True
-    await _tick(hass, freezer, SEND_RETRY)
+    await advance(hass, freezer, SEND_RETRY)
     assert attempts == 2
     assert sent == ["shelly: 1 more device offline or not heard from:\n- Kitchen H&T: offline"]
 
@@ -367,15 +299,15 @@ async def test_a_timeout_names_itself_in_the_repair(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
 
     async def hangs(call: ServiceCall) -> None:
         raise TimeoutError
 
     hass.services.async_register("notify", "mobile_app_test", hangs)
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     issue = ir.async_get(hass).async_get_issue(DOMAIN, f"notify_failed_{TARGET}")
     assert issue is not None
     assert issue.translation_placeholders == {"target": TARGET, "error": "TimeoutError"}
@@ -396,7 +328,7 @@ async def test_removing_a_broken_target_clears_its_repair(
         translation_key="notify_failed",
         translation_placeholders={"target": "notify.old_phone", "error": "gone"},
     )
-    await _set_up(hass, fixture_snapshot, freezer, fixed_now)  # targets: mobile_app_test only
+    await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)  # targets: mobile_app_test only
     assert ir.async_get(hass).async_get_issue(DOMAIN, "notify_failed_notify.old_phone") is None
 
 
@@ -407,13 +339,13 @@ async def test_a_snooze_just_before_a_reload_is_kept(
     fixed_now: datetime,
 ) -> None:
     """The old store's delayed save must not be overwritten by the new one."""
-    entry, device_ids, _ = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    entry, device_ids, _ = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
     kitchen = device_ids["dev_shelly_ht"]
     await hass.services.async_call(
         DOMAIN, "snooze", {"device_id": kitchen, "days": 1}, blocking=True
     )
     assert await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert kitchen in entry.runtime_data.store.data["snoozes"]
 
 
@@ -423,11 +355,11 @@ async def test_a_mark_during_a_pending_rise_starts_from_before_it(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    entry, device_ids, _ = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    entry, device_ids, _ = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
     kitchen = device_ids["dev_shelly_ht"]
     for level in ("40", "100"):  # a new cell fitted; the rise is not confirmed yet
         hass.states.async_set("sensor.kitchen_ht_battery", level, BATTERY)
-        await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+        await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     await hass.services.async_call(DOMAIN, "mark_replaced", {"device_id": kitchen}, blocking=True)
     event = entry.runtime_data.replacements.last_event(kitchen)
     assert event is not None
@@ -451,11 +383,11 @@ async def test_removing_the_integration_cleans_up(
     fixed_now: datetime,
     hass_storage: dict[str, Any],
 ) -> None:
-    entry, device_ids, _ = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    entry, device_ids, _ = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
     await hass.services.async_call(
         DOMAIN, "snooze", {"device_id": device_ids["dev_shelly_ht"], "days": 1}, blocking=True
     )
-    await _tick(hass, freezer, timedelta(seconds=5))
+    await advance(hass, freezer, timedelta(seconds=5))
     assert "pulse_check.data" in hass_storage
     ir.async_create_issue(
         hass,

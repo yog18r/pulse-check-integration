@@ -15,9 +15,12 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, async_
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.pulse_check.const import DEBOUNCE_SECONDS, DOMAIN, SIGNAL_SNAPSHOT
-from tests.conftest import load_fixture_into_hass, open_general_options
-
-BATTERY = {"device_class": "battery", "unit_of_measurement": "%"}
+from tests.helpers import (
+    BATTERY,
+    load_fixture_into_hass,
+    open_general_options,
+    start_integration,
+)
 
 
 async def test_subscribe_sends_the_snapshot_now_and_after_each_recompute(
@@ -34,7 +37,7 @@ async def test_subscribe_sends_the_snapshot_now_and_after_each_recompute(
     freezer.move_to(fixed_now)
     device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
     await client.send_json({"id": 1, "type": "pulse_check/subscribe"})
     result = await client.receive_json()
@@ -104,7 +107,7 @@ async def test_a_subscription_survives_saving_options(
     freezer.move_to(fixed_now)
     await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
     await client.send_json({"id": 1, "type": "pulse_check/subscribe"})
     assert (await client.receive_json())["success"] is True
@@ -144,7 +147,7 @@ async def test_subscribe_without_a_loaded_entry_is_an_error(
 ) -> None:
     """The commands exist once the integration is set up, even with its entry unloaded."""
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     await hass.async_block_till_done()
 
@@ -168,7 +171,7 @@ async def test_history_rejects_entities_that_are_not_batteries(
     freezer.move_to(fixed_now)
     await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
     await client.send_json(
         {"id": 1, "type": "pulse_check/history", "entity_id": "light.garage_lights", "days": 7}
@@ -199,10 +202,7 @@ async def _loaded(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    freezer.move_to(fixed_now)
-    await load_fixture_into_hass(hass, fixture_snapshot)
-    assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await start_integration(hass, fixture_snapshot, freezer, fixed_now, entry=config_entry)
 
 
 async def test_the_snapshot_carries_the_installed_version(

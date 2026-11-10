@@ -115,12 +115,22 @@ describe('phrases the integration sends in English', () => {
     'until charge needed',
   ];
 
-  it('read back unchanged in English, so every pattern matches', () => {
+  const UNUSUAL = ['draining 3× faster than usual', 'level dropped suddenly'];
+
+  // An unmatched phrase comes back as sent, so only another language can
+  // show that a pattern matched: each one must come back changed.
+  it.each(LANGUAGES.filter((language) => language !== 'en'))(
+    'each match a pattern, so %s translates every one',
+    (language) => {
+      const t = translator(language);
+      for (const basis of BASES) expect(translateBasis(basis, t), basis).not.toBe(basis);
+      for (const note of UNUSUAL) expect(translateUnusual(note, t), note).not.toBe(note);
+    },
+  );
+
+  it('read back unchanged in English', () => {
     for (const basis of BASES) expect(translateBasis(basis, EN)).toBe(basis);
-    expect(translateUnusual('draining 3× faster than usual', EN)).toBe(
-      'draining 3× faster than usual',
-    );
-    expect(translateUnusual('level dropped suddenly', EN)).toBe('level dropped suddenly');
+    for (const note of UNUSUAL) expect(translateUnusual(note, EN)).toBe(note);
   });
 
   it('are translated with their numbers kept', () => {

@@ -9,6 +9,7 @@ jobs:
   checks:
     name: Lint, type-check and test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -29,6 +30,7 @@ jobs:
   frontend:
     name: Card (type-check, lint, format, test, build)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -57,6 +59,7 @@ jobs:
   hassfest:
     name: Hassfest
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # Validate the integration as it ships, with the built card inside.
     needs: frontend
     steps:
@@ -70,6 +73,7 @@ jobs:
   hacs:
     name: HACS validation
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: hacs/action@main

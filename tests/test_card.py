@@ -28,7 +28,7 @@ async def _setup_dashboards(hass: HomeAssistant, config: dict[str, Any] | None =
 
 async def _setup(hass: HomeAssistant, entry: MockConfigEntry) -> None:
     assert await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert entry.state is ConfigEntryState.LOADED
 
 
@@ -67,7 +67,7 @@ async def test_the_card_is_served_and_added_once(
 
     # Saving options reloads the entry: still one resource, no second route.
     assert await hass.config_entries.async_reload(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert len(_ours(hass)) == 1
 
     client = await hass_client()

@@ -9,6 +9,7 @@
 import '../index';
 import type { CardConfig } from '../card/config';
 import type { HassConnection, HassLike } from '../core/types';
+import { CARD_VERSION } from '../version';
 import { buildHass } from '../../test/fixtures/hass';
 import payload from '../../test/fixtures/snapshot.json';
 
@@ -164,7 +165,8 @@ function fakeConnection(scenario: Scenario): {
   connection: HassConnection;
   mutate: (fn: (s: Record<string, unknown>) => void) => void;
 } {
-  let current = dressed(shifted(payload, Date.now() - COMPUTED_AT));
+  // The fixture names the version it was taken at; the demo runs the card it builds.
+  let current = dressed(shifted({ ...payload, version: CARD_VERSION }, Date.now() - COMPUTED_AT));
   if (scenario === 'healthy') current = healthy(current);
   const subscribers = new Set<(message: unknown) => void>();
   const connection: HassConnection = {

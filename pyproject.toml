@@ -78,3 +78,6 @@ pythonpath = ["."]
 asyncio_mode = "auto"
 # pytest-homeassistant-custom-component provides the `hass` fixture and friends.
 addopts = "-p no:cacheprovider"
+# A hang fails the test instead of stalling CI for hours (pytest-timeout comes
+# with pytest-homeassistant-custom-component). The slowest test takes ~3 s.
+timeout = 120

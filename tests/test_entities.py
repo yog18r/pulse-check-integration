@@ -9,7 +9,9 @@ from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from tests.conftest import load_fixture_into_hass
+from tests.helpers import (
+    load_fixture_into_hass,
+)
 
 
 async def test_counts_match_the_golden_summary(
@@ -23,7 +25,7 @@ async def test_counts_match_the_golden_summary(
     freezer.move_to(fixed_now)
     await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     summary = golden["cases"][0]["summary"]
 
     def state_of(entity_id: str) -> str:
@@ -47,6 +49,6 @@ async def test_problem_is_off_when_all_is_well(
 ) -> None:
     """An instance with no devices at all has nothing to report."""
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert hass.states.get("binary_sensor.pulse_check_problem").state == "off"  # type: ignore[union-attr]
     assert hass.states.get("sensor.pulse_check_attention").state == "0"  # type: ignore[union-attr]

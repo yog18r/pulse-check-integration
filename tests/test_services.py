@@ -12,7 +12,10 @@ from homeassistant.exceptions import ServiceValidationError
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.pulse_check.const import DOMAIN
-from tests.conftest import device_dict as _device, load_fixture_into_hass
+from tests.helpers import (
+    device_dict as _device,
+    start_integration,
+)
 
 ATTENTION = "sensor.pulse_check_attention"
 
@@ -24,10 +27,9 @@ async def _set_up(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> dict[str, str]:
-    freezer.move_to(fixed_now)
-    device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
-    assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    _, device_ids = await start_integration(
+        hass, fixture_snapshot, freezer, fixed_now, entry=config_entry
+    )
     return device_ids
 
 
@@ -152,3 +154,52 @@ async def test_set_device_settings_changes_the_analysis(
     )
     await hass.async_block_till_done()
     assert _device(hass, "Bedroom Temp & Humidity")["area"] == "Attic"
+
+
+async def test_snooze_until_a_moment(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    device_ids = await _set_up(hass, config_entry, fixture_snapshot, freezer, fixed_now)
+    await hass.services.async_call(
+        DOMAIN,
+        "snooze",
+        {"device_id": device_ids["dev_zwave_lock"], "until": "2026-10-20T08:30:00+02:00"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert _device(hass, "Front Door Lock")["snoozedUntil"] == "2026-10-20T06:30:00.000Z"
+
+
+async def test_a_critical_level_above_the_warning_level_is_refused(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    device_ids = await _set_up(hass, config_entry, fixture_snapshot, freezer, fixed_now)
+    kitchen = device_ids["dev_shelly_ht"]
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN,
+            "set_device_settings",
+            {"device_id": kitchen, "battery_warning": 10, "battery_critical": 20},
+            blocking=True,
+        )
+    # Also when only one level changes and the stored one makes them clash.
+    await hass.services.async_call(
+        DOMAIN, "set_device_settings", {"device_id": kitchen, "battery_warning": 20}, blocking=True
+    )
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN,
+            "set_device_settings",
+            {"device_id": kitchen, "battery_critical": 25},
+            blocking=True,
+        )
+    settings = config_entry.runtime_data.store.device_settings[kitchen]
+    assert settings.get("battery_critical") is None

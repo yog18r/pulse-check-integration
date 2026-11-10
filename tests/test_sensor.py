@@ -15,7 +15,10 @@ from custom_components.pulse_check.const import (
     CONF_WATCH_NON_DEVICES,
     DEBOUNCE_SECONDS,
 )
-from tests.conftest import device_dicts, load_fixture_into_hass
+from tests.helpers import (
+    device_dicts,
+    start_integration,
+)
 
 ENTITY_ID = "sensor.pulse_check_attention"
 
@@ -37,10 +40,9 @@ async def _set_up(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> dict[str, str]:
-    freezer.move_to(fixed_now)
-    device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
-    assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    _, device_ids = await start_integration(
+        hass, fixture_snapshot, freezer, fixed_now, entry=config_entry
+    )
     return device_ids
 
 

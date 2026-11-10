@@ -341,7 +341,8 @@
         "source": "sensor",
         "entityId": "sensor.remote_battery_template"
       },
-      "lastHeard": "2026-10-15T06:00:00.000Z"
+      "lastHeard": "2026-10-15T06:00:00.000Z",
+      "source": "entity"
     },
     {
       "deviceId": "dev_vacuum",
@@ -413,7 +414,8 @@
         "entityId": "sensor.garden_soil_moisture",
         "level": 22
       },
-      "lastHeard": "2026-10-11T08:00:00.000Z"
+      "lastHeard": "2026-10-11T08:00:00.000Z",
+      "source": "entity"
     }
   ],
   "summary": {
@@ -422,10 +424,11 @@
     "warning": 3,
     "batteryDevices": 12,
     "lowBatteries": 5,
+    "criticalBatteries": 3,
     "offline": 1,
     "quiet": 2,
-    "snoozed": 0,
-    "criticalBatteries": 3
+    "notProvided": 0,
+    "snoozed": 0
   },
   "actions": {
     "replace": [
@@ -489,9 +492,10 @@
     "battery_critical": 15,
     "quiet_threshold_hours": 24,
     "quiet_scope": "battery",
-    "integration_thresholds": {},
-    "device_settings": []
+    "integration_thresholds": {}
   },
   "device_settings": {},
-  "computed_at": "2026-10-15T10:00:00.000Z"
+  "computed_at": "2026-10-15T10:00:00.000Z",
+  "maintenance_until": null,
+  "version": "0.2.14"
 }

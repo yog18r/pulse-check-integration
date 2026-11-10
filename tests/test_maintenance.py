@@ -20,16 +20,16 @@ from custom_components.pulse_check.const import (
     EVENT_TRANSITION,
 )
 from custom_components.pulse_check.websocket import snapshot_payload
-from tests.test_notify import (
+from tests.helpers import (
     BATTERY,
-    OPTIONS,
-    _digests,
-    _local,
-    _messages,
-    _ready,
-    _restart,
-    _set_up,
-    _tick,
+    NOTIFY_OPTIONS,
+    advance,
+    digest_messages,
+    local_time,
+    past_grace,
+    restart_ha,
+    sent_messages,
+    set_up_notify,
 )
 
 SWITCH = "switch.pulse_check_maintenance_mode"
@@ -48,17 +48,17 @@ def _sensor(hass: HomeAssistant) -> tuple[str, dict[str, Any]]:
     return state.state, dict(state.attributes)
 
 
-async def _plug_offline(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
+async def plug_offline(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
     hass.states.async_set("switch.office_plug", "unavailable")
     hass.states.async_set("sensor.office_plug_power", "unavailable")
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))  # first seen
-    await _tick(hass, freezer, timedelta(minutes=DEFAULT_CONFIRM_MINUTES + 1))  # confirmed
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))  # first seen
+    await advance(hass, freezer, timedelta(minutes=DEFAULT_CONFIRM_MINUTES + 1))  # confirmed
 
 
 async def _plug_back(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
     hass.states.async_set("switch.office_plug", "on")
     hass.states.async_set("sensor.office_plug_power", "4.2")
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
 
 
 async def test_a_window_holds_messages_back_and_ends_with_one_summary(
@@ -67,8 +67,8 @@ async def test_a_window_holds_messages_back_and_ends_with_one_summary(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    _, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    _, _, calls = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
     assert _sensor(hass)[0] == "off"
     events = async_capture_events(hass, EVENT_TRANSITION)
 
@@ -79,8 +79,8 @@ async def test_a_window_holds_messages_back_and_ends_with_one_summary(
 
     # A battery drops and the plug goes offline: tracked, not sent.
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
-    await _plug_offline(hass, freezer)
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await plug_offline(hass, freezer)
     assert calls == []
     entered = [e.data for e in events if e.data["kind"] == "entered"]
     assert [(e["name"], e["issue"], e["maintenance"]) for e in entered] == [
@@ -91,15 +91,15 @@ async def test_a_window_holds_messages_back_and_ends_with_one_summary(
     # The plug comes back before the end, so it is not news any more.
     await _plug_back(hass, freezer)
 
-    await _tick(hass, freezer, timedelta(hours=2))
+    await advance(hass, freezer, timedelta(hours=2))
     assert _sensor(hass) == ("off", {"friendly_name": "Pulse Check Maintenance mode"})
-    assert _messages(calls) == [f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)"]
+    assert sent_messages(calls) == [f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)"]
 
     # Nothing is replayed, and the next problem is sent as usual.
-    await _tick(hass, freezer, timedelta(minutes=10))
+    await advance(hass, freezer, timedelta(minutes=10))
     assert len(calls) == 1
-    await _plug_offline(hass, freezer)
-    assert _messages(calls)[1:] == ["Office Plug: offline"]
+    await plug_offline(hass, freezer)
+    assert sent_messages(calls)[1:] == ["Office Plug: offline"]
 
 
 async def test_problems_from_before_the_window_are_not_in_the_summary(
@@ -110,17 +110,17 @@ async def test_problems_from_before_the_window_are_not_in_the_summary(
     hass_storage: dict[str, Any],
 ) -> None:
     """The baseline's critical batteries were known when the work began."""
-    _, device_ids, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    _, device_ids, calls = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
     await _maintenance(hass, 1)
-    await _tick(hass, freezer, timedelta(seconds=5))  # the store's save delay
+    await advance(hass, freezer, timedelta(seconds=5))  # the store's save delay
     window = hass_storage["pulse_check.data"]["data"]["maintenance"]
     assert window["started_at"] == "2026-10-15T10:05:01.000Z"
     assert window["known"][device_ids["dev_z2m_motion"]] == ["battery_critical"]
 
-    await _tick(hass, freezer, timedelta(hours=1))
+    await advance(hass, freezer, timedelta(hours=1))
     assert calls == []  # nothing new, so nothing to say
-    await _tick(hass, freezer, timedelta(seconds=5))
+    await advance(hass, freezer, timedelta(seconds=5))
     assert hass_storage["pulse_check.data"]["data"]["maintenance"] == {}
 
 
@@ -130,18 +130,18 @@ async def test_calling_it_again_moves_the_end_and_keeps_the_start(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    _, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    _, _, calls = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
     await _maintenance(hass, 1)
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(minutes=30))
+    await advance(hass, freezer, timedelta(minutes=30))
 
     await _maintenance(hass, 2)  # from now: ends 2.5 h after the first call
-    await _tick(hass, freezer, timedelta(hours=1))
+    await advance(hass, freezer, timedelta(hours=1))
     assert _sensor(hass)[0] == "on"
     assert calls == []
-    await _tick(hass, freezer, timedelta(hours=1))
-    assert _messages(calls) == [f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)"]
+    await advance(hass, freezer, timedelta(hours=1))
+    assert sent_messages(calls) == [f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)"]
 
 
 async def test_hours_zero_ends_it_now(
@@ -150,22 +150,22 @@ async def test_hours_zero_ends_it_now(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    _, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    _, _, calls = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
     await _maintenance(hass, 0)  # nothing to end: nothing happens
     assert _sensor(hass)[0] == "off"
 
     await _maintenance(hass, 8)
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     assert calls == []
 
     await _maintenance(hass, 0)
     assert _sensor(hass)[0] == "off"
-    assert _messages(calls) == [f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)"]
+    assert sent_messages(calls) == [f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)"]
     # The cancelled end-of-window timer sends no second summary.
-    await _tick(hass, freezer, timedelta(hours=9))
-    assert [m for m in _messages(calls) if m.startswith(SUMMARY)] == _messages(calls)[:1]
+    await advance(hass, freezer, timedelta(hours=9))
+    assert [m for m in sent_messages(calls) if m.startswith(SUMMARY)] == sent_messages(calls)[:1]
 
 
 async def test_the_default_length_comes_from_the_options(
@@ -174,15 +174,15 @@ async def test_the_default_length_comes_from_the_options(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    await _set_up(
-        hass, fixture_snapshot, freezer, fixed_now, {**OPTIONS, CONF_MAINTENANCE_HOURS: 0.5}
+    await set_up_notify(
+        hass, fixture_snapshot, freezer, fixed_now, {**NOTIFY_OPTIONS, CONF_MAINTENANCE_HOURS: 0.5}
     )
     await _maintenance(hass)
     assert _sensor(hass)[1]["until"] == "2026-10-15T10:30:00.000Z"
     entry = hass.config_entries.async_loaded_entries(DOMAIN)[0]
     assert snapshot_payload(entry.runtime_data)["maintenance_until"] == "2026-10-15T10:30:00.000Z"
 
-    await _tick(hass, freezer, timedelta(minutes=31))
+    await advance(hass, freezer, timedelta(minutes=31))
     assert _sensor(hass)[0] == "off"
     assert snapshot_payload(entry.runtime_data)["maintenance_until"] is None
 
@@ -194,21 +194,21 @@ async def test_a_restart_during_the_window_keeps_it(
     fixed_now: datetime,
 ) -> None:
     """The work itself may restart Home Assistant; the window survives it."""
-    entry, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    entry, _, calls = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
     await _maintenance(hass, 3)
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
 
-    await _restart(hass, entry, freezer, fixed_now + timedelta(hours=1))
+    await restart_ha(hass, entry, freezer, fixed_now + timedelta(hours=1))
     assert _sensor(hass)[0] == "on"
-    await _ready(hass, freezer)
-    await _plug_offline(hass, freezer)
+    await past_grace(hass, freezer)
+    await plug_offline(hass, freezer)
     assert calls == []
 
-    await _tick(hass, freezer, timedelta(hours=2))
+    await advance(hass, freezer, timedelta(hours=2))
     assert _sensor(hass)[0] == "off"
-    assert _messages(calls) == [
+    assert sent_messages(calls) == [
         f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)\n- Office Plug: offline"
     ]
 
@@ -219,17 +219,17 @@ async def test_a_window_that_ends_while_stopped_is_summarised_after_the_start(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    entry, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    entry, _, calls = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
     await _maintenance(hass, 1)
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
 
-    await _restart(hass, entry, freezer, fixed_now + timedelta(hours=2))
+    await restart_ha(hass, entry, freezer, fixed_now + timedelta(hours=2))
     assert _sensor(hass)[0] == "off"
     assert calls == []  # not during the grace period
-    await _ready(hass, freezer)
-    assert _messages(calls) == [f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)"]
+    await past_grace(hass, freezer)
+    assert sent_messages(calls) == [f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)"]
 
 
 async def test_digests_and_reminders_wait(
@@ -239,29 +239,29 @@ async def test_digests_and_reminders_wait(
     fixed_now: datetime,
 ) -> None:
     """A digest slot inside the window is skipped for good; reminders resume after it."""
-    options = {**OPTIONS, CONF_NOTIFY_WARNING: "daily", CONF_REMINDER_DAYS: 0.5}
-    entry, _, calls = await _set_up(hass, fixture_snapshot, freezer, fixed_now, options)
-    await _ready(hass, freezer)
+    options = {**NOTIFY_OPTIONS, CONF_NOTIFY_WARNING: "daily", CONF_REMINDER_DAYS: 0.5}
+    entry, _, calls = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now, options)
+    await past_grace(hass, freezer)
     await _maintenance(hass, 14)  # over the 09:00 local digest (16:00 UTC)
 
-    await _tick(hass, freezer, _local(15, 9, 1) - fixed_now)
+    await advance(hass, freezer, local_time(15, 9, 1) - fixed_now)
     assert calls == []
     # A restart does not catch the skipped digest up either.
-    await _restart(hass, entry, freezer, _local(15, 10))
-    await _ready(hass, freezer)
-    assert _digests(calls, "daily") == []
+    await restart_ha(hass, entry, freezer, local_time(15, 10))
+    await past_grace(hass, freezer)
+    assert digest_messages(calls, "daily") == []
     assert calls == []
 
     # The window ends: no summary (nothing new), then the overdue reminders.
-    await _tick(hass, freezer, _local(15, 17, 30) - _local(15, 10))
-    assert _digests(calls, "daily") == []
-    reminders = [m for m in _messages(calls) if m.startswith("Still unresolved")]
+    await advance(hass, freezer, local_time(15, 17, 30) - local_time(15, 10))
+    assert digest_messages(calls, "daily") == []
+    reminders = [m for m in sent_messages(calls) if m.startswith("Still unresolved")]
     assert len(reminders) == 3
-    assert not any(m.startswith(SUMMARY) for m in _messages(calls))
+    assert not any(m.startswith(SUMMARY) for m in sent_messages(calls))
 
     # The next day's digest goes out as usual.
-    await _tick(hass, freezer, _local(16, 9) - _local(15, 17, 30))
-    assert len(_digests(calls, "daily")) == 1
+    await advance(hass, freezer, local_time(16, 9) - local_time(15, 17, 30))
+    assert len(digest_messages(calls, "daily")) == 1
 
 
 async def _switch(hass: HomeAssistant, service: str) -> None:
@@ -276,10 +276,10 @@ async def test_the_switch_starts_a_default_window_and_ends_it(
     fixed_now: datetime,
 ) -> None:
     """On: the options' length from now. Off: ends it now, with the summary."""
-    _, _, calls = await _set_up(
-        hass, fixture_snapshot, freezer, fixed_now, {**OPTIONS, CONF_MAINTENANCE_HOURS: 3}
+    _, _, calls = await set_up_notify(
+        hass, fixture_snapshot, freezer, fixed_now, {**NOTIFY_OPTIONS, CONF_MAINTENANCE_HOURS: 3}
     )
-    await _ready(hass, freezer)
+    await past_grace(hass, freezer)
 
     await _switch(hass, "turn_on")
     state, attributes = _sensor(hass)
@@ -287,12 +287,12 @@ async def test_the_switch_starts_a_default_window_and_ends_it(
     assert attributes["until"] == "2026-10-15T13:05:01.000Z"
 
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     assert calls == []
 
     await _switch(hass, "turn_off")
     assert _sensor(hass)[0] == "off"
-    assert _messages(calls) == [f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)"]
+    assert sent_messages(calls) == [f"{SUMMARY}\n- Kitchen H&T: battery critical (5 %)"]
 
 
 async def test_the_switch_follows_the_service_and_the_clock(
@@ -301,11 +301,11 @@ async def test_the_switch_follows_the_service_and_the_clock(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    await _set_up(hass, fixture_snapshot, freezer, fixed_now)
-    await _ready(hass, freezer)
+    await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
+    await past_grace(hass, freezer)
     await _maintenance(hass, 1)
     assert _sensor(hass)[0] == "on"
-    await _tick(hass, freezer, timedelta(hours=1))
+    await advance(hass, freezer, timedelta(hours=1))
     assert _sensor(hass)[0] == "off"
 
 
@@ -316,7 +316,7 @@ async def test_the_old_binary_sensor_is_removed(
     fixed_now: datetime,
 ) -> None:
     """0.2.0 made a binary sensor for maintenance mode; 0.2.1 cleans it up."""
-    entry, _, _ = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    entry, _, _ = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
     registry = er.async_get(hass)
     old = registry.async_get_or_create(
         "binary_sensor", DOMAIN, f"{entry.entry_id}_maintenance_mode", config_entry=entry

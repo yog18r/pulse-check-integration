@@ -15,7 +15,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from tests.conftest import load_fixture_into_hass
+from tests.helpers import (
+    load_fixture_into_hass,
+)
 
 
 async def _settle(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
@@ -41,7 +43,7 @@ async def test_only_relevant_state_changes_cause_a_recompute(
     freezer.move_to(fixed_now)
     await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     coordinator = config_entry.runtime_data
     runs: list[int] = []
     config_entry.async_on_unload(coordinator.async_add_listener(lambda: runs.append(1)))
@@ -89,7 +91,7 @@ async def test_a_recompute_that_changes_nothing_writes_no_new_state(
     freezer.move_to(fixed_now)
     await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     before = hass.states.get("sensor.pulse_check_attention")
     assert before is not None
     assert "computed_at" not in before.attributes
@@ -114,7 +116,7 @@ async def test_a_new_battery_without_a_registry_entry_is_picked_up(
     freezer.move_to(fixed_now)
     await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     coordinator = config_entry.runtime_data
     runs: list[int] = []
     config_entry.async_on_unload(coordinator.async_add_listener(lambda: runs.append(1)))
@@ -154,7 +156,7 @@ async def test_a_disabled_entity_is_not_read_as_an_unregistered_one(
         "sensor.remote_battery_template", disabled_by=er.RegistryEntryDisabler.USER
     )
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
     assert hass.states.get("sensor.remote_battery_template") is not None
     ids = {device.device_id for device in config_entry.runtime_data.data.devices}

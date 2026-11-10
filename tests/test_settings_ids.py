@@ -13,7 +13,9 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.pulse_check.const import DOMAIN
-from tests.conftest import load_fixture_into_hass
+from tests.helpers import (
+    start_integration,
+)
 
 ORPHAN = "entity:sensor.remote_battery_template"
 
@@ -25,10 +27,7 @@ async def _set_up(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    freezer.move_to(fixed_now)
-    await load_fixture_into_hass(hass, fixture_snapshot)
-    assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await start_integration(hass, fixture_snapshot, freezer, fixed_now, entry=config_entry)
 
 
 async def test_stale_settings_can_be_cleared(

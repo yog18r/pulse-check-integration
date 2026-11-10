@@ -14,9 +14,11 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, async_
 
 from custom_components.pulse_check.const import CONF_PER_DEVICE_SENSORS, DEBOUNCE_SECONDS, DOMAIN
 from custom_components.pulse_check.replacements import JUMP_CONFIRM_SECONDS
-from tests.conftest import device_dict as _device, load_fixture_into_hass
-
-BATTERY = {"device_class": "battery", "unit_of_measurement": "%"}
+from tests.helpers import (
+    BATTERY,
+    device_dict as _device,
+    start_integration,
+)
 
 
 async def _set_level(hass: HomeAssistant, freezer: FrozenDateTimeFactory, level: int) -> None:
@@ -40,15 +42,7 @@ async def _set_up(
     fixed_now: datetime,
     options: dict[str, Any] | None = None,
 ) -> tuple[MockConfigEntry, dict[str, str]]:
-    freezer.move_to(fixed_now)
-    device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
-    entry = MockConfigEntry(
-        domain=DOMAIN, title="Pulse Check", unique_id=DOMAIN, options=options or {}
-    )
-    entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
-    return entry, device_ids
+    return await start_integration(hass, fixture_snapshot, freezer, fixed_now, options=options)
 
 
 async def test_mark_replaced_records_an_event_and_closes_the_cycle(
@@ -165,7 +159,7 @@ async def test_per_device_sensors_go_when_the_option_is_turned_off(
 
     hass.config_entries.async_update_entry(entry, options={CONF_PER_DEVICE_SENSORS: False})
     assert await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert registry.async_get_entity_id("sensor", DOMAIN, unique_id) is None
     # The integration's own sensors stay.
     assert hass.states.get("sensor.pulse_check_attention") is not None
@@ -258,3 +252,30 @@ async def test_undo_takes_back_an_automatic_detection(
     # It was not a new battery after all: undo takes it back like a manual one.
     await hass.services.async_call(DOMAIN, "undo_mark", {"device_id": kitchen}, blocking=True)
     assert coordinator.store.history[kitchen]["events"] == []
+
+
+async def test_the_days_left_sensor_shows_the_estimate_but_not_for_a_daily_charger(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """A daily charger's hours change all day; the card shows them, the recorder does not."""
+    entry, device_ids = await _set_up(
+        hass, fixture_snapshot, freezer, fixed_now, {CONF_PER_DEVICE_SENSORS: True}
+    )
+    kitchen = device_ids["dev_shelly_ht"]
+    days_left_id = er.async_get(hass).async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_{kitchen}_days_left"
+    )
+    assert days_left_id is not None
+    coordinator = entry.runtime_data
+    [device] = [d for d in coordinator.data.devices if d.device_id == kitchen]
+
+    device.days_left = 12.34
+    coordinator.async_update_listeners()
+    assert hass.states.get(days_left_id).state == "12.3"  # type: ignore[union-attr]
+
+    device.usual_low = 24  # charged every day
+    coordinator.async_update_listeners()
+    assert hass.states.get(days_left_id).state == "unknown"  # type: ignore[union-attr]

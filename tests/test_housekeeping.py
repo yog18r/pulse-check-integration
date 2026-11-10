@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.util import dt as dt_util
@@ -22,7 +23,10 @@ from custom_components.pulse_check.storage import (
     PulseCheckStore,
     trim_history,
 )
-from tests.conftest import load_fixture_into_hass
+from tests.helpers import (
+    load_fixture_into_hass,
+    start_integration,
+)
 
 
 def _event(at: datetime) -> dict[str, Any]:
@@ -54,7 +58,7 @@ async def test_an_unticked_rechargeable_from_before_means_detect_not_replaceable
         },
     }
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     settings = config_entry.runtime_data.store.device_settings
     assert settings["a"] == {"battery_type": "AA"}
     assert settings["b"] == {"rechargeable": True}
@@ -70,7 +74,7 @@ async def test_what_is_kept_for_a_removed_device_goes_after_a_week(
     freezer.move_to(fixed_now)
     device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     coordinator = config_entry.runtime_data
     store = coordinator.store
     kitchen = device_ids["dev_shelly_ht"]
@@ -83,6 +87,8 @@ async def test_what_is_kept_for_a_removed_device_goes_after_a_week(
     store.history[lock] = {"events": [_event(fixed_now)], "cycles": []}
     store.snooze(lock, fixed_now + timedelta(days=365))
     store.history["entity:sensor.never_existed"] = {"events": [], "cycles": []}
+
+    assert lock in store.data["heard"]
 
     dr.async_get(hass).async_remove_device(lock)
     await coordinator.async_refresh()
@@ -100,6 +106,7 @@ async def test_what_is_kept_for_a_removed_device_goes_after_a_week(
     await coordinator.async_refresh()
     assert lock not in store.history
     assert lock not in store.data["snoozes"]
+    assert lock not in store.data["heard"]
     assert "entity:sensor.never_existed" not in store.history
     assert store.data["gone"] == {}
     assert kitchen in store.history
@@ -117,7 +124,7 @@ async def test_a_device_that_comes_back_keeps_its_history(
     await load_fixture_into_hass(hass, fixture_snapshot)
     hass.states.async_remove("sensor.garden_soil_moisture")
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     coordinator = config_entry.runtime_data
     store = coordinator.store
     orphan = "entity:sensor.garden_soil_moisture"
@@ -148,7 +155,7 @@ async def test_a_disabled_entity_with_no_device_keeps_its_history(
         "sensor", "test", "spare", disabled_by=er.RegistryEntryDisabler.USER
     )
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     coordinator = config_entry.runtime_data
     orphan = f"entity:{entry.entity_id}"
     coordinator.store.history[orphan] = {"events": [_event(fixed_now)], "cycles": []}
@@ -174,7 +181,7 @@ async def test_last_heard_survives_going_offline_and_a_restart(
     freezer.move_to(fixed_now)
     device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     coordinator = config_entry.runtime_data
     lock = device_ids["dev_zwave_lock"]
     heard = _last_heard(coordinator, lock)
@@ -190,12 +197,48 @@ async def test_last_heard_survives_going_offline_and_a_restart(
     # A restart: the store is read back and every entity is stamped anew.
     freezer.tick(timedelta(minutes=5))
     await hass.config_entries.async_reload(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     for entity_id in entity_ids:
         hass.states.async_set(entity_id, "unknown", force_update=True)
     coordinator = config_entry.runtime_data
     await coordinator.async_refresh()
     assert _last_heard(coordinator, lock) == heard
+
+
+async def test_last_heard_is_written_when_home_assistant_stops(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+    hass_storage: dict[str, Any],
+) -> None:
+    """Last heard is saved only every so often, so a stop must write what is pending."""
+    _, device_ids = await start_integration(
+        hass, fixture_snapshot, freezer, fixed_now, entry=config_entry
+    )
+    coordinator = config_entry.runtime_data
+    kitchen = device_ids["dev_shelly_ht"]
+
+    async def saved_heard() -> str:
+        freezer.tick(timedelta(seconds=5))  # the store's save delay
+        async_fire_time_changed(hass)
+        await hass.async_block_till_done(wait_background_tasks=True)
+        return hass_storage["pulse_check.data"]["data"]["heard"][kitchen]  # type: ignore[no-any-return]
+
+    before = await saved_heard()
+    freezer.tick(timedelta(minutes=2))
+    state = hass.states.get("sensor.kitchen_ht_temperature")
+    assert state is not None
+    hass.states.async_set(state.entity_id, "22.5", state.attributes)
+    await coordinator.async_refresh()
+    heard = _last_heard(coordinator, kitchen)
+    assert heard is not None
+    assert to_iso(heard) != before
+    assert await saved_heard() == before  # not yet: saved at most every 15 minutes
+
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_STOP)
+    assert await saved_heard() == to_iso(heard)
 
 
 def test_last_heard_is_written_now_and_then_not_every_update(hass: HomeAssistant) -> None:

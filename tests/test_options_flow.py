@@ -6,11 +6,17 @@ from datetime import datetime
 from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.pulse_check.config_flow import flatten_options, nest_options
+from custom_components.pulse_check.config_flow import (
+    SECTIONS,
+    _options_schema,
+    flatten_options,
+    nest_options,
+)
 from custom_components.pulse_check.const import (
     CONF_BATTERY_CRITICAL,
     CONF_BATTERY_WARNING,
@@ -22,7 +28,10 @@ from custom_components.pulse_check.const import (
     CONF_QUIET_THRESHOLD_HOURS,
     CONF_WATCH_NON_DEVICES,
 )
-from tests.conftest import load_fixture_into_hass, open_general_options
+from tests.helpers import (
+    load_fixture_into_hass,
+    open_general_options,
+)
 
 ATTENTION = "sensor.pulse_check_attention"
 
@@ -53,6 +62,29 @@ def test_every_form_field_is_offered_back() -> None:
     assert nest_options(timings)["notifications"] == timings
 
 
+def test_each_form_section_holds_exactly_its_keys() -> None:
+    """The form and `SECTIONS` must agree, or a stored value is not offered back."""
+    form = {
+        marker.schema: {field.schema for field in value.schema.schema}
+        for marker, value in _options_schema([], []).schema.items()
+    }
+    assert form == {name: set(keys) for name, keys in SECTIONS.items()}
+
+
+def _suggested(result: ConfigFlowResult) -> dict[str, dict[str, Any]]:
+    """The values a form offers back, by section."""
+    schema = result["data_schema"]
+    assert schema is not None
+    return {
+        marker.schema: {
+            field.schema: field.description["suggested_value"]
+            for field in value.schema.schema
+            if field.description and "suggested_value" in field.description
+        }
+        for marker, value in schema.schema.items()
+    }
+
+
 def test_flatten_drops_empty_values() -> None:
     nested = {"thresholds": {CONF_BATTERY_WARNING: 30}, "filters": {CONF_EXCLUDE_ENTITIES: []}}
     assert flatten_options(nested) == {CONF_BATTERY_WARNING: 30}
@@ -62,7 +94,7 @@ async def test_options_form_rejects_critical_above_warning(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
     result = await open_general_options(hass, config_entry.entry_id)
     assert result["type"] is FlowResultType.FORM
@@ -96,7 +128,7 @@ async def test_options_are_stored_flat_and_applied(
     freezer.move_to(fixed_now)
     await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     before = int(hass.states.get(ATTENTION).state)  # type: ignore[union-attr]
     assert before == golden["cases"][0]["summary"]["attention"]
 
@@ -153,13 +185,16 @@ async def test_options_are_stored_flat_and_applied(
     # Reopening the form offers the stored values back, in sections.
     result = await open_general_options(hass, config_entry.entry_id)
     assert result["type"] is FlowResultType.FORM
+    offered = _suggested(result)
+    assert flatten_options(offered) == config_entry.options
+    assert offered["filters"][CONF_EXCLUDE_INTEGRATIONS] == ["zha"]
 
 
 async def test_configure_opens_with_a_menu(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     assert result["type"] is FlowResultType.MENU
     assert result["menu_options"] == ["general", "device"]
@@ -179,7 +214,7 @@ async def _set_up_with_settings(
     freezer.move_to(fixed_now)
     device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     store = config_entry.runtime_data.store
     store.update_device_settings(
         device_ids["dev_shelly_ht"],
@@ -217,7 +252,7 @@ async def test_with_nothing_saved_or_to_add_the_menu_only_closes(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     result = await _open_devices(hass, config_entry.entry_id)
     assert result["menu_options"] == ["device_done"]  # no devices: nothing to add
     assert _placeholders(result)["saved"] == "No device has saved settings yet."

@@ -60,7 +60,7 @@ def _run(
     return [d.to_dict() for d in devices], actions, summary
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def case_names(golden: dict[str, Any]) -> list[str]:
     return [case["name"] for case in _cases(golden)]
 

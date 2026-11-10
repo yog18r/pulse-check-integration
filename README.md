@@ -491,7 +491,9 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (256 tests) runs in about a minute.
+The test suite (314 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
+
+`tests/fixtures/card_contract.json` pins what the integration sends the card: a device with every optional field, a summary and a history result. Python fails if it emits something different, and the card's `contract.test.ts` fails if it stops reading a field. After a deliberate change, regenerate it with `PULSE_CHECK_UPDATE_CONTRACT=1 pytest tests/test_card_contract.py` and update the card to match.
 
 **Card.** Node 24, in `frontend/`:
 
@@ -499,7 +501,7 @@ The test suite (256 tests) runs in about a minute.
 cd frontend
 npm ci
 npm run dev      # demo page with a fake subscription, no Home Assistant needed
-npm run check    # typecheck, lint, format check, tests (114), build
+npm run check    # typecheck, lint, format check, tests (168), build
 ```
 
 With the demo running, `python frontend/docs/screenshots.py` retakes the README screenshots from it.

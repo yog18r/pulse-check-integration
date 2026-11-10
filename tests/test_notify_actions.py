@@ -24,8 +24,16 @@ from custom_components.pulse_check.notify_actions import (
     notification_actions,
     parse_action_id,
 )
-from tests.conftest import device_dict
-from tests.test_notify import BATTERY, OPTIONS, TEMPERATURE, _local, _ready, _set_up, _tick
+from tests.helpers import (
+    BATTERY,
+    NOTIFY_OPTIONS,
+    TEMPERATURE,
+    advance,
+    device_dict,
+    local_time,
+    past_grace,
+    set_up_notify,
+)
 
 TITLES = {
     "MARK_REPLACED": "Mark replaced",
@@ -33,7 +41,10 @@ TITLES = {
     "REMIND_LATER": "Remind me later",
     "SNOOZE_DAY": "Snooze 1 day",
 }
-BOTH_TARGETS = {**OPTIONS, CONF_NOTIFY_TARGETS: ["notify.mobile_app_test", "notify.email_test"]}
+BOTH_TARGETS = {
+    **NOTIFY_OPTIONS,
+    CONF_NOTIFY_TARGETS: ["notify.mobile_app_test", "notify.email_test"],
+}
 
 
 def _actions(call: ServiceCall) -> list[str]:
@@ -48,7 +59,7 @@ async def _press(hass: HomeAssistant, action: str) -> None:
 
 async def _kitchen_battery_critical(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
 
 
 # -- the identifiers and buttons, without Home Assistant ----------------------
@@ -98,9 +109,11 @@ async def test_an_instant_message_has_buttons_on_the_phone_only(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    _, device_ids, phone = await _set_up(hass, fixture_snapshot, freezer, fixed_now, BOTH_TARGETS)
+    _, device_ids, phone = await set_up_notify(
+        hass, fixture_snapshot, freezer, fixed_now, BOTH_TARGETS
+    )
     email = async_mock_service(hass, "notify", "email_test")
-    await _ready(hass, freezer)
+    await past_grace(hass, freezer)
     kitchen = device_ids["dev_shelly_ht"]
 
     await _kitchen_battery_critical(hass, freezer)
@@ -122,8 +135,8 @@ async def test_an_instant_message_has_buttons_on_the_phone_only(
 
     # Offline: a snooze button.
     hass.states.async_set("sensor.kitchen_ht_temperature", "unavailable", TEMPERATURE)
-    await _tick(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
-    await _tick(hass, freezer, timedelta(minutes=6))
+    await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
+    await advance(hass, freezer, timedelta(minutes=6))
     assert phone[-1].data["message"] == "Kitchen H&T: offline"
     assert _actions(phone[-1]) == [f"PULSE_CHECK_SNOOZE_DAY:{kitchen}"]
 
@@ -134,12 +147,12 @@ async def test_a_rechargeable_device_offers_mark_charged(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    _, device_ids, phone = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    _, device_ids, phone = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
     kitchen = device_ids["dev_shelly_ht"]
     await hass.services.async_call(
         DOMAIN, "set_device_settings", {"device_id": kitchen, "rechargeable": True}, blocking=True
     )
-    await _ready(hass, freezer)
+    await past_grace(hass, freezer)
     await _kitchen_battery_critical(hass, freezer)
     assert _actions(phone[0]) == [
         f"PULSE_CHECK_MARK_CHARGED:{kitchen}",
@@ -153,10 +166,10 @@ async def test_the_last_reminder_does_not_promise_another(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    options = {**OPTIONS, CONF_REMINDER_DAYS: 1, CONF_REMINDER_MAX: 1}
-    _, device_ids, phone = await _set_up(hass, fixture_snapshot, freezer, fixed_now, options)
-    await _ready(hass, freezer)
-    await _tick(hass, freezer, timedelta(days=1, minutes=1))
+    options = {**NOTIFY_OPTIONS, CONF_REMINDER_DAYS: 1, CONF_REMINDER_MAX: 1}
+    _, device_ids, phone = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now, options)
+    await past_grace(hass, freezer)
+    await advance(hass, freezer, timedelta(days=1, minutes=1))
     motion = device_ids["dev_z2m_motion"]
     reminder = next(c for c in phone if "Living Room Motion" in c.data["message"])
     assert reminder.data["message"].startswith("Still unresolved")
@@ -169,10 +182,10 @@ async def test_digests_have_no_buttons(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    options = {**OPTIONS, CONF_NOTIFY_WARNING: "daily"}
-    _, _, phone = await _set_up(hass, fixture_snapshot, freezer, fixed_now, options)
-    await _ready(hass, freezer)
-    await _tick(hass, freezer, _local(15, 9, 1) - fixed_now)
+    options = {**NOTIFY_OPTIONS, CONF_NOTIFY_WARNING: "daily"}
+    _, _, phone = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now, options)
+    await past_grace(hass, freezer)
+    await advance(hass, freezer, local_time(15, 9, 1) - fixed_now)
     digests = [c for c in phone if c.data["message"].startswith("Pulse Check daily digest")]
     assert len(digests) == 1
     assert "data" not in digests[0].data
@@ -187,7 +200,7 @@ async def test_snooze_1_day(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    _, device_ids, _ = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    _, device_ids, _ = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
     await _press(hass, f"PULSE_CHECK_SNOOZE_DAY:{device_ids['dev_zwave_lock']}")
     lock = device_dict(hass, "Front Door Lock")
     assert lock["severity"] == "ok"
@@ -200,7 +213,7 @@ async def test_mark_replaced_and_mark_charged(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    entry, device_ids, _ = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    entry, device_ids, _ = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
     history = entry.runtime_data.store.history
     motion, phone = device_ids["dev_z2m_motion"], device_ids["dev_phone"]
 
@@ -216,9 +229,11 @@ async def test_remind_me_later_keeps_the_reminder_schedule(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    options = {**OPTIONS, CONF_REMINDER_DAYS: 1}
-    entry, device_ids, phone = await _set_up(hass, fixture_snapshot, freezer, fixed_now, options)
-    await _ready(hass, freezer)
+    options = {**NOTIFY_OPTIONS, CONF_REMINDER_DAYS: 1}
+    entry, device_ids, phone = await set_up_notify(
+        hass, fixture_snapshot, freezer, fixed_now, options
+    )
+    await past_grace(hass, freezer)
     kitchen = device_ids["dev_shelly_ht"]
     await _kitchen_battery_critical(hass, freezer)
     record = dict(entry.runtime_data.store.notify[kitchen]["battery_critical"])
@@ -228,9 +243,9 @@ async def test_remind_me_later_keeps_the_reminder_schedule(
     assert len(phone) == 1
 
     # The reminder comes when it would have anyway: a day after the message.
-    await _tick(hass, freezer, timedelta(hours=23))
+    await advance(hass, freezer, timedelta(hours=23))
     assert len(phone) == 1
-    await _tick(hass, freezer, timedelta(hours=1, minutes=1))
+    await advance(hass, freezer, timedelta(hours=1, minutes=1))
     kitchen_messages = [c.data["message"] for c in phone if "Kitchen" in c.data["message"]]
     assert kitchen_messages == [
         "Kitchen H&T: battery critical (5 %)",
@@ -245,7 +260,7 @@ async def test_stale_and_foreign_buttons_are_harmless(
     fixed_now: datetime,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    entry, _, _ = await _set_up(hass, fixture_snapshot, freezer, fixed_now)
+    entry, _, _ = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)
     snoozes = dict(entry.runtime_data.store.data["snoozes"])
     await _press(hass, "PULSE_CHECK_SNOOZE_DAY:a-device-that-was-removed")
     assert "Notification button PULSE_CHECK_SNOOZE_DAY:a-device-that-was-removed failed" in (

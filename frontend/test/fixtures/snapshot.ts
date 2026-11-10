@@ -4,14 +4,23 @@
  *
  * `snapshot.json` is one `pulse_check/subscribe` event: 16 devices from
  * the integration's test fixture (a mock house covering every rule),
- * computed at 2026-10-15T10:00:00Z. Tests freeze time there.
+ * computed at 2026-10-15T10:00:00Z. Tests freeze time there. It is the
+ * shape `websocket.py` `_build_payload` emits, with the core run on
+ * `tests/fixtures/hass.json` at the default options (and
+ * `watch_non_devices` off, as in the golden cases).
  */
 import { vi } from 'vitest';
 import type { HassConnection, HassLike } from '../../src/core/types';
+import { CARD_VERSION } from '../../src/version';
 import { buildHass, FIXED_NOW } from './hass';
 import payload from './snapshot.json';
 
-export const SNAPSHOT_PAYLOAD: Record<string, unknown> = payload;
+/**
+ * The event as tests receive it. The installed version is the card's own,
+ * so no "refresh to load the new card" banner shows unless a test sends
+ * another version; the JSON's literal version would drift with each release.
+ */
+export const SNAPSHOT_PAYLOAD: Record<string, unknown> = { ...payload, version: CARD_VERSION };
 
 /** The raw device entries of the canned snapshot. */
 export const SNAPSHOT_DEVICES = payload.devices as Record<string, unknown>[];

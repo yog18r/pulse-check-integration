@@ -331,7 +331,7 @@ describe('App', () => {
     expect(within(vacuum).getByText(/charging/)).toBeInTheDocument();
   });
 
-  it('snoozes and unsnoozes through the integration services', async () => {
+  it('snoozes through the integration service', async () => {
     const { callService } = renderApp({ show_tabs: ['connectivity'] });
     await screen.findByText(/devices need attention/);
 
@@ -341,6 +341,59 @@ describe('App', () => {
       device_id: 'dev_zwave_lock',
       days: 7,
     });
+  });
+
+  it('lists snoozed devices apart and unsnoozes one through the integration service', async () => {
+    const { callService, emit } = renderApp({ show_tabs: ['connectivity'] });
+    await screen.findByText('⚠️ 7 devices need attention');
+    // As the integration sends a snoozed device: facts kept, severity "ok".
+    const lock = {
+      ...deviceEntry('Front Door Lock'),
+      severity: 'ok',
+      snoozedUntil: '2026-10-22T10:00:00.000Z',
+    };
+    const devices = (SNAPSHOT_PAYLOAD.devices as Record<string, unknown>[]).map((d) =>
+      d.deviceId === 'dev_zwave_lock' ? lock : d,
+    );
+    emit({ ...SNAPSHOT_PAYLOAD, devices });
+    expect(await screen.findByText('⚠️ 6 devices need attention')).toBeInTheDocument();
+    expect(screen.queryByText('Front Door Lock')).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole('button', { name: '💤 1 snoozed · show' });
+    await user().click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await user().click(screen.getByRole('button', { name: 'Unsnooze Front Door Lock' }));
+    expect(callService).toHaveBeenCalledOnce();
+    expect(callService).toHaveBeenCalledWith('pulse_check', 'unsnooze', {
+      device_id: 'dev_zwave_lock',
+    });
+  });
+
+  it('records a charge, not a replacement, for a battery on the Charge list', async () => {
+    const charge = {
+      kind: 'charge',
+      deviceId: 'dev_phone',
+      name: 'Pixel 9',
+      severity: 'warning',
+      batteryType: 'Built-in rechargeable',
+      count: 1,
+      label: 'Charge Pixel 9',
+    };
+    const { callService } = renderApp(
+      { show_tabs: ['actions'], default_tab: 'actions' },
+      {
+        payload: {
+          ...SNAPSHOT_PAYLOAD,
+          actions: { replace: [], charge: [charge], shopping: [] },
+        },
+      },
+    );
+    await user().click(await screen.findByRole('button', { name: 'Mark Pixel 9 done' }));
+    expect(callService).toHaveBeenCalledOnce();
+    expect(callService).toHaveBeenCalledWith('pulse_check', 'mark_charged', {
+      device_id: 'dev_phone',
+    });
+    expect(await screen.findByText('Marked Pixel 9 as charged.')).toBeInTheDocument();
   });
 
   it('offers "done" on the Actions tab and records a replacement', async () => {

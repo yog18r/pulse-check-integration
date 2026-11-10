@@ -25,7 +25,10 @@ from custom_components.pulse_check.const import (
     HISTORY_CATCH_UP_DELAY,
 )
 from custom_components.pulse_check.core.cycles import BatteryInsight, Estimate
-from tests.conftest import device_dicts, load_fixture_into_hass
+from tests.helpers import (
+    device_dicts,
+    load_fixture_into_hass,
+)
 
 DAY = timedelta(days=1)
 
@@ -119,7 +122,7 @@ async def test_drain_estimates_reach_the_entities(
     freezer.move_to(fixed_now)
     device_ids = await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     await hass.services.async_call(
         DOMAIN,
         "set_device_settings",
@@ -197,7 +200,7 @@ async def test_recorder_errors_keep_the_sensors_up(
         patch("custom_components.pulse_check.history.statistics_during_period", broken),
     ):
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
         await config_entry.runtime_data.async_refresh_history()
         await hass.async_block_till_done()
 
@@ -268,7 +271,7 @@ async def test_raw_history_is_read_once_per_refresh(
     freezer.move_to(fixed_now)
     await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     recorder["history"].clear()
     await config_entry.runtime_data.async_refresh_history()
     await hass.async_block_till_done()
@@ -288,7 +291,7 @@ async def test_next_to_replace_skips_charged_batteries_and_keeps_long_ones(
     freezer.move_to(fixed_now)
     await load_fixture_into_hass(hass, fixture_snapshot)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     coordinator = config_entry.runtime_data
 
     def estimate(days: float, kind: str, open_ended: bool = False) -> BatteryInsight:
@@ -335,7 +338,7 @@ async def test_a_battery_that_reports_late_is_read_soon_after(
     attributes = dict(hass.states.get(late).attributes)  # type: ignore[union-attr]
     hass.states.async_set(late, "unknown", attributes)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     coordinator = config_entry.runtime_data
     await coordinator.async_refresh_history()
     await hass.async_block_till_done()

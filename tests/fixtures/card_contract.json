@@ -1,0 +1,87 @@
+{
+  "device": {
+    "deviceId": "dev_everything",
+    "name": "Everything Sensor",
+    "integration": "zha",
+    "isOffline": false,
+    "isQuiet": true,
+    "quietThresholdHours": 36.5,
+    "severity": "warning",
+    "deviceType": "motion",
+    "extras": [
+      {
+        "label": "LQI",
+        "value": "28",
+        "severity": "warning"
+      }
+    ],
+    "entityIds": [
+      "sensor.everything_battery",
+      "sensor.everything_temperature"
+    ],
+    "area": "Hallway",
+    "manufacturer": "Aqara",
+    "model": "RTCGQ11LM",
+    "batteryKind": "charged",
+    "unusual": "draining 3× faster than usual",
+    "batteryWarning": 25,
+    "batteryCritical": 10.5,
+    "battery": {
+      "isLow": false,
+      "source": "sensor",
+      "entityId": "sensor.everything_battery",
+      "level": 24,
+      "isCharging": true
+    },
+    "lastHeard": "2026-10-15T10:00:00.000Z",
+    "snoozedUntil": "2026-10-16T10:00:00.000Z",
+    "daysLeft": 400.0,
+    "estimate": {
+      "daysLeft": 400.0,
+      "basis": "until charge needed",
+      "confidence": "low",
+      "kind": "charge",
+      "openEnded": true
+    },
+    "lastReplaced": "2026-09-01T00:00:00.000Z",
+    "isNotProvided": true,
+    "source": "entity",
+    "usualLow": 24,
+    "unavailableParts": [
+      {
+        "entityId": "sensor.everything_temperature",
+        "name": "Temperature"
+      }
+    ]
+  },
+  "summary": {
+    "attention": 1,
+    "critical": 2,
+    "warning": 3,
+    "batteryDevices": 4,
+    "lowBatteries": 5,
+    "criticalBatteries": 6,
+    "offline": 7,
+    "quiet": 8,
+    "notProvided": 9,
+    "snoozed": 10
+  },
+  "history": {
+    "entity_id": "sensor.everything_battery",
+    "days": 7,
+    "points": [
+      {
+        "time": 1792058400000,
+        "level": 24
+      }
+    ],
+    "estimate": {
+      "daysLeft": 12.5,
+      "basis": "trend over current cycle",
+      "confidence": "high",
+      "kind": "replace",
+      "openEnded": false,
+      "ratePerDay": 1.25
+    }
+  }
+}
