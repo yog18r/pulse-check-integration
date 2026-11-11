@@ -23,6 +23,11 @@ the update.
   watering time comes from a separate, slower cloud request and can be
   unavailable on its own. A device whose connectivity sensor reads "on"
   is no longer called offline, whatever its other entities show.
+- **A switched-off device with a camera stayed online, "heard just now".**
+  Home Assistant rewrites every camera and image entity each 5 minutes,
+  and some (Moonraker's printer webcam) stay available when the hardware
+  is off. They no longer count towards last heard, and decide offline
+  only for a device that has nothing else.
 
 ## 0.2.14 - 2026-11-09
 

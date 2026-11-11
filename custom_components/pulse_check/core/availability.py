@@ -15,7 +15,9 @@
 - A device's LAST HEARD timestamp is the newest `last_reported` across its
   live entities (`last_updated` when an entity has no `last_reported`).
   An `unavailable` or `unknown` state is not a report: Home Assistant
-  sets those, with a fresh timestamp, at every restart.
+  sets those, with a fresh timestamp, at every restart. Nor is a camera
+  or image's state, which Home Assistant rewrites every 5 minutes; those
+  decide offline only when a device has nothing else.
 - A device is QUIET when that timestamp is older than a threshold.
 - A device that is not offline can still have UNAVAILABLE PARTS: main
   entities that have been `unavailable` for a while. They are listed for
@@ -135,10 +137,17 @@ def can_be_offline(entities: Sequence[EntityEntry]) -> bool:
 def _deciding_entities(
     entities: Sequence[EntityEntry], states: Mapping[str, EntityState]
 ) -> list[EntityEntry]:
-    """The entities, with a state, that decide whether a device is offline."""
+    """The entities, with a state, that decide whether a device is offline.
+
+    Cameras and images count only when nothing else is left: they are often
+    served straight from a URL rather than through the integration's
+    connection, so they stay available when the hardware is gone
+    (Moonraker's webcam of a switched-off printer).
+    """
     primary = [e for e in entities if is_primary(e)]
     candidates = primary or [e for e in entities if not is_static_entity(e["entity_id"], e)]
-    return [e for e in candidates if e["entity_id"] in states]
+    present = [e for e in candidates if e["entity_id"] in states]
+    return [e for e in present if not _is_picture(e["entity_id"])] or present
 
 
 def parse_timestamp(value: object) -> datetime | None:
@@ -162,6 +171,16 @@ def parse_timestamp(value: object) -> datetime | None:
 STATIC_DOMAINS = frozenset({"number", "select", "button", "update", "text", "scene", "script"})
 
 
+# Home Assistant itself rewrites these entities' states every 5 minutes to
+# rotate their access tokens, so their timestamps never say the device was
+# heard from, and their availability often says nothing either.
+PICTURE_DOMAINS = frozenset({"camera", "image"})
+
+
+def _is_picture(entity_id: str) -> bool:
+    return entity_id.split(".", 1)[0] in PICTURE_DOMAINS
+
+
 def is_static_entity(entity_id: str, entry: EntityEntry | None) -> bool:
     """True for entities that cannot tell us the device was heard from."""
     if entry is not None and entry.get("entity_category") == "config":
@@ -183,9 +202,11 @@ def detect_last_heard(
     "I changed a setting an hour ago" does not count as "the sensor
     reported an hour ago". If a device has nothing but static entities,
     they are used as a last resort. Unavailable and unknown states are
-    never used: after a restart they would all read "just now".
+    never used: after a restart they would all read "just now". Nor are
+    cameras and images, which Home Assistant rewrites every 5 minutes.
     """
     registry = registry or {}
+    states = [s for s in states if not _is_picture(s["entity_id"])]
     live = [s for s in states if not is_static_entity(s["entity_id"], registry.get(s["entity_id"]))]
     candidates = [s for s in (live or list(states)) if s["state"] not in NOT_HEARD]
     latest: datetime | None = None

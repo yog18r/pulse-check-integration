@@ -266,3 +266,54 @@ def test_an_unknown_part_is_not_listed() -> None:
     states["sensor.controller_daily_active_watering_time"]["state"] = "unknown"
     [device] = analyse_devices(_controller(entities, states), CoreConfig(), NOW)
     assert device.unavailable_parts == []
+
+
+def _printer(**states: str) -> tuple[list[EntityEntry], dict[str, EntityState]]:
+    """A 3D printer whose webcam is served straight from a URL (Moonraker's).
+
+    Home Assistant rewrites every camera's state each 5 minutes to rotate
+    its access token, so the camera always looks just reported.
+    """
+    entities = [
+        _entity("sensor.printer_extruder"),
+        _entity("sensor.printer_queue"),
+        _entity("camera.printer_webcam"),
+        _entity("image.printer_thumbnail"),
+    ]
+    out = _states(**states)
+    for entity_id in ("camera.printer_webcam", "image.printer_thumbnail"):
+        if entity_id in out:
+            out[entity_id]["last_updated"] = NOW.isoformat()
+            out[entity_id]["last_reported"] = NOW.isoformat()
+    return entities, out
+
+
+def test_a_camera_left_idle_does_not_keep_a_switched_off_printer_online() -> None:
+    entities, states = _printer(
+        sensor_printer_extruder="unavailable",
+        sensor_printer_queue="unavailable",
+        camera_printer_webcam="idle",
+        image_printer_thumbnail="2026-10-23T08:00:00+00:00",
+    )
+    heard_at = datetime.fromisoformat(EARLIER)
+    [device] = analyse_devices(
+        _controller(entities, states), CoreConfig(), NOW, heard={"dev": heard_at}
+    )
+    assert (device.is_offline, device.last_heard) == (True, heard_at)
+
+
+def test_a_camera_rotating_its_token_is_not_heard_from() -> None:
+    _, states = _printer(
+        sensor_printer_extruder="210",
+        camera_printer_webcam="idle",
+        image_printer_thumbnail="2026-10-23T08:00:00+00:00",
+    )
+    assert detect_last_heard(list(states.values())) == datetime.fromisoformat(EARLIER)
+
+
+def test_a_device_that_is_only_a_camera_is_judged_by_it() -> None:
+    """Nothing else can say whether it answers; its timestamps still say nothing."""
+    camera = [_entity("camera.porch")]
+    assert detect_offline(camera, _states(camera_porch="unavailable"))
+    assert not detect_offline(camera, _states(camera_porch="idle"))
+    assert detect_last_heard(list(_states(camera_porch="idle").values())) is None
