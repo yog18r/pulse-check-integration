@@ -4,7 +4,7 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
-## Unreleased
+## 0.2.16 - 2026-11-12
 
 ### Added
 - **Transitions in the logbook.** Each device's page now shows when Pulse
