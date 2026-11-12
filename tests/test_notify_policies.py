@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
+from homeassistant.const import EVENT_LOGBOOK_ENTRY
 from homeassistant.core import HomeAssistant
 from homeassistant.util.yaml import load_yaml_dict
 from pytest_homeassistant_custom_component.common import (
@@ -291,6 +292,30 @@ async def test_a_message_no_target_accepts_is_given_up_after_its_attempts(
 
 
 # -- the event -----------------------------------------------------------------
+
+
+async def test_each_transition_writes_a_logbook_line(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """Whatever the policy, so a device left to a digest has its history too."""
+    options = {**NOTIFY_OPTIONS, CONF_NOTIFY_CRITICAL: "none"}
+    _, device_ids, _ = await set_up_notify(hass, fixture_snapshot, freezer, fixed_now, options)
+    await past_grace(hass, freezer)
+    lines = async_capture_events(hass, EVENT_LOGBOOK_ENTRY)
+    await _battery(hass, freezer, "5")
+    await _battery(hass, freezer, "90")
+    assert [line.data for line in lines] == [
+        {
+            "name": KITCHEN,
+            "message": message,
+            "domain": DOMAIN,
+            "device_id": device_ids["dev_shelly_ht"],
+        }
+        for message in ("battery critical (5 %)", "battery critical resolved")
+    ]
 
 
 async def test_the_transition_event_carries_every_documented_field(

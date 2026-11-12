@@ -29,7 +29,7 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 - **Unavailable** services and entities with no device: AdGuard Home or Sun dropping out, a template sensor whose source broke, an automation that failed to load
 - **Quiet** devices: no report within a threshold, judged per device and per integration
 - **Actions**: "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", and a to-buy total per battery type
-- **Notifications** once per transition, not once per update: a device goes offline, goes quiet, or drops to warning or critical. Instant with reminders, or collected into a daily or weekly digest, chosen per device. A limit per integration keeps an outage to a few messages, failed sends are retried, and a broken notify target shows up under Repairs
+- **Notifications** once per transition, not once per update: a device goes offline, goes quiet, or drops to warning or critical. Instant with reminders, or collected into a daily or weekly digest, chosen per device. A limit per integration keeps an outage to a few messages, failed sends are retried, and a broken notify target shows up under Repairs. Every transition is also written to the device's logbook
 - **Days left** from the recorder's history (hours for a battery charged every day, with the level it usually falls to), **replacement tracking** with cycle statistics, and a flag when a battery drains much faster than it used to
 - **Snooze** a device for a while; snoozes are shared across every browser and user
 - Everything grouped by **device**, not entity, so each physical thing appears once
@@ -326,6 +326,10 @@ The buttons follow the companion app's [actionable notifications](https://compan
 
 On a companion-app target, each problem's notification carries a tag (`pulse_check:<device id>:<issue>`). A reminder uses the same tag, so it replaces the earlier notification instead of piling up beside it. When the problem goes away (the device is back, the battery replaced, or the device snoozed), Pulse Check sends the companion app's `clear_notification` with that tag, and the notification disappears from the phone: a weather service that drops out for an hour overnight leaves nothing behind by morning. Turn **Clear phone notifications once resolved** off under Notifications to keep them as a record. Digests, grouped messages and the maintenance summary are not cleared, and other targets cannot take a message back. Notifications sent before this version have no tag and stay.
 
+### In the logbook
+
+Every transition also writes a line to the logbook, such as "Home offline" and later "Home offline resolved", in the server language. It shows on the device's own page, beside its entities' history, whichever integration the device belongs to, and in the Logbook panel. That holds whatever the device's policy, so a problem that only went into a digest, or that was cleared from the phone, can still be looked up there afterwards, for as long as the recorder keeps its history (10 days by default). An outage that heals within the confirmation window never counted, so it writes nothing.
+
 ### Outages
 
 An outage outside Home Assistant can knock dozens of devices over at once: a UniFi controller updating, a server restart, a Wi-Fi access point rebooting. Without a limit that would be one message per device. So offline and quiet messages are limited **per integration**: three an hour by default, set under Notifications in the options. After that, the rest of that integration's problems wait an hour and go out as one message, such as "UniFi Network: 19 more devices offline or not heard from", followed by the list. Only devices still wrong at that point are listed, so an outage that is over within the hour ends with nothing more to say.
@@ -496,7 +500,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (321 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
+The test suite (331 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
 
 `tests/fixtures/card_contract.json` pins what the integration sends the card: a device with every optional field, a summary and a history result. Python fails if it emits something different, and the card's `contract.test.ts` fails if it stops reading a field. After a deliberate change, regenerate it with `PULSE_CHECK_UPDATE_CONTRACT=1 pytest tests/test_card_contract.py` and update the card to match.
 

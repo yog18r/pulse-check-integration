@@ -39,7 +39,8 @@ default for that severity (critical -> instant, warning -> weekly).
 
 Every confirmed transition also fires a `pulse_check_transition` event on
 Home Assistant's event bus, whatever the policy, for people who prefer
-their own automations (see the blueprint in `blueprints/`). Instant
+their own automations (see the blueprint in `blueprints/`), and writes a
+line to the device's logbook (`log_transition`). Instant
 messages and reminders to a companion-app phone carry buttons (mark
 replaced, snooze) that act on the device; see `notify_actions.py`.
 
@@ -76,7 +77,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, EVENT_LOGBOOK_ENTRY
 from homeassistant.core import CALLBACK_TYPE, CoreState, Event, HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import (
@@ -120,7 +121,7 @@ from .const import (
 from .core.models import as_utc, to_iso
 from .core.settings import is_charged
 from .core.thresholds import battery_severity
-from .messages import Catalog, Messages
+from .messages import Catalog, Messages, without_name
 from .notify_actions import (
     EVENT_NOTIFICATION_ACTION,
     MARK_CHARGED,
@@ -201,6 +202,28 @@ def notification_tag(device_id: str, issue: str) -> str:
 DATA_RUNTIME = f"{DOMAIN}_notify_runtime"
 # Repair issue ids are one of these followed by the notify target.
 REPAIR_PREFIXES = ("notify_target_missing_", "notify_failed_")
+
+
+@callback
+def log_transition(hass: HomeAssistant, device_id: str, name: str, message: str) -> None:
+    """Write a transition to the logbook, where the device's page shows it too.
+
+    A `logbook_entry` event, as the `logbook.log` action writes, with the
+    device's id added: the logbook matches an event to a device by the
+    `device_id` in its data. A device's page asks for its entities' entries
+    and its own, so this line shows there whichever integration owns the
+    device. The logbook shows the name beside the message, so the message
+    leaves it out ("Weather" "offline", not "Weather" "Weather: offline").
+    """
+    hass.bus.async_fire(
+        EVENT_LOGBOOK_ENTRY,
+        {
+            "name": name,
+            "message": without_name(name, message),
+            "domain": DOMAIN,
+            "device_id": device_id,
+        },
+    )
 
 
 def _hours_since(moment: datetime | None, now: datetime) -> int:
@@ -773,7 +796,8 @@ class Notifier:
     def _fire(
         self, device: DeviceHealth, issue: Issue, kind: Literal["entered", "resolved"], policy: str
     ) -> None:
-        """Announce a transition on the event bus."""
+        """Announce a transition on the event bus and in the logbook."""
+        log_transition(self.hass, device.device_id, device.name, issue.message)
         self.hass.bus.async_fire(
             EVENT_TRANSITION,
             {

@@ -4,6 +4,14 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Added
+- **Transitions in the logbook.** Each device's page now shows when Pulse
+  Check found it offline, quiet or low on battery, and when that was
+  resolved, beside its entities' history. The Logbook panel lists them
+  too, whatever the device's notification policy.
+
 ## 0.2.15 - 2026-11-11
 
 ### Added

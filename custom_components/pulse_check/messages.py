@@ -125,6 +125,21 @@ class Messages:
         return sorted(self._catalogs)
 
 
+# What separates a device's name from the rest of a message, by language:
+# "Name: offline", French "Name : hors ligne", Chinese "Name：离线".
+_NAME_SEPARATORS = ": ："
+
+
+def without_name(name: str, message: str) -> str:
+    """The message with the device's name and its separator taken off the front.
+
+    For places that show the name already, such as a logbook line.
+    """
+    if not name or not message.startswith(name):
+        return message
+    return message[len(name) :].lstrip(_NAME_SEPARATORS) or message
+
+
 def load_messages(directory: Path = MESSAGES_DIR) -> Messages:
     """Read every `<language>.json` in the directory. Blocking: run in the executor."""
     catalogs: dict[str, dict[str, Template]] = {}
