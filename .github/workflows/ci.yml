@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Checks only read the code. Without this the token gets the repository's
+# default access, which can include writing to it.
+permissions:
+  contents: read
+
 jobs:
   checks:
     name: Lint, type-check and test
