@@ -4,6 +4,6 @@
 pytest-homeassistant-custom-component==0.13.375
 ruff==0.17.4
 mypy==2.4.1
-# The integration's own requirement (manifest.json), the version Home
-# Assistant's Ping integration uses.
+# The integration's own requirement (manifest.json: at least this), the
+# version Home Assistant's Ping integration uses.
 icmplib==3.0.4
