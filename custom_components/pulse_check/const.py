@@ -71,6 +71,10 @@ DEFAULT_BATTERY_CRITICAL = 15
 DEFAULT_QUIET_THRESHOLD_HOURS = 24
 DEFAULT_QUIET_SCOPE = "battery"
 QUIET_SCOPES = ("battery", "all")
+# Before a device is marked quiet, ask it once whether it is still there
+# (a Z-Wave ping, or a network ping to a known local address).
+CONF_PING_QUIET = "ping_quiet"
+DEFAULT_PING_QUIET = True
 
 # Notifications (phase 3).
 CONF_NOTIFY_TARGETS = "notify_targets"

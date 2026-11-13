@@ -30,6 +30,7 @@
               "battery_critical": "Krytyczny poziom baterii",
               "quiet_threshold_hours": "Milczy po",
               "quiet_scope": "Które urządzenia mogą milczeć",
+              "ping_quiet": "Pinguj przed oznaczeniem jako milczące",
               "integration_thresholds": "Próg milczenia dla integracji"
             },
             "data_description": {
@@ -37,6 +38,7 @@
               "battery_critical": "Bateria na tym poziomie procentowym lub niżej jest w stanie krytycznym.",
               "quiet_threshold_hours": "Liczba godzin bez żadnego raportu, po której urządzenie uznaje się za milczące.",
               "quiet_scope": "Urządzenia na baterie same się zgłaszają; urządzenia sieciowe zwykle stają się po prostu niedostępne.",
+              "ping_quiet": "Gdy minie czas ciszy urządzenia, zapytaj je raz, czy nadal jest dostępne: węzeł Z-Wave pingiem, każde inne urządzenie o znanym lokalnym adresie IP pingiem sieciowym. Urządzenie, które odpowie, nie milczy. Zapytanie może nieco szybciej rozładowywać baterię.",
               "integration_thresholds": "Integracje, których urządzenia raportują rzadziej, np. uśpione urządzenia Z-Wave lub rolety, mogą mieć dłuższy próg."
             }
           },

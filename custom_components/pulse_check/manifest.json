@@ -17,7 +17,9 @@
   "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/yog18r/pulse-check-integration/issues",
-  "requirements": [],
+  "requirements": [
+    "icmplib==3.0.4"
+  ],
   "single_config_entry": true,
   "version": "0.2.16"
 }

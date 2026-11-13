@@ -16,12 +16,15 @@ It recomputes:
 Battery history (for drain estimates) is heavier, so it is read from the
 recorder separately, every 6 hours, and merged into the next result.
 
-It never talks to devices. Everything it reads is already in memory or in
-the recorder's database.
+Everything it reads is already in memory or in the recorder's database.
+The one time it talks to a device is when the device is about to be marked
+quiet: with `ping_quiet` on, it is asked once whether it is still there
+(see `ping.py`), and one that answers is not quiet.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
@@ -53,7 +56,9 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_PING_QUIET,
     DEBOUNCE_SECONDS,
+    DEFAULT_PING_QUIET,
     DOMAIN,
     HISTORY_CATCH_UP_DELAY,
     HISTORY_INTERVAL,
@@ -80,6 +85,7 @@ from .core.models import (
 )
 from .history import HistoryTracker
 from .options import core_config_from_options
+from .ping import async_ping_device
 from .replacements import ReplacementTracker
 from .storage import PulseCheckStore
 
@@ -161,6 +167,9 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         # but no insight after that has appeared since, and is caught up.
         self._history_loaded = False
         self._catch_up_cancel: CALLBACK_TYPE | None = None
+        # Quiet devices already asked whether they are there, and silent.
+        # Each is asked once when its timer runs out, not on every run.
+        self._asked: set[str] = set()
 
     @callback
     def rebuild_config(self) -> None:
@@ -323,6 +332,12 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         devices = await self.hass.async_add_executor_job(
             _analyse, snapshot, config, now, snoozes, heard
         )
+        answered = await self._ask_quiet_devices(devices)
+        if answered:
+            heard = {**heard, **dict.fromkeys(answered, now)}
+            devices = await self.hass.async_add_executor_job(
+                _analyse, snapshot, config, now, snoozes, heard
+            )
         self.store.note_heard(((d.device_id, d.last_heard) for d in devices), now)
         self._watched = {entity_id for device in devices for entity_id in device.entity_ids}
         # The history's verdicts first: whether a battery gets charged
@@ -350,6 +365,38 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             next_to_run_out=next_to_run_out,
             by_id={device.device_id: device for device in devices},
         )
+
+    async def _ask_quiet_devices(self, devices: list[DeviceHealth]) -> set[str]:
+        """Ask each newly quiet device whether it is there; return those that answered.
+
+        A device that answers counts as heard from now, so its timer starts
+        again and it is asked again only when that runs out. One that stays
+        silent is not asked again until it has been heard from. Nothing is
+        asked while Home Assistant starts, when integrations are not ready
+        to answer for their devices.
+        """
+        quiet = {device.device_id for device in devices if device.is_quiet}
+        self._asked &= quiet
+        if not self.hass.is_running or not self.config_entry.options.get(
+            CONF_PING_QUIET, DEFAULT_PING_QUIET
+        ):
+            return set()
+        to_ask = sorted(
+            device_id
+            for device_id in quiet - self._asked
+            if not device_id.startswith(ORPHAN_PREFIX)
+        )
+        if not to_ask:
+            return set()
+        self._asked.update(to_ask)
+        results = await asyncio.gather(
+            *(async_ping_device(self.hass, device_id) for device_id in to_ask)
+        )
+        answered = {device_id for device_id, ok in zip(to_ask, results, strict=True) if ok}
+        self._asked -= answered
+        if answered:
+            _LOGGER.debug("Answered a ping, so not quiet: %s", sorted(answered))
+        return answered
 
     def _adopt_entity_settings(self, snapshot: Snapshot) -> bool:
         """Move what was saved for a lone entity onto the device it now belongs to.

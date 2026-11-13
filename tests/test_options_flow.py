@@ -24,6 +24,7 @@ from custom_components.pulse_check.const import (
     CONF_EXCLUDE_ENTITIES,
     CONF_EXCLUDE_INTEGRATIONS,
     CONF_INTEGRATION_THRESHOLDS,
+    CONF_PING_QUIET,
     CONF_QUIET_SCOPE,
     CONF_QUIET_THRESHOLD_HOURS,
     CONF_WATCH_NON_DEVICES,
@@ -163,6 +164,7 @@ async def test_options_are_stored_flat_and_applied(
         CONF_BATTERY_CRITICAL: 15,
         CONF_QUIET_THRESHOLD_HOURS: 24,
         CONF_QUIET_SCOPE: "battery",
+        CONF_PING_QUIET: True,
         CONF_INTEGRATION_THRESHOLDS: [{"integration": "zwave_js", "hours": 48}],
         CONF_EXCLUDE_ENTITIES: [
             "sensor.remote_battery_template",

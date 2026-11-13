@@ -30,6 +30,7 @@
               "battery_critical": "Niveau critique de la batterie",
               "quiet_threshold_hours": "Silencieux après",
               "quiet_scope": "Appareils pouvant être silencieux",
+              "ping_quiet": "Pinger avant de marquer silencieux",
               "integration_thresholds": "Seuil de silence par intégration"
             },
             "data_description": {
@@ -37,6 +38,7 @@
               "battery_critical": "Une batterie à ce pourcentage ou en dessous est critique.",
               "quiet_threshold_hours": "Heures sans aucun rapport avant qu'un appareil soit considéré comme silencieux.",
               "quiet_scope": "Les appareils sur batterie se signalent d'eux-mêmes ; les appareils sur secteur deviennent plutôt indisponibles.",
+              "ping_quiet": "Quand le délai de silence d'un appareil expire, lui demander une fois s'il est toujours là : un nœud Z-Wave par un ping, tout autre appareil dont l'adresse IP locale est connue par un ping réseau. Un appareil qui répond n'est pas silencieux. La demande peut vider une batterie un peu plus vite.",
               "integration_thresholds": "Les intégrations dont les appareils se signalent moins souvent, comme les appareils Z-Wave en veille ou les stores, peuvent avoir un seuil plus long."
             }
           },

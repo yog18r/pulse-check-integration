@@ -75,6 +75,7 @@ from .const import (
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_WARNING,
     CONF_PER_DEVICE_SENSORS,
+    CONF_PING_QUIET,
     CONF_QUIET_SCOPE,
     CONF_QUIET_THRESHOLD_HOURS,
     CONF_REMINDER_DAYS,
@@ -94,6 +95,7 @@ from .const import (
     DEFAULT_MAINTENANCE_HOURS,
     DEFAULT_NOTIFY_CRITICAL,
     DEFAULT_NOTIFY_WARNING,
+    DEFAULT_PING_QUIET,
     DEFAULT_QUIET_SCOPE,
     DEFAULT_QUIET_THRESHOLD_HOURS,
     DEFAULT_REMINDER_DAYS,
@@ -133,6 +135,7 @@ THRESHOLD_KEYS = (
     CONF_BATTERY_CRITICAL,
     CONF_QUIET_THRESHOLD_HOURS,
     CONF_QUIET_SCOPE,
+    CONF_PING_QUIET,
     CONF_INTEGRATION_THRESHOLDS,
 )
 FILTER_KEYS = (
@@ -270,6 +273,7 @@ def _options_schema(platforms: list[str], notify_targets: list[str]) -> probatio
                     translation_key=CONF_QUIET_SCOPE,
                 )
             ),
+            probatio.Required(CONF_PING_QUIET, default=DEFAULT_PING_QUIET): BooleanSelector(),
             probatio.Optional(CONF_INTEGRATION_THRESHOLDS): ObjectSelector(
                 ObjectSelectorConfig(
                     multiple=True,

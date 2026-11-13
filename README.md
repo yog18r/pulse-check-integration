@@ -27,7 +27,7 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 - **Low batteries** from percentage sensors, binary "low battery" sensors, and `battery_level` attributes alike, with charging devices never flagged
 - **Offline** devices: every primary entity unavailable
 - **Unavailable** services and entities with no device: AdGuard Home or Sun dropping out, a template sensor whose source broke, an automation that failed to load
-- **Quiet** devices: no report within a threshold, judged per device and per integration
+- **Quiet** devices: no report within a threshold, judged per device and per integration. A device that can be asked is pinged once before it counts, and one on its charger never does
 - **Actions**: "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", and a to-buy total per battery type
 - **Notifications** once per transition, not once per update: a device goes offline, goes quiet, or drops to warning or critical. Instant with reminders, or collected into a daily or weekly digest, chosen per device. A limit per integration keeps an outage to a few messages, failed sends are retried, and a broken notify target shows up under Repairs. Every transition is also written to the device's logbook
 - **Days left** from the recorder's history (hours for a battery charged every day, with the level it usually falls to), **replacement tracking** with cycle statistics, and a flag when a battery drains much faster than it used to
@@ -121,6 +121,7 @@ Open **Settings → Devices & services → Pulse Check → Configure** and choos
 | Battery critical level | 15 % | At or below this a battery is critical |
 | Quiet after | 24 h | Hours without any report before a device is quiet |
 | Which devices can be quiet | Battery devices only | "All devices" judges mains devices too; expect noise from lights and media players |
+| Ping before marking quiet | On | When a device's quiet timer runs out, ask it once whether it is still there. See [Last heard and quiet](#how-detection-works). Asking can run a battery down slightly faster |
 | Quiet threshold per integration | none | Longer thresholds for integrations whose devices report rarely, e.g. `zwave_js` 48 h, blinds 48 h |
 
 **Filters**
@@ -396,7 +397,7 @@ These rules are shared with the card and checked against the same test fixture (
 
 **Battery.** A `sensor` with `device_class: battery` and a numeric state; a `binary_sensor` with `device_class: battery` (on = low); or any entity with a numeric `battery_level` attribute. Entities marked `entity_category: config` are never batteries (an inverter's "minimum state of charge" setting is not a battery). Per device, a sensor reading is preferred over an attribute over a binary sensor, the lowest numeric level wins, and any binary "low" flags the device.
 
-**Charging.** A `binary_sensor` with `device_class: battery_charging` that is on; a battery-state sensor reading `charging` or `full`; a docked vacuum; or `is_charging` / `charging` / `battery_charging` / `battery_state` attributes. A charging device is never flagged for its level.
+**Charging.** A `binary_sensor` with `device_class: battery_charging` that is on; a battery-state sensor reading `charging` or `full`; a docked vacuum; or `is_charging` / `charging` / `battery_charging` / `battery_state` attributes. A charging device is never flagged for its level, nor counted as quiet.
 
 **Offline.** Every primary entity (no entity category) is `unavailable`. Diagnostic and config entities are ignored, because integrations often leave those available when the hardware is gone, or vice versa. A device with no primary entities is judged by its diagnostic ones, never by settings or update checkers: a firmware update entity goes unavailable when its check fails, as on Home Assistant's SkyConnect, while the hardware works normally. A device with nothing else to judge by is never offline. A device whose own connectivity sensor reads "on" is never offline: a Hydrawise controller's daily watering time comes from a separate, slower cloud request and can be unavailable while the controller is connected. A Z-Wave JS node reported `dead` is offline regardless.
 
@@ -404,7 +405,23 @@ These rules are shared with the card and checked against the same test fixture (
 
 **Not provided.** When an integration stops providing an entity (or a YAML entity is removed from the configuration while its platform runs), typically after an update, Home Assistant keeps its registry entry and shows a placeholder `unavailable` state. A device made only of such leftovers would otherwise read as offline. Instead, while the integration itself is running, it reads as *not provided*: a warning, shown on the Connectivity tab as "no longer provided by UniFi Network" and notified under the warning policy (the weekly digest by default). It is stale configuration to delete from the device page, not hardware that stopped answering. While an integration fails to start, its entities show the same placeholder and may really be down, so they still count as offline, as does a device with even one genuinely unavailable entity among the leftovers.
 
-**Last heard and quiet.** The newest `last_reported` across the device's live entities. An `unavailable` or `unknown` state is not a report, and the time is remembered across restarts, so a device that was already offline does not read "last heard just now" after Home Assistant starts. Settings-type entities (`number`, `select`, `button`, `update`, `text`, `scene`, `script`, and anything `entity_category: config`) do not count: changing a setting an hour ago says nothing about whether the sensor is alive. A device is quiet when that timestamp is older than its threshold. By default only battery devices can be quiet: a mains light nobody has touched for two days is fine, not quiet. Offline devices are not also counted as quiet.
+**Last heard and quiet.** The newest `last_reported` across the device's live entities. An `unavailable` or `unknown` state is not a report, and the time is remembered across restarts, so a device that was already offline does not read "last heard just now" after Home Assistant starts. Settings-type entities (`number`, `select`, `button`, `update`, `text`, `scene`, `script`, and anything `entity_category: config`) do not count: changing a setting an hour ago says nothing about whether the sensor is alive. A device is quiet when that timestamp is older than its threshold. By default only battery devices can be quiet: a mains light nobody has touched for two days is fine, not quiet. Offline devices are not also counted as quiet, and nor is a device on its charger (a docked vacuum, a phone plugged in): many integrations report only on change, and a full battery has none.
+
+**Asking before quiet.** When a device's quiet timer runs out, Pulse Check first asks it once whether it is still there, where it can (turn *Ping before marking quiet* off in the options to stop this):
+
+- a Z-Wave node gets Z-Wave JS's own ping. A sleeping node answers only when it wakes, which is not waited for: it is quiet until then;
+- any other device whose address on the local network is known gets a network (ICMP) ping. The address comes from the device's configuration link (`http://192.168.1.50`), an entity of its own reporting it (an "IP address" sensor, or an `ip_address` attribute), or the address its integration connects to when the device is that integration entry's only one. It must be a private IP address, so a cloud service's server is never taken for the device, and nothing is looked up by name.
+
+A device that answers counts as heard from, and its timer starts again, so with the default 24 hours a device is asked at most once a day. One that does not answer, or cannot be asked (most cloud devices), is quiet, and is not asked again until it has been heard from. Nothing is asked while Home Assistant starts. An answer shows the device is there, not that its integration is receiving from it.
+
+Zigbee devices cannot be asked this way, and do not need to be: their integrations can tell for themselves. ZHA marks a device unavailable when it has not been heard from for a while (6 hours for battery devices by default), and Pulse Check shows it as offline. For Zigbee2MQTT, turn on availability in its configuration:
+
+```yaml
+availability:
+  enabled: true
+```
+
+It then pings mains devices itself and marks a battery device unavailable after 25 hours without a message, so both show as offline.
 
 **Severity.** *Critical*: offline, battery at or below the critical level (default 15 %, or the device's own), a binary low-battery sensor, or a dead Z-Wave node. *Warning*: battery at or below the warning level (default 30 %, or the device's own), quiet, or not provided. A service or an entity with no device that is unavailable is critical, like an offline device. Snoozed devices read as ok.
 
@@ -465,6 +482,7 @@ custom_components/pulse_check/
 ├── card.py           serves the card and keeps its dashboard resource current
 ├── frontend/         the built card, pulse-check-card.js (not in git; built from /frontend)
 ├── coordinator.py    when to recompute; builds the snapshot from HA
+├── ping.py           asks a device about to be quiet whether it is there
 ├── history.py        battery history from the recorder, for days-left
 ├── notify.py         transitions, policies, reminders, digests, maintenance mode, the event
 ├── notify_actions.py buttons on companion-app notifications, and what they do
@@ -500,7 +518,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (331 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
+The test suite (351 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
 
 `tests/fixtures/card_contract.json` pins what the integration sends the card: a device with every optional field, a summary and a history result. Python fails if it emits something different, and the card's `contract.test.ts` fails if it stops reading a field. After a deliberate change, regenerate it with `PULSE_CHECK_UPDATE_CONTRACT=1 pytest tests/test_card_contract.py` and update the card to match.
 

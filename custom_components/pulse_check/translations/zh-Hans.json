@@ -30,6 +30,7 @@
               "battery_critical": "电池严重电量",
               "quiet_threshold_hours": "久未上报的时长",
               "quiet_scope": "哪些设备可算作久未上报",
+              "ping_quiet": "标记为久未上报前先 ping",
               "integration_thresholds": "各集成的久未上报阈值"
             },
             "data_description": {
@@ -37,6 +38,7 @@
               "battery_critical": "电池电量等于或低于此百分比时为严重。",
               "quiet_threshold_hours": "设备多少小时没有任何上报后算作久未上报。",
               "quiet_scope": "电池设备会主动上报；市电设备通常会直接变为不可用。",
+              "ping_quiet": "设备的静默时间到期时，先询问一次它是否还在：Z-Wave 节点用 ping，其他已知本地 IP 地址的设备用网络 ping。有回应的设备不算久未上报。询问可能会让电池耗电稍快一些。",
               "integration_thresholds": "设备上报频率较低的集成（例如休眠的 Z-Wave 设备或窗帘）可以设置更长的阈值。"
             }
           },

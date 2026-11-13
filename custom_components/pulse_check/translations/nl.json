@@ -30,6 +30,7 @@
               "battery_critical": "Kritiek niveau batterij",
               "quiet_threshold_hours": "Stil na",
               "quiet_scope": "Welke apparaten stil kunnen worden",
+              "ping_quiet": "Pingen voordat een apparaat stil heet",
               "integration_thresholds": "Stildrempel per integratie"
             },
             "data_description": {
@@ -37,6 +38,7 @@
               "battery_critical": "Een batterij op of onder dit percentage is kritiek.",
               "quiet_threshold_hours": "Uren zonder melding voordat een apparaat stil is.",
               "quiet_scope": "Batterijapparaten melden zich zelf; apparaten op netstroom worden meestal onbeschikbaar.",
+              "ping_quiet": "Als de stiltetijd van een apparaat verloopt, wordt het één keer gevraagd of het er nog is: een Z-Wave-node met een ping, elk ander apparaat met een bekend lokaal IP-adres met een netwerkping. Een apparaat dat antwoordt is niet stil. Vragen kan een batterij iets sneller leegmaken.",
               "integration_thresholds": "Integraties waarvan de apparaten minder vaak melden, zoals slapende Z-Wave-apparaten of zonwering, kunnen een langere drempel krijgen."
             }
           },

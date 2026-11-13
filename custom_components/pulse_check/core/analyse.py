@@ -181,11 +181,14 @@ def analyse_devices(
         # Quiet detection only makes sense for devices expected to report on
         # their own. By default that is battery devices; mains devices go
         # unavailable when they drop off, and an untouched light is not news.
+        # Nor is a device on its charger (a docked vacuum, a phone plugged
+        # in): many report only on change, and a full battery has none.
         quiet_eligible = (
             source == "device"
             and not is_offline
             and not not_provided
             and (config.quiet_scope == "all" or battery is not None)
+            and not (battery is not None and battery.is_charging)
         )
         quiet_hours = resolve_quiet_threshold(config, integration, group.device_id)
         quiet = quiet_eligible and is_quiet(last_heard, now, quiet_hours)

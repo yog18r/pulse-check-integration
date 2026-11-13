@@ -4,6 +4,21 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Added
+- **Asking before quiet.** When a device's quiet timer runs out, Pulse
+  Check now asks it once whether it is still there: a Z-Wave node with
+  Z-Wave JS's ping, any other device whose local IP address is known with
+  a network ping. One that answers is not quiet, and its timer starts
+  again. On by default; turn off *Ping before marking quiet* in the
+  options if the occasional ping matters to a battery.
+
+### Fixed
+- **Devices on their charger are never quiet.** A docked robot vacuum or
+  a phone plugged in often has nothing to report for days, so it was
+  marked quiet while fine.
+
 ## 0.2.16 - 2026-11-12
 
 ### Added

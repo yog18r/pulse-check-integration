@@ -30,6 +30,7 @@
               "battery_critical": "Kritická úroveň baterie",
               "quiet_threshold_hours": "Neozývá se po",
               "quiet_scope": "Která zařízení se mohou přestat ozývat",
+              "ping_quiet": "Před označením jako tiché zařízení otestovat",
               "integration_thresholds": "Práh neozývání podle integrace"
             },
             "data_description": {
@@ -37,6 +38,7 @@
               "battery_critical": "Baterie na tomto procentu nebo pod ním je kritická.",
               "quiet_threshold_hours": "Hodiny bez jakéhokoli hlášení, než se zařízení považuje za neozývající se.",
               "quiet_scope": "Bateriová zařízení se hlásí sama; zařízení napájená ze sítě se místo toho obvykle stanou nedostupnými.",
+              "ping_quiet": "Když u zařízení vyprší doba ticha, jednou se ho zeptat, zda tam stále je: uzel Z-Wave pomocí pingu, jiné zařízení se známou místní IP adresou pomocí síťového pingu. Zařízení, které odpoví, není tiché. Dotaz může baterii vybíjet o něco rychleji.",
               "integration_thresholds": "Integrace, jejichž zařízení se hlásí méně často, například spící zařízení Z-Wave nebo rolety, mohou mít delší práh."
             }
           },

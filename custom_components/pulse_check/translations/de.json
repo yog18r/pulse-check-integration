@@ -30,6 +30,7 @@
               "battery_critical": "Kritische Batteriestufe",
               "quiet_threshold_hours": "Stumm nach",
               "quiet_scope": "Welche Geräte stumm werden können",
+              "ping_quiet": "Vor dem Stumm-Markieren anpingen",
               "integration_thresholds": "Stumm-Schwelle pro Integration"
             },
             "data_description": {
@@ -37,6 +38,7 @@
               "battery_critical": "Eine Batterie bei oder unter diesem Prozentwert ist kritisch.",
               "quiet_threshold_hours": "Stunden ohne Meldung, bis ein Gerät als stumm gilt.",
               "quiet_scope": "Batteriegeräte melden sich selbst; netzbetriebene Geräte werden stattdessen meist nicht verfügbar.",
+              "ping_quiet": "Wenn die Stumm-Frist eines Geräts abläuft, wird es einmal gefragt, ob es noch da ist: ein Z-Wave-Knoten per Ping, jedes andere Gerät mit bekannter lokaler IP-Adresse per Netzwerk-Ping. Ein Gerät, das antwortet, ist nicht stumm. Die Abfrage kann eine Batterie etwas schneller entladen.",
               "integration_thresholds": "Integrationen, deren Geräte seltener melden, etwa schlafende Z-Wave-Geräte oder Rollos, können eine längere Schwelle haben."
             }
           },

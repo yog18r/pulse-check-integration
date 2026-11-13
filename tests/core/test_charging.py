@@ -134,3 +134,47 @@ def test_a_phone_at_ten_percent_is_only_flagged_when_not_charging(
     assert device.battery is not None
     assert device.battery.level == 10
     assert (device.battery.is_charging, device.severity) == (charging == "on", severity)
+
+
+def _vacuum(state: str) -> Snapshot:
+    """A robot vacuum at 100 %, silent since the day before: a push integration's quiet."""
+    old = "2026-11-08T12:00:00+00:00"
+    states: list[EntityState] = [
+        {**_state("vacuum.robot", state), "last_reported": old, "last_updated": old},
+        {
+            **_state("sensor.robot_battery", "100", device_class="battery"),
+            "last_reported": old,
+            "last_updated": old,
+        },
+    ]
+    snapshot = _phone("off")
+    snapshot["states"] = {s["entity_id"]: s for s in states}
+    snapshot["entities"] = {
+        s["entity_id"]: {
+            "entity_id": s["entity_id"],
+            "platform": "ecovacs",
+            "device_id": "dev_phone",
+        }
+        for s in states
+    }
+    return snapshot
+
+
+@pytest.mark.parametrize(("state", "quiet"), [("docked", False), ("idle", True)])
+def test_a_device_on_its_charger_is_never_quiet(state: str, quiet: bool) -> None:
+    """Reporting only on change, a docked vacuum at full charge has nothing to say."""
+    [device] = analyse_devices(_vacuum(state), CoreConfig(), NOW)
+    assert device.is_quiet is quiet
+
+
+def test_a_phone_left_on_its_charger_is_not_quiet() -> None:
+    snapshot = _phone("on")
+    for state in snapshot["states"].values():
+        state["last_reported"] = state["last_updated"] = "2026-11-08T12:00:00+00:00"
+    [device] = analyse_devices(snapshot, CoreConfig(), NOW)
+    assert not device.is_quiet
+    snapshot = _phone("off")
+    for state in snapshot["states"].values():
+        state["last_reported"] = state["last_updated"] = "2026-11-08T12:00:00+00:00"
+    [device] = analyse_devices(snapshot, CoreConfig(), NOW)
+    assert device.is_quiet

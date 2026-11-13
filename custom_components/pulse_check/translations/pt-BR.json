@@ -30,6 +30,7 @@
               "battery_critical": "Nível crítico da bateria",
               "quiet_threshold_hours": "Inativo após",
               "quiet_scope": "Quais dispositivos podem ficar inativos",
+              "ping_quiet": "Fazer ping antes de marcar como inativo",
               "integration_thresholds": "Limite de inatividade por integração"
             },
             "data_description": {
@@ -37,6 +38,7 @@
               "battery_critical": "Uma bateria neste percentual ou abaixo é crítica.",
               "quiet_threshold_hours": "Horas sem nenhum relatório até um dispositivo ser considerado inativo.",
               "quiet_scope": "Dispositivos a bateria se reportam sozinhos; dispositivos na tomada normalmente ficam indisponíveis.",
+              "ping_quiet": "Quando o tempo de silêncio de um dispositivo acaba, pergunta uma vez se ele ainda está lá: um nó Z-Wave com um ping, qualquer outro dispositivo com IP local conhecido com um ping de rede. O que responder não fica inativo. Perguntar pode gastar a bateria um pouco mais rápido.",
               "integration_thresholds": "Integrações cujos dispositivos reportam com menos frequência, como dispositivos Z-Wave que dormem ou persianas, podem ter um limite maior."
             }
           },
