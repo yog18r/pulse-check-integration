@@ -35,8 +35,8 @@ from homeassistant.loader import async_get_integration
 
 from .card import async_remove_card_resource, async_serve_card, async_setup_card
 from .const import DATA_COORDINATOR, DATA_VERSION, DOMAIN, SIGNAL_SNAPSHOT
-from .coordinator import PulseCheckCoordinator
-from .history import DATA_INSIGHTS
+from .coordinator import DATA_ASKED, PulseCheckCoordinator
+from .history import DATA_INSIGHTS, DATA_POINTS
 from .messages import async_load_messages
 from .notify import DATA_RUNTIME, Notifier
 from .services import async_setup_services
@@ -116,13 +116,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -
     # another at the next refresh.
 
     @callback
-    def _start_history(_event: Event | None = None) -> None:
+    def _start_history(_event: Event | None = None, reuse: bool = False) -> None:
         entry.async_create_background_task(
-            hass, coordinator.async_refresh_history(), "pulse_check history"
+            hass, coordinator.async_refresh_history(reuse=reuse), "pulse_check history"
         )
 
     if hass.is_running:
-        _start_history()
+        # A reload (saved options): judge the last read's means again under
+        # the new settings instead of reading the recorder once more.
+        _start_history(reuse=True)
     else:
         entry.async_on_unload(
             hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _start_history)
@@ -155,6 +157,8 @@ async def async_remove_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) 
     await PulseCheckStore(hass).async_remove()
     hass.data.pop(DATA_RUNTIME, None)
     hass.data.pop(DATA_INSIGHTS, None)
+    hass.data.pop(DATA_POINTS, None)
+    hass.data.pop(DATA_ASKED, None)
     for domain, issue_id in list(ir.async_get(hass).issues):
         if domain == DOMAIN:
             ir.async_delete_issue(hass, DOMAIN, issue_id)

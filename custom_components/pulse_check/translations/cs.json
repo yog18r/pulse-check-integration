@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "Pulse Check sleduje baterii a připojení každého zařízení podle stavu, který už Home Assistant má. Samotná zařízení nikdy nekontaktuje. Prahy, filtry a oznámení lze potom nastavit přes Konfigurovat."
+        "description": "Pulse Check sleduje baterii a připojení každého zařízení podle stavu, který už Home Assistant má. Zařízení kontaktuje jen jednou, pingem před označením jako tiché, což lze vypnout. Prahy, filtry a oznámení lze potom nastavit přes Konfigurovat."
       }
     },
     "abort": {
@@ -31,6 +31,7 @@
               "quiet_threshold_hours": "Neozývá se po",
               "quiet_scope": "Která zařízení se mohou přestat ozývat",
               "ping_quiet": "Před označením jako tiché zařízení otestovat",
+              "charging_quiet_factor": "Delší doba ticha při nabíjení",
               "integration_thresholds": "Práh neozývání podle integrace"
             },
             "data_description": {
@@ -39,6 +40,7 @@
               "quiet_threshold_hours": "Hodiny bez jakéhokoli hlášení, než se zařízení považuje za neozývající se.",
               "quiet_scope": "Bateriová zařízení se hlásí sama; zařízení napájená ze sítě se místo toho obvykle stanou nedostupnými.",
               "ping_quiet": "Když u zařízení vyprší doba ticha, jednou se ho zeptat, zda tam stále je: uzel Z-Wave pomocí pingu, jiné zařízení se známou místní IP adresou pomocí síťového pingu. Zařízení, které odpoví, není tiché. Dotaz může baterii vybíjet o něco rychleji.",
+              "charging_quiet_factor": "Zařízení, které hlásí nabíjení nebo zaparkování v doku, dostane tolikrát delší obvyklou dobu ticha, například 2 nebo 3 pro robotický vysavač, který v doku nic nehlásí. 1 s ním zachází jako s každým jiným zařízením.",
               "integration_thresholds": "Integrace, jejichž zařízení se hlásí méně často, například spící zařízení Z-Wave nebo rolety, mohou mít delší práh."
             }
           },

@@ -22,6 +22,7 @@ import asyncio
 import importlib
 import ipaddress
 import logging
+import re
 from typing import TYPE_CHECKING, Protocol, cast
 from urllib.parse import urlsplit
 
@@ -39,7 +40,14 @@ _LOGGER = logging.getLogger(__name__)
 PING_TIMEOUT = 10
 # Entity attributes that hold a device's own address.
 _ADDRESS_ATTRIBUTES = ("ip_address", "ip", "host")
+# An entity whose state is the device's own address: `sensor.plant_ip`,
+# `sensor.plant_ip_address`, `sensor.plant_ipv4_address`.
+_ADDRESS_ENTITY = re.compile(r"(?:^|_)ip(?:v4|v6)?(?:_address)?$")
+# ...but not another host's: `sensor.plant_gateway_ip`, `sensor.plant_dns_ip`.
+_OTHER_HOST = re.compile(r"gateway|dns|router|server|wan|external|public")
 _ZWAVE = "zwave_js"
+# Whether the system's refusal to ping has been logged yet.
+_warned_no_icmp = False
 
 
 class _ZwaveNode(Protocol):
@@ -74,8 +82,20 @@ async def async_ping_device(hass: HomeAssistant, device_id: str) -> bool:
     return False
 
 
+def _entry_ids(device: dr.DeviceEntry) -> list[str]:
+    """The config entries a device belongs to.
+
+    Home Assistant 2026.10 gives a device one entry (`config_entry_id`) and
+    deprecates the old set; 2026.9 has only the set.
+    """
+    entry_id = getattr(device, "config_entry_id", None)
+    if isinstance(entry_id, str):
+        return [entry_id]
+    return list(getattr(device, "config_entries", ()))
+
+
 def _belongs_to(hass: HomeAssistant, device: dr.DeviceEntry, domain: str) -> bool:
-    for entry_id in device.config_entries:
+    for entry_id in _entry_ids(device):
         entry = hass.config_entries.async_get_entry(entry_id)
         if entry is not None and entry.domain == domain:
             return True
@@ -116,19 +136,33 @@ def _zwave_node(hass: HomeAssistant, device_id: str) -> _ZwaveNode | None:
 
 
 def device_address(hass: HomeAssistant, device: dr.DeviceEntry) -> str | None:
-    """The device's own private IP address, when anything says what it is."""
+    """The device's own private IP address, when anything says what it is.
+
+    Most reliable first: its configuration link, then the address its
+    integration connects to, then an entity of its own. An entity's state
+    counts only when the entity is named as an address (`..._ip_address`):
+    a device can also report its gateway or DNS server, and pinging the
+    router would always get an answer.
+    """
     address = _private_ip(urlsplit(device.configuration_url or "").hostname)
+    if address is not None:
+        return address
+    address = _entry_address(hass, device)
     if address is not None:
         return address
     for entity in er.async_entries_for_device(er.async_get(hass), device.id):
         state = hass.states.get(entity.entity_id)
         if state is None:
             continue
-        for value in (*(state.attributes.get(a) for a in _ADDRESS_ATTRIBUTES), state.state):
+        values = [state.attributes.get(a) for a in _ADDRESS_ATTRIBUTES]
+        object_id = entity.entity_id.split(".", 1)[1]
+        if _ADDRESS_ENTITY.search(object_id) and not _OTHER_HOST.search(object_id):
+            values.append(state.state)
+        for value in values:
             address = _private_ip(value)
             if address is not None:
                 return address
-    return _entry_address(hass, device)
+    return None
 
 
 def _entry_address(hass: HomeAssistant, device: dr.DeviceEntry) -> str | None:
@@ -141,7 +175,7 @@ def _entry_address(hass: HomeAssistant, device: dr.DeviceEntry) -> str | None:
     if device.via_device_id is not None:
         return None
     registry = dr.async_get(hass)
-    for entry_id in device.config_entries:
+    for entry_id in _entry_ids(device):
         entry = hass.config_entries.async_get_entry(entry_id)
         if entry is None:
             continue
@@ -195,5 +229,12 @@ async def _ping_address(address: str) -> bool:
         except ICMPLibError, OSError:
             return False
         return bool(host.is_alive)
-    _LOGGER.debug("This system does not allow network pings, so %s cannot be asked", address)
+    global _warned_no_icmp  # noqa: PLW0603 (once per run)
+    if not _warned_no_icmp:
+        _warned_no_icmp = True
+        _LOGGER.warning(
+            "This system does not allow network pings, so devices are not asked before they "
+            "are marked quiet (only Z-Wave nodes are). Allow unprivileged ICMP "
+            "(net.ipv4.ping_group_range) or turn off Ping before marking quiet"
+        )
     return False

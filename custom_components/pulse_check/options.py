@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from .const import (
     CONF_BATTERY_CRITICAL,
     CONF_BATTERY_WARNING,
+    CONF_CHARGING_QUIET_FACTOR,
     CONF_EXCLUDE_AREAS,
     CONF_EXCLUDE_DEVICES,
     CONF_EXCLUDE_ENTITIES,
@@ -27,6 +28,7 @@ from .const import (
     CONF_WATCH_NON_DEVICES,
     DEFAULT_BATTERY_CRITICAL,
     DEFAULT_BATTERY_WARNING,
+    DEFAULT_CHARGING_QUIET_FACTOR,
     DEFAULT_QUIET_SCOPE,
     DEFAULT_QUIET_THRESHOLD_HOURS,
     DEFAULT_WATCH_NON_DEVICES,
@@ -88,6 +90,9 @@ def core_config_from_options(
             ),
             CONF_QUIET_SCOPE: options.get(CONF_QUIET_SCOPE, DEFAULT_QUIET_SCOPE),
             CONF_INTEGRATION_THRESHOLDS: integration_thresholds_from_options(options),
+            CONF_CHARGING_QUIET_FACTOR: options.get(
+                CONF_CHARGING_QUIET_FACTOR, DEFAULT_CHARGING_QUIET_FACTOR
+            ),
             "device_settings": settings,
             CONF_INCLUDE_AREAS: options.get(CONF_INCLUDE_AREAS) or [],
             CONF_EXCLUDE_AREAS: options.get(CONF_EXCLUDE_AREAS) or [],

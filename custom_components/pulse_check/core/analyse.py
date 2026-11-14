@@ -111,6 +111,7 @@ def analyse_devices(
     enhancers: Iterable[Enhancer] = (),
     snoozes: Mapping[str, datetime] | None = None,
     heard: Mapping[str, datetime] | None = None,
+    replayed_until: datetime | None = None,
 ) -> list[DeviceHealth]:
     """Analyse every device in the snapshot.
 
@@ -122,6 +123,9 @@ def analyse_devices(
         snoozes: device id -> when the user's snooze ends.
         heard: device id -> when it was last heard from, remembered from
             earlier runs (before a restart, or before it went offline).
+        replayed_until: the end of Home Assistant's start (plus its grace
+            period). A report stamped no later than this is a cached value
+            written at the start, not the device, for a device in `heard`.
     """
     now = as_utc(now)
     enhancers = tuple(enhancers)
@@ -168,29 +172,42 @@ def analyse_devices(
             and (enhanced.offline or detect_offline(group.entities, snapshot["states"]))
         )
 
-        # Last heard: the newest of the generic rule and any enhancer signal.
-        last_heard = detect_last_heard(group.states, snapshot["entities"])
-        if enhanced.last_heard is not None and (
-            last_heard is None or enhanced.last_heard > last_heard
-        ):
-            last_heard = enhanced.last_heard
+        # Last heard. An enhancer's own record (Zigbee2MQTT's last_seen) is
+        # the device's word and stands as it is. Otherwise the newest report,
+        # unless it came while Home Assistant was starting: integrations
+        # write their cached values then, with a fresh timestamp, whether or
+        # not the device is there. A device remembered from before keeps
+        # that time until it reports again.
         remembered = heard.get(group.device_id) if heard else None
-        if remembered is not None and (last_heard is None or remembered > last_heard):
-            last_heard = remembered
+        last_heard: datetime | None
+        if enhanced.last_heard is not None:
+            last_heard = enhanced.last_heard
+        else:
+            last_heard = detect_last_heard(group.states, snapshot["entities"])
+            if (
+                last_heard is not None
+                and remembered is not None
+                and replayed_until is not None
+                and last_heard <= replayed_until
+            ):
+                last_heard = None
+            if remembered is not None and (last_heard is None or remembered > last_heard):
+                last_heard = remembered
 
         # Quiet detection only makes sense for devices expected to report on
         # their own. By default that is battery devices; mains devices go
         # unavailable when they drop off, and an untouched light is not news.
-        # Nor is a device on its charger (a docked vacuum, a phone plugged
-        # in): many report only on change, and a full battery has none.
         quiet_eligible = (
             source == "device"
             and not is_offline
             and not not_provided
             and (config.quiet_scope == "all" or battery is not None)
-            and not (battery is not None and battery.is_charging)
         )
         quiet_hours = resolve_quiet_threshold(config, integration, group.device_id)
+        # A device on its charger (a docked vacuum, a phone plugged in) may
+        # have nothing to report for a while; the options can give it longer.
+        if battery is not None and battery.is_charging:
+            quiet_hours *= config.charging_quiet_factor
         quiet = quiet_eligible and is_quiet(last_heard, now, quiet_hours)
 
         snoozed_until = snoozes.get(group.device_id) if snoozes else None

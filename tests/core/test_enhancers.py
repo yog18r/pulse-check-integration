@@ -104,9 +104,15 @@ def test_a_newer_zigbee2mqtt_last_seen_is_when_the_device_was_last_heard() -> No
     assert (device.is_quiet, device.severity) == (False, "ok")
 
 
-def test_an_older_zigbee2mqtt_last_seen_does_not_replace_newer_reports() -> None:
+def test_zigbee2mqtt_s_last_seen_stands_over_newer_timestamps() -> None:
+    """Last seen is the device's own word; newer timestamps can be replays.
+
+    Zigbee2MQTT republishes every device's last state when Home Assistant
+    starts, which stamps its entities "reported just now" while last_seen
+    keeps the time the device itself was last heard.
+    """
     device = _motion_sensor(last_seen=TWO_DAYS_AGO - timedelta(days=1))
-    assert device.last_heard == TWO_DAYS_AGO
+    assert device.last_heard == TWO_DAYS_AGO - timedelta(days=1)
     assert (device.is_quiet, device.severity) == (True, "warning")
 
 

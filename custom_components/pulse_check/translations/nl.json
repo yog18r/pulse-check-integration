@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "Pulse Check bewaakt de batterij en verbinding van elk apparaat aan de hand van de status die Home Assistant al heeft. Het neemt nooit zelf contact op met de apparaten. Drempels, filters en meldingen stel je daarna in via Configureren."
+        "description": "Pulse Check bewaakt de batterij en verbinding van elk apparaat aan de hand van de status die Home Assistant al heeft. Het neemt alleen contact op met een apparaat voor één ping voordat het stil heet, en dat kun je uitzetten. Drempels, filters en meldingen stel je daarna in via Configureren."
       }
     },
     "abort": {
@@ -31,6 +31,7 @@
               "quiet_threshold_hours": "Stil na",
               "quiet_scope": "Welke apparaten stil kunnen worden",
               "ping_quiet": "Pingen voordat een apparaat stil heet",
+              "charging_quiet_factor": "Langere stiltetijd tijdens het laden",
               "integration_thresholds": "Stildrempel per integratie"
             },
             "data_description": {
@@ -39,6 +40,7 @@
               "quiet_threshold_hours": "Uren zonder melding voordat een apparaat stil is.",
               "quiet_scope": "Batterijapparaten melden zich zelf; apparaten op netstroom worden meestal onbeschikbaar.",
               "ping_quiet": "Als de stiltetijd van een apparaat verloopt, wordt het één keer gevraagd of het er nog is: een Z-Wave-node met een ping, elk ander apparaat met een bekend lokaal IP-adres met een netwerkping. Een apparaat dat antwoordt is niet stil. Vragen kan een batterij iets sneller leegmaken.",
+              "charging_quiet_factor": "Een apparaat dat meldt dat het oplaadt of in het dock staat, krijgt dit veelvoud van zijn gewone stiltetijd, bijvoorbeeld 2 of 3 voor een robotstofzuiger die in het dock niets meldt. 1 behandelt het als elk ander apparaat.",
               "integration_thresholds": "Integraties waarvan de apparaten minder vaak melden, zoals slapende Z-Wave-apparaten of zonwering, kunnen een langere drempel krijgen."
             }
           },

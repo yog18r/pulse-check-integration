@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "Pulse Check 利用 Home Assistant 已有的状态，监控每个设备的电池和连接情况，从不直接联系设备本身。阈值、筛选和通知可以稍后在“配置”中设置。"
+        "description": "Pulse Check 利用 Home Assistant 已有的状态，监控每个设备的电池和连接情况。只有在将设备标记为久未上报前，才会 ping 它一次，此功能可以关闭。阈值、筛选和通知可以稍后在“配置”中设置。"
       }
     },
     "abort": {
@@ -31,6 +31,7 @@
               "quiet_threshold_hours": "久未上报的时长",
               "quiet_scope": "哪些设备可算作久未上报",
               "ping_quiet": "标记为久未上报前先 ping",
+              "charging_quiet_factor": "充电时延长静默时间",
               "integration_thresholds": "各集成的久未上报阈值"
             },
             "data_description": {
@@ -39,6 +40,7 @@
               "quiet_threshold_hours": "设备多少小时没有任何上报后算作久未上报。",
               "quiet_scope": "电池设备会主动上报；市电设备通常会直接变为不可用。",
               "ping_quiet": "设备的静默时间到期时，先询问一次它是否还在：Z-Wave 节点用 ping，其他已知本地 IP 地址的设备用网络 ping。有回应的设备不算久未上报。询问可能会让电池耗电稍快一些。",
+              "charging_quiet_factor": "报告正在充电或已回座的设备，静默时间为平时的这一倍数，例如在座上不上报的扫地机器人可设为 2 或 3。设为 1 则与其他设备相同。",
               "integration_thresholds": "设备上报频率较低的集成（例如休眠的 Z-Wave 设备或窗帘）可以设置更长的阈值。"
             }
           },

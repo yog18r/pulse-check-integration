@@ -154,6 +154,10 @@ class CoreConfig:
     quiet_threshold_hours: float = 24
     # Per-integration quiet thresholds keyed by platform, e.g. {"zwave_js": 48}.
     integration_thresholds: Mapping[str, float] = field(default_factory=dict)
+    # How many times its threshold a device reporting that it is charging
+    # may stay silent: many report only on change, and a full battery on
+    # its charger has none. 1 treats it like any other device.
+    charging_quiet_factor: float = 1
     device_settings: tuple[DeviceSettings, ...] = ()
     exclude_integrations: tuple[str, ...] = ()
     exclude_devices: tuple[str, ...] = ()
@@ -199,6 +203,9 @@ class CoreConfig:
             integration_thresholds={
                 str(k): float(v) for k, v in raw.get("integration_thresholds", {}).items()
             },
+            charging_quiet_factor=max(
+                1.0, float(raw.get("charging_quiet_factor", defaults.charging_quiet_factor))
+            ),
             device_settings=tuple(
                 DeviceSettings.from_dict(item) for item in raw.get("device_settings", [])
             ),

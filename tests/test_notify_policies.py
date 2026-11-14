@@ -359,3 +359,29 @@ def test_the_blueprint_still_parses() -> None:
     """A YAML error in the shipped blueprint fails here, not in a user's import."""
     blueprint = load_yaml_dict(str(BLUEPRINT))
     assert blueprint["blueprint"]["domain"] == "automation"
+
+
+async def test_a_digest_no_target_accepts_is_tried_again(
+    hass: HomeAssistant,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    """A phone offline at 09:00 still gets the day's digest when it is back."""
+    options = {
+        **NOTIFY_OPTIONS,
+        CONF_NOTIFY_CRITICAL: "daily",
+        CONF_NOTIFY_TARGETS: ["notify.late_phone"],
+    }
+    await set_up_notify(hass, fixture_snapshot, freezer, fixed_now, options)
+    await past_grace(hass, freezer)
+    await _battery(hass, freezer, "5")
+    await _at_digest(hass, freezer, fixed_now)  # no such service yet: it fails
+
+    late = async_mock_service(hass, "notify", "late_phone")
+    await advance(hass, freezer, SEND_RETRY + timedelta(seconds=1))
+    [daily] = _digests(late, "daily")
+    assert "- Kitchen H&T: battery critical (5 %)" in daily
+    # Sent once: no further retries.
+    await advance(hass, freezer, SEND_RETRY + timedelta(seconds=1))
+    assert len(_digests(late, "daily")) == 1

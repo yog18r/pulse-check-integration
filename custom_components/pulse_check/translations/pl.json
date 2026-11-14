@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "Pulse Check śledzi baterię i łączność każdego urządzenia na podstawie stanów, które Home Assistant już zna. Nigdy nie łączy się z samymi urządzeniami. Progi, filtry i powiadomienia można ustawić później w Konfiguruj."
+        "description": "Pulse Check śledzi baterię i łączność każdego urządzenia na podstawie stanów, które Home Assistant już zna. Łączy się z urządzeniem tylko raz, pingiem przed oznaczeniem go jako milczące, co można wyłączyć. Progi, filtry i powiadomienia można ustawić później w Konfiguruj."
       }
     },
     "abort": {
@@ -31,6 +31,7 @@
               "quiet_threshold_hours": "Milczy po",
               "quiet_scope": "Które urządzenia mogą milczeć",
               "ping_quiet": "Pinguj przed oznaczeniem jako milczące",
+              "charging_quiet_factor": "Dłuższy czas ciszy podczas ładowania",
               "integration_thresholds": "Próg milczenia dla integracji"
             },
             "data_description": {
@@ -39,6 +40,7 @@
               "quiet_threshold_hours": "Liczba godzin bez żadnego raportu, po której urządzenie uznaje się za milczące.",
               "quiet_scope": "Urządzenia na baterie same się zgłaszają; urządzenia sieciowe zwykle stają się po prostu niedostępne.",
               "ping_quiet": "Gdy minie czas ciszy urządzenia, zapytaj je raz, czy nadal jest dostępne: węzeł Z-Wave pingiem, każde inne urządzenie o znanym lokalnym adresie IP pingiem sieciowym. Urządzenie, które odpowie, nie milczy. Zapytanie może nieco szybciej rozładowywać baterię.",
+              "charging_quiet_factor": "Urządzenie, które zgłasza ładowanie lub stoi w stacji, dostaje tyle razy dłuższy zwykły czas ciszy, na przykład 2 lub 3 dla robota sprzątającego, który w stacji nic nie zgłasza. 1 traktuje je jak każde inne urządzenie.",
               "integration_thresholds": "Integracje, których urządzenia raportują rzadziej, np. uśpione urządzenia Z-Wave lub rolety, mogą mieć dłuższy próg."
             }
           },

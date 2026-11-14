@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "Pulse Check überwacht Batterie und Erreichbarkeit jedes Geräts anhand des Zustands, den Home Assistant bereits kennt. Die Geräte selbst werden nie kontaktiert. Schwellenwerte, Filter und Benachrichtigungen lassen sich danach unter „Konfigurieren“ festlegen."
+        "description": "Pulse Check überwacht Batterie und Erreichbarkeit jedes Geräts anhand des Zustands, den Home Assistant bereits kennt. Ein Gerät wird nur einmal kontaktiert, mit einem Ping, bevor es als stumm gilt; das lässt sich abschalten. Schwellenwerte, Filter und Benachrichtigungen lassen sich danach unter „Konfigurieren“ festlegen."
       }
     },
     "abort": {
@@ -31,6 +31,7 @@
               "quiet_threshold_hours": "Stumm nach",
               "quiet_scope": "Welche Geräte stumm werden können",
               "ping_quiet": "Vor dem Stumm-Markieren anpingen",
+              "charging_quiet_factor": "Längere Stumm-Frist beim Laden",
               "integration_thresholds": "Stumm-Schwelle pro Integration"
             },
             "data_description": {
@@ -39,6 +40,7 @@
               "quiet_threshold_hours": "Stunden ohne Meldung, bis ein Gerät als stumm gilt.",
               "quiet_scope": "Batteriegeräte melden sich selbst; netzbetriebene Geräte werden stattdessen meist nicht verfügbar.",
               "ping_quiet": "Wenn die Stumm-Frist eines Geräts abläuft, wird es einmal gefragt, ob es noch da ist: ein Z-Wave-Knoten per Ping, jedes andere Gerät mit bekannter lokaler IP-Adresse per Netzwerk-Ping. Ein Gerät, das antwortet, ist nicht stumm. Die Abfrage kann eine Batterie etwas schneller entladen.",
+              "charging_quiet_factor": "Ein Gerät, das meldet, dass es lädt oder angedockt ist, bekommt das Vielfache seiner üblichen Stumm-Frist, etwa 2 oder 3 für einen Saugroboter, der in der Station nichts meldet. 1 behandelt es wie jedes andere Gerät.",
               "integration_thresholds": "Integrationen, deren Geräte seltener melden, etwa schlafende Z-Wave-Geräte oder Rollos, können eine längere Schwelle haben."
             }
           },

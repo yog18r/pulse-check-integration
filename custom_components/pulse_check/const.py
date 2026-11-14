@@ -69,12 +69,21 @@ CONF_HOURS = "hours"
 DEFAULT_BATTERY_WARNING = 30
 DEFAULT_BATTERY_CRITICAL = 15
 DEFAULT_QUIET_THRESHOLD_HOURS = 24
+# The longest quiet threshold: a year.
+MAX_QUIET_HOURS = 24 * 365
+# The longest snooze, in days.
+MAX_SNOOZE_DAYS = 3650
 DEFAULT_QUIET_SCOPE = "battery"
 QUIET_SCOPES = ("battery", "all")
 # Before a device is marked quiet, ask it once whether it is still there
 # (a Z-Wave ping, or a network ping to a known local address).
 CONF_PING_QUIET = "ping_quiet"
 DEFAULT_PING_QUIET = True
+# A device reporting that it is charging (a docked vacuum, a phone on its
+# charger) gets this many times its quiet threshold. 1 changes nothing.
+CONF_CHARGING_QUIET_FACTOR = "charging_quiet_factor"
+DEFAULT_CHARGING_QUIET_FACTOR = 1
+MAX_CHARGING_QUIET_FACTOR = 10
 
 # Notifications (phase 3).
 CONF_NOTIFY_TARGETS = "notify_targets"

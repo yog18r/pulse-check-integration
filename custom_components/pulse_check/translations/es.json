@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "Pulse Check vigila la batería y la conectividad de cada dispositivo a partir del estado que Home Assistant ya tiene. Nunca contacta con los propios dispositivos. Los umbrales, filtros y notificaciones se pueden ajustar después con Configurar."
+        "description": "Pulse Check vigila la batería y la conectividad de cada dispositivo a partir del estado que Home Assistant ya tiene. Solo contacta con un dispositivo para hacerle un ping antes de marcarlo como silencioso, y se puede desactivar. Los umbrales, filtros y notificaciones se pueden ajustar después con Configurar."
       }
     },
     "abort": {
@@ -31,6 +31,7 @@
               "quiet_threshold_hours": "Silencioso tras",
               "quiet_scope": "Qué dispositivos pueden quedar silenciosos",
               "ping_quiet": "Hacer ping antes de marcar como silencioso",
+              "charging_quiet_factor": "Más tiempo de silencio mientras carga",
               "integration_thresholds": "Umbral de silencio por integración"
             },
             "data_description": {
@@ -39,6 +40,7 @@
               "quiet_threshold_hours": "Horas sin ningún informe antes de que un dispositivo se considere silencioso.",
               "quiet_scope": "Los dispositivos con batería se anuncian solos; los conectados a la red eléctrica suelen pasar a no disponibles.",
               "ping_quiet": "Cuando se agota el tiempo de silencio de un dispositivo, se le pregunta una vez si sigue ahí: un nodo Z-Wave con un ping, cualquier otro dispositivo con IP local conocida con un ping de red. El que responde no queda silencioso. Preguntar puede gastar la batería un poco más rápido.",
+              "charging_quiet_factor": "Un dispositivo que informa de que está cargando o en su base recibe este múltiplo de su tiempo de silencio habitual, por ejemplo 2 o 3 para un robot aspirador que no dice nada en su base. 1 lo trata como a cualquier otro dispositivo.",
               "integration_thresholds": "Las integraciones cuyos dispositivos informan con menos frecuencia, como los dispositivos Z-Wave dormidos o las persianas, pueden tener un umbral más largo."
             }
           },

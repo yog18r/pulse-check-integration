@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   callPulseCheck,
+  HISTORIES_BATCH,
   loadHistories,
   loadHistory,
   parseDevice,
@@ -283,6 +284,22 @@ describe('loadHistory and services', () => {
     expect([...histories.keys()]).toEqual(['sensor.a', 'sensor.c']);
     expect(histories.get('sensor.a')).toEqual({ days: 14, points: [{ time: 1, level: 80 }] });
     expect(await loadHistories(hass, [])).toEqual(new Map());
+  });
+
+  it('splits more requests than one call takes into batches', async () => {
+    const { hass } = fakeHass();
+    const callWS = vi.fn((message: { requests: { entity_id: string; days: number }[] }) =>
+      Promise.resolve({
+        results: message.requests.map((r) => ({ ...r, points: [], estimate: null })),
+      }),
+    );
+    const requests = Array.from({ length: HISTORIES_BATCH + 3 }, (_, i) => ({
+      entityId: `sensor.b${String(i)}`,
+      days: 14,
+    }));
+    const histories = await loadHistories({ ...hass, callWS: callWS as never }, requests);
+    expect(callWS.mock.calls.map(([m]) => m.requests.length)).toEqual([HISTORIES_BATCH, 3]);
+    expect(histories.size).toBe(HISTORIES_BATCH + 3);
   });
 
   it('calls the integration service when hass can', async () => {

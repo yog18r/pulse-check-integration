@@ -7,7 +7,7 @@ Battery warning and critical levels: device override > global default.
 Severity rules for a device:
   critical  offline, battery at/below critical %, binary "low battery", or an
             enhancer says so (e.g. a dead Z-Wave node)
-  warning   battery at/below warning %, or quiet
+  warning   battery at/below warning %, quiet, or not provided
   ok        everything else
 """
 

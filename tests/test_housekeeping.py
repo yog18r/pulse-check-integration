@@ -12,7 +12,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from custom_components.pulse_check.const import UPDATE_INTERVAL
+from custom_components.pulse_check.const import DEFAULT_STARTUP_GRACE_MINUTES, UPDATE_INTERVAL
 from custom_components.pulse_check.coordinator import PulseCheckCoordinator
 from custom_components.pulse_check.core.models import to_iso
 from custom_components.pulse_check.storage import (
@@ -226,8 +226,13 @@ async def test_last_heard_is_written_when_home_assistant_stops(
         await hass.async_block_till_done(wait_background_tasks=True)
         return hass_storage["pulse_check.data"]["data"]["heard"][kitchen]  # type: ignore[no-any-return]
 
+    # Past the start's grace period, when a report is the device's again
+    # (its end saves the notification baseline, last heard with it).
+    freezer.tick(timedelta(minutes=DEFAULT_STARTUP_GRACE_MINUTES + 1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done(wait_background_tasks=True)
     before = await saved_heard()
-    freezer.tick(timedelta(minutes=2))
+    freezer.tick(timedelta(minutes=1))
     state = hass.states.get("sensor.kitchen_ht_temperature")
     assert state is not None
     hass.states.async_set(state.entity_id, "22.5", state.attributes)

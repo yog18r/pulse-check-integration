@@ -62,6 +62,11 @@ CHARGING_SIGNAL_MEMORY = timedelta(days=HISTORY_LONG_DAYS)
 # Insights live here so a reloaded entry (saved options) starts with the
 # previous ones instead of nothing until its own first history read.
 DATA_INSIGHTS = f"{DOMAIN}_insights"
+# The means the last read fetched, and when, so a reload (saved options)
+# can judge them again under the new settings without reading them again.
+DATA_POINTS = f"{DOMAIN}_points"
+# How long fetched means may be reused: the time between full reads.
+POINTS_REUSABLE_FOR = timedelta(hours=6)
 
 
 type Samples = list[tuple[datetime, float | None]]
@@ -170,14 +175,43 @@ class HistoryTracker:
             points[entity_id] = collapse(samples)
         return points
 
+    async def _fetch(
+        self, sensor_ids: set[str], attribute_ids: set[str], now: datetime
+    ) -> tuple[dict[str, list[DrainPoint]], dict[str, list[DrainPoint]]]:
+        """Daily and hourly means for every battery, from the recorder."""
+        # Statistics for both windows; raw history only for what they lack,
+        # read once and collapsed into both (it is the expensive query).
+        daily = await self._statistics(sensor_ids, HISTORY_LONG_DAYS, "day")
+        hourly = await self._statistics(sensor_ids, HISTORY_FINE_DAYS, "hour")
+        lacking = (sensor_ids - daily.keys()) | (sensor_ids - hourly.keys())
+        raw = await self._raw(lacking, attribute_ids, HISTORY_LONG_DAYS)
+        fine_start = now - timedelta(days=HISTORY_FINE_DAYS)
+        for entity_id, samples in raw.items():
+            daily.setdefault(entity_id, [])
+            hourly.setdefault(entity_id, [])
+            if not daily[entity_id]:
+                daily[entity_id] = daily_means(samples)
+            if not hourly[entity_id]:
+                hourly[entity_id] = hourly_means([s for s in samples if s[0] >= fine_start])
+        # Every battery asked about is in both, empty when it has no history,
+        # so a later reuse can tell it was covered.
+        for entity_id in sensor_ids | attribute_ids:
+            daily.setdefault(entity_id, [])
+            hourly.setdefault(entity_id, [])
+        return daily, hourly
+
     async def async_refresh(
         self,
         devices: Iterable[DeviceHealth],
         store: PulseCheckStore,
         config: CoreConfig,
         only: set[str] | None = None,
+        reuse: bool = False,
     ) -> None:
         """Re-read history for every battery device with a numeric level.
+
+        With `reuse`, means fetched by a read in the last six hours are
+        judged again instead of read again, when they cover every battery.
 
         The store supplies what the history alone cannot: the user's
         charged-or-replaced setting, recorded replacements and charges (cycle
@@ -202,19 +236,22 @@ class HistoryTracker:
                 self.hass.data[DATA_INSIGHTS] = {}
             return
 
-        # Statistics for both windows; raw history only for what they lack,
-        # read once and collapsed into both (it is the expensive query).
-        daily = await self._statistics(sensor_ids, HISTORY_LONG_DAYS, "day")
-        hourly = await self._statistics(sensor_ids, HISTORY_FINE_DAYS, "hour")
-        lacking = (sensor_ids - daily.keys()) | (sensor_ids - hourly.keys())
-        raw = await self._raw(lacking, attribute_ids, HISTORY_LONG_DAYS)
         now = dt_util.utcnow()
-        fine_start = now - timedelta(days=HISTORY_FINE_DAYS)
-        for entity_id, samples in raw.items():
-            if entity_id not in daily:
-                daily[entity_id] = daily_means(samples)
-            if entity_id not in hourly:
-                hourly[entity_id] = hourly_means([s for s in samples if s[0] >= fine_start])
+        cached = self.hass.data.get(DATA_POINTS)
+        if (
+            reuse
+            and cached is not None
+            and now - cached["at"] < POINTS_REUSABLE_FOR
+            and batteries.keys() <= cached["daily"].keys()
+        ):
+            daily, hourly = cached["daily"], cached["hourly"]
+        else:
+            daily, hourly = await self._fetch(sensor_ids, attribute_ids, now)
+            if only is not None and cached is not None:
+                cached["daily"].update(daily)
+                cached["hourly"].update(hourly)
+            else:
+                self.hass.data[DATA_POINTS] = {"at": now, "daily": daily, "hourly": hourly}
 
         insights: dict[str, BatteryInsight] = {}
         for entity_id, device in batteries.items():

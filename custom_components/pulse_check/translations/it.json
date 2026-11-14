@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "Pulse Check controlla la batteria e la connettività di ogni dispositivo usando lo stato che Home Assistant ha già. Non contatta mai i dispositivi stessi. Soglie, filtri e notifiche si possono impostare in seguito con Configura."
+        "description": "Pulse Check controlla la batteria e la connettività di ogni dispositivo usando lo stato che Home Assistant ha già. Contatta un dispositivo solo con un ping prima di segnarlo come silenzioso, e si può disattivare. Soglie, filtri e notifiche si possono impostare in seguito con Configura."
       }
     },
     "abort": {
@@ -31,6 +31,7 @@
               "quiet_threshold_hours": "Silenzioso dopo",
               "quiet_scope": "Quali dispositivi possono risultare silenziosi",
               "ping_quiet": "Fare ping prima di segnare come silenzioso",
+              "charging_quiet_factor": "Tempo di silenzio più lungo in carica",
               "integration_thresholds": "Soglia di silenzio per integrazione"
             },
             "data_description": {
@@ -39,6 +40,7 @@
               "quiet_threshold_hours": "Ore senza alcun aggiornamento prima che un dispositivo sia considerato silenzioso.",
               "quiet_scope": "I dispositivi a batteria si fanno sentire da soli; quelli alimentati da rete di solito diventano non disponibili.",
               "ping_quiet": "Quando scade il tempo di silenzio di un dispositivo, gli si chiede una volta se è ancora lì: un nodo Z-Wave con un ping, qualsiasi altro dispositivo con indirizzo IP locale noto con un ping di rete. Quello che risponde non è silenzioso. La richiesta può scaricare una batteria un po' più in fretta.",
+              "charging_quiet_factor": "Un dispositivo che segnala di essere in carica o sulla base riceve questo multiplo del suo tempo di silenzio abituale, per esempio 2 o 3 per un robot aspirapolvere che sulla base non dice nulla. 1 lo tratta come ogni altro dispositivo.",
               "integration_thresholds": "Le integrazioni i cui dispositivi comunicano meno spesso, come i dispositivi Z-Wave dormienti o le tapparelle, possono avere una soglia più lunga."
             }
           },

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "Pulse Check watches every device's battery and connectivity using the state Home Assistant already has. It never contacts the devices themselves. Thresholds, filters and notifications can be set afterwards with Configure."
+        "description": "Pulse Check watches every device's battery and connectivity using the state Home Assistant already has. The only time it contacts a device is one ping before marking it quiet, which can be turned off. Thresholds, filters and notifications can be set afterwards with Configure."
       }
     },
     "abort": {
@@ -31,6 +31,7 @@
               "quiet_threshold_hours": "Quiet after",
               "quiet_scope": "Which devices can be quiet",
               "ping_quiet": "Ping before marking quiet",
+              "charging_quiet_factor": "Longer quiet time while charging",
               "integration_thresholds": "Quiet threshold per integration"
             },
             "data_description": {
@@ -39,6 +40,7 @@
               "quiet_threshold_hours": "Hours without any report before a device is quiet.",
               "quiet_scope": "Battery devices announce themselves; mains devices usually go unavailable instead.",
               "ping_quiet": "When a device's quiet timer runs out, ask it once whether it is still there: a Z-Wave node with a ping, any other device whose local IP address is known with a network ping. One that answers is not quiet. Asking can run a battery down slightly faster.",
+              "charging_quiet_factor": "A device reporting that it is charging or docked gets this many times its usual quiet time, such as 2 or 3 for a robot vacuum that says nothing on its dock. 1 treats it like any other device.",
               "integration_thresholds": "Integrations whose devices report less often, such as Z-Wave sleepers or blinds, can have a longer threshold."
             }
           },

@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import functools
 import json
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -30,6 +32,33 @@ FIXTURES = Path(__file__).parent / "fixtures"
 @pytest.fixture(autouse=True)
 def _auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
     """Load `custom_components/` in every test."""
+
+
+@pytest.fixture(autouse=True)
+def _no_deprecated_calls(caplog: pytest.LogCaptureFixture) -> Iterator[None]:
+    """Fail a test in which Home Assistant reports Pulse Check using something deprecated.
+
+    Home Assistant logs "Detected that custom integration 'pulse_check'
+    ..." and keeps going, so without this such a call passes every test
+    until the release that removes it.
+    """
+    yield
+    reported = [
+        record.getMessage()
+        for record in caplog.records
+        if "custom integration 'pulse_check'" in record.getMessage()
+    ]
+    assert not reported, reported
+
+
+@pytest.fixture(autouse=True)
+def _no_real_pings() -> Iterator[None]:
+    """A device whose address is known is never really pinged from a test."""
+    with patch(
+        "custom_components.pulse_check.ping.async_ping",
+        AsyncMock(return_value=MagicMock(is_alive=False)),
+    ):
+        yield
 
 
 @pytest.fixture(autouse=True)

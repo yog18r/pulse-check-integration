@@ -1,4 +1,4 @@
-"""Notification and digest text in the user's language.
+"""Notification and digest text in the server's language.
 
 Home Assistant translates an integration's dialogs, entity names and
 services from `translations/<language>.json`, but only the categories it
@@ -11,7 +11,7 @@ So those messages live beside them in `messages/<language>.json`, one flat
 mapping of keys to `str.format` templates per language. They are read once
 at setup (file I/O, so in the executor), and each message is made in
 `hass.config.language` at the moment it is sent, so changing the language
-in the user profile settings takes effect without a restart. A language
+under Settings > System > General takes effect without a restart. A language
 without a catalog falls back to its base language, then to a regional
 variant of it (`pt` to `pt-BR`), then to English; a key missing from a
 catalog falls back to English too.

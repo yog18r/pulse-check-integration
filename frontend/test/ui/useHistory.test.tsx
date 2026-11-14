@@ -6,7 +6,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HassBox, HassLike } from '../../src/core/types';
-import { REFRESH_MS, useHistory, type HistoryRequest } from '../../src/ui/useHistory';
+import { REFRESH_MS, RETRY_MS, useHistory, type HistoryRequest } from '../../src/ui/useHistory';
 import { FIXED_NOW, hass as fixtureHass } from '../fixtures/hass';
 
 interface WsMessage {
@@ -145,6 +145,31 @@ describe('useHistory', () => {
       expect(result.current?.size).toBe(3);
     });
     expect(asked().at(-1)).toEqual(['sensor.b', 'sensor.c']);
+  });
+
+  it('tries a failed fetch again on its own after a while', async () => {
+    vi.useFakeTimers({
+      now: FIXED_NOW,
+      toFake: ['Date', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'],
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { hassBox, asked, fail } = setup();
+    fail(true);
+    const { result } = renderHook(() => useHistory(hassBox, [req('sensor.a')], true));
+    await vi.waitFor(() => {
+      expect(asked()).toHaveLength(1);
+    });
+    expect(result.current).toBeUndefined();
+
+    // Nothing changes on screen; the retry comes by itself.
+    fail(false);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RETRY_MS);
+    });
+    await vi.waitFor(() => {
+      expect(result.current?.size).toBe(1);
+    });
+    expect(asked()).toEqual([['sensor.a'], ['sensor.a']]);
   });
 
   it('asks for nothing while disabled', () => {

@@ -4,6 +4,43 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Changed
+- **Charging devices can be quiet again, with an option to give them
+  longer.** 0.2.17 never marked a device on its charger quiet, so a wall
+  tablet whose companion app stopped while plugged in was never reported.
+  It is now judged like any other device. *Longer quiet time while
+  charging* (off by default, at 1×) multiplies a charging or docked
+  device's own quiet time, such as 2× or 3× for a robot vacuum that says
+  nothing on its dock.
+- **A restart no longer makes a silent device "heard just now".**
+  Integrations write their cached values while Home Assistant starts,
+  stamped as new. For a device Pulse Check remembers, those no longer
+  count until its grace period is over, so its quiet timer is not reset.
+  Zigbee2MQTT's `last_seen`, when turned on, now decides on its own.
+
+### Fixed
+- iPhones and iPads are recognised as charging: the iOS companion app
+  writes `Charging` and `Full` with capitals.
+- A digest that no target accepts is tried again every 15 minutes, four
+  times in all, instead of being lost.
+- The ping looks for a device's address in a safer order, and never takes
+  a gateway, DNS or WAN address sensor for the device's own (the router
+  would always answer). Saving the options no longer pings every quiet
+  device again, and a system that does not allow pings says so once in
+  the log.
+- The ping no longer uses a device property Home Assistant has deprecated,
+  which logged a warning and would stop working in 2027.10.
+- A quiet time over a year set through `set_device_settings` could stop
+  every refresh; it is now refused, as is a snooze over 10 years. A
+  damaged record deeper in the saved file is left out like the rest.
+- An entity with no device gets its transitions on its own logbook.
+- Saving the options judges the last six hours' battery history again
+  instead of reading it from the recorder once more.
+- The card loads sparklines in batches the integration accepts, and tries
+  a failed load again after two minutes.
+
 ## 0.2.18 - 2026-11-14
 
 ### Fixed

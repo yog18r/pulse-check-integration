@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "O Pulse Check acompanha a bateria e a conectividade de todos os dispositivos usando o estado que o Home Assistant já tem. Ele nunca contata os próprios dispositivos. Limites, filtros e notificações podem ser definidos depois em Configurar."
+        "description": "O Pulse Check acompanha a bateria e a conectividade de todos os dispositivos usando o estado que o Home Assistant já tem. Ele só contata um dispositivo com um ping antes de marcá-lo como inativo, o que pode ser desativado. Limites, filtros e notificações podem ser definidos depois em Configurar."
       }
     },
     "abort": {
@@ -31,6 +31,7 @@
               "quiet_threshold_hours": "Inativo após",
               "quiet_scope": "Quais dispositivos podem ficar inativos",
               "ping_quiet": "Fazer ping antes de marcar como inativo",
+              "charging_quiet_factor": "Tempo de silêncio maior durante a carga",
               "integration_thresholds": "Limite de inatividade por integração"
             },
             "data_description": {
@@ -39,6 +40,7 @@
               "quiet_threshold_hours": "Horas sem nenhum relatório até um dispositivo ser considerado inativo.",
               "quiet_scope": "Dispositivos a bateria se reportam sozinhos; dispositivos na tomada normalmente ficam indisponíveis.",
               "ping_quiet": "Quando o tempo de silêncio de um dispositivo acaba, pergunta uma vez se ele ainda está lá: um nó Z-Wave com um ping, qualquer outro dispositivo com IP local conhecido com um ping de rede. O que responder não fica inativo. Perguntar pode gastar a bateria um pouco mais rápido.",
+              "charging_quiet_factor": "Um dispositivo que informa estar carregando ou na base recebe este múltiplo do seu tempo de silêncio habitual, por exemplo 2 ou 3 para um robô aspirador que não diz nada na base. 1 o trata como qualquer outro dispositivo.",
               "integration_thresholds": "Integrações cujos dispositivos reportam com menos frequência, como dispositivos Z-Wave que dormem ou persianas, podem ter um limite maior."
             }
           },

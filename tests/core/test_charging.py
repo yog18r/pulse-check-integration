@@ -48,6 +48,18 @@ def _state(entity_id: str, state: str, **attributes: Any) -> EntityState:
             _state("sensor.phone_battery_state", "charging"), True, id="battery state charging"
         ),
         pytest.param(_state("sensor.phone_battery_state", "full"), True, id="battery state full"),
+        # The iOS companion app writes these capitalised.
+        pytest.param(
+            _state("sensor.iphone_battery_state", "Charging"), True, id="iOS battery state Charging"
+        ),
+        pytest.param(
+            _state("sensor.iphone_battery_state", "Full"), True, id="iOS battery state Full"
+        ),
+        pytest.param(
+            _state("sensor.iphone_battery_state", "Not Charging"),
+            False,
+            id="iOS battery state Not Charging",
+        ),
         pytest.param(
             _state("sensor.phone_battery_state", "discharging"),
             False,
@@ -160,21 +172,35 @@ def _vacuum(state: str) -> Snapshot:
     return snapshot
 
 
-@pytest.mark.parametrize(("state", "quiet"), [("docked", False), ("idle", True)])
-def test_a_device_on_its_charger_is_never_quiet(state: str, quiet: bool) -> None:
+@pytest.mark.parametrize(
+    ("state", "factor", "quiet", "hours"),
+    [
+        # By default a device on its charger is judged like any other.
+        ("docked", 1, True, 24),
+        # The options can give it longer: 48 h silent is within 3 x 24 h.
+        ("docked", 3, False, 72),
+        ("docked", 2, False, 48),
+        # Off its dock, the usual time applies whatever the setting.
+        ("idle", 3, True, 24),
+    ],
+)
+def test_a_device_on_its_charger_can_be_given_longer(
+    state: str, factor: float, quiet: bool, hours: float
+) -> None:
     """Reporting only on change, a docked vacuum at full charge has nothing to say."""
-    [device] = analyse_devices(_vacuum(state), CoreConfig(), NOW)
-    assert device.is_quiet is quiet
+    config = CoreConfig.from_dict({"charging_quiet_factor": factor})
+    [device] = analyse_devices(_vacuum(state), config, NOW)
+    assert (device.is_quiet, device.quiet_threshold_hours) == (quiet, hours)
 
 
-def test_a_phone_left_on_its_charger_is_not_quiet() -> None:
-    snapshot = _phone("on")
-    for state in snapshot["states"].values():
-        state["last_reported"] = state["last_updated"] = "2026-11-08T12:00:00+00:00"
-    [device] = analyse_devices(snapshot, CoreConfig(), NOW)
-    assert not device.is_quiet
-    snapshot = _phone("off")
-    for state in snapshot["states"].values():
-        state["last_reported"] = state["last_updated"] = "2026-11-08T12:00:00+00:00"
-    [device] = analyse_devices(snapshot, CoreConfig(), NOW)
-    assert device.is_quiet
+def test_the_longer_time_multiplies_the_devices_own() -> None:
+    """A per-device or per-integration threshold is kept, and multiplied."""
+    config = CoreConfig.from_dict(
+        {"charging_quiet_factor": 2, "integration_thresholds": {"ecovacs": 30}}
+    )
+    [device] = analyse_devices(_vacuum("docked"), config, NOW)
+    assert (device.is_quiet, device.quiet_threshold_hours) == (False, 60)
+
+
+def test_a_factor_below_one_is_one() -> None:
+    assert CoreConfig.from_dict({"charging_quiet_factor": 0.5}).charging_quiet_factor == 1

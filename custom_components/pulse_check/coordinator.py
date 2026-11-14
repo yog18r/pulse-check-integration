@@ -84,6 +84,7 @@ from .core.models import (
     Snapshot,
 )
 from .history import HistoryTracker
+from .notify import DATA_RUNTIME
 from .options import core_config_from_options
 from .ping import async_ping_device
 from .replacements import ReplacementTracker
@@ -111,6 +112,8 @@ _VALUE_DEVICE_CLASSES = frozenset({"battery", "battery_charging"})
 
 # Quiet devices asked at the same time, at most.
 MAX_CONCURRENT_PINGS = 10
+# The quiet devices already asked, kept across reloads (see `_asked`).
+DATA_ASKED = f"{DOMAIN}_asked"
 
 # Registry changes (a renamed device, a new area) also change the result.
 _REGISTRY_EVENTS = (
@@ -175,8 +178,9 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         # after a catch-up would otherwise drop what the catch-up found.
         self._history_lock = asyncio.Lock()
         # Quiet devices already asked whether they are there, and silent.
-        # Each is asked once when its timer runs out, not on every run.
-        self._asked: set[str] = set()
+        # Each is asked once when its timer runs out, not on every run, and
+        # not again because the options were saved: the set outlives a reload.
+        self._asked: set[str] = hass.data.setdefault(DATA_ASKED, set())
 
     @callback
     def rebuild_config(self) -> None:
@@ -246,15 +250,19 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             self.hass, self.async_refresh_history(), "pulse_check history"
         )
 
-    async def async_refresh_history(self) -> None:
+    async def async_refresh_history(self, reuse: bool = False) -> None:
         """Re-read battery history from the recorder, then recompute.
 
         Recorder trouble must never take the sensors down, so failures are
-        logged and the previous estimates (if any) are kept.
+        logged and the previous estimates (if any) are kept. With `reuse`
+        (after saving options), means read in the last six hours are judged
+        again under the new settings rather than read again.
         """
         try:
             async with self._history_lock:
-                await self.history.async_refresh(self.data.devices, self.store, self.core_config)
+                await self.history.async_refresh(
+                    self.data.devices, self.store, self.core_config, reuse=reuse
+                )
         except Exception:
             _LOGGER.warning("Reading battery history from the recorder failed", exc_info=True)
             return
@@ -338,14 +346,19 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         config = self.core_config
         snoozes = self.store.snoozes(now)
         heard = self.store.last_heard()
+        # While Home Assistant starts, and for its grace period after, what
+        # integrations write is mostly their cached values (see `analyse`).
+        replayed_until: datetime | None = (
+            self.hass.data.get(DATA_RUNTIME, {}).get("ready_at") if self.hass.is_running else now
+        )
         devices = await self.hass.async_add_executor_job(
-            _analyse, snapshot, config, now, snoozes, heard
+            _analyse, snapshot, config, now, snoozes, heard, replayed_until
         )
         answered = await self._ask_quiet_devices(devices)
         if answered:
             heard = {**heard, **dict.fromkeys(answered, now)}
             devices = await self.hass.async_add_executor_job(
-                _analyse, snapshot, config, now, snoozes, heard
+                _analyse, snapshot, config, now, snoozes, heard, replayed_until
             )
         self.store.note_heard(((d.device_id, d.last_heard) for d in devices), now)
         self._watched = {entity_id for device in devices for entity_id in device.entity_ids}
@@ -537,8 +550,17 @@ def _analyse(
     now: datetime,
     snoozes: dict[str, datetime],
     heard: dict[str, datetime],
+    replayed_until: datetime | None,
 ) -> list[DeviceHealth]:
-    return analyse_devices(snapshot, config, now, enhancers=ENHANCERS, snoozes=snoozes, heard=heard)
+    return analyse_devices(
+        snapshot,
+        config,
+        now,
+        enhancers=ENHANCERS,
+        snoozes=snoozes,
+        heard=heard,
+        replayed_until=replayed_until,
+    )
 
 
 @callback

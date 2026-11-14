@@ -23,10 +23,16 @@ src/
 │   ├── thresholds.ts       battery / connectivity severity for row colours
 │   ├── summarise.ts        headline and breakdown text
 │   ├── registryOptions.ts  integration list for the editor's filters
+│   ├── filters.ts          the card's own view filters (areas, integrations, device types)
+│   ├── deviceType.ts       device type labels for grouping and filters
+│   ├── actions.ts          the action list and shopping summary as sent
+│   ├── drain.ts            history points and the "~12d" formatter
+│   ├── time.ts             "5m ago", "24h" and clock times
 │   └── batteryTypes.ts     battery type labels (a few are translated)
 ├── card/
 │   ├── config.ts           the presentation options, validated
 │   ├── snapshot.ts         subscription, history and service calls
+│   ├── navigation.ts       opening a device page or more-info dialog in HA
 │   ├── PulseCheckCardElement.ts   the custom element HA talks to
 │   └── PulseCheckCardEditor.ts    the visual editor element
 ├── i18n/
@@ -56,6 +62,6 @@ npm run check    # typecheck, lint, format check, tests, build
 npm run build    # just the bundle, into the integration folder
 ```
 
-Component tests (Testing Library) render the real React tree against a canned snapshot (`test/fixtures/snapshot.json`, 15 devices from the integration's test fixture) and check what a user sees and what the clicks send. The detection rules themselves are tested on the Python side against a frozen golden file (`tests/fixtures/golden.json`).
+Component tests (Testing Library) render the real React tree against a canned snapshot (`test/fixtures/snapshot.json`, 16 devices from the integration's test fixture) and check what a user sees and what the clicks send. The detection rules themselves are tested on the Python side against a frozen golden file (`tests/fixtures/golden.json`); the card's own counts and battery colours are checked against the same file in `test/core/golden.test.ts`.
 
 To try a build on a live instance, see Development in the [main README](../README.md#development).

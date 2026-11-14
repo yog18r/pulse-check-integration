@@ -6,7 +6,7 @@
  * registers two websocket commands:
  *
  *   pulse_check/subscribe   streams a full `Snapshot` now and after every
- *                           recompute (about 2 s after a relevant change,
+ *                           recompute (about 10 s after a relevant change,
  *                           and at least every 5 minutes)
  *   pulse_check/history     sparkline points for one battery over N days
  *   pulse_check/histories   the same for many batteries in one request
@@ -506,22 +506,29 @@ export async function loadHistory(
  * integration asks the recorder once per window length rather than once per
  * battery. Batteries it does not know come back with an error and are left out.
  */
+/** The most requests the integration takes in one `pulse_check/histories` call. */
+export const HISTORIES_BATCH = 500;
+
 export async function loadHistories(
   hass: HassLike,
   requests: readonly HistoryRequest[],
 ): Promise<Map<string, BatteryHistory>> {
   const found = new Map<string, BatteryHistory>();
   if (!hass.callWS || requests.length === 0) return found;
-  const raw = await hass.callWS<unknown>({
-    type: 'pulse_check/histories',
-    requests: requests.map((r) => ({ entity_id: r.entityId, days: r.days })),
-  });
-  if (!isRecord(raw) || !Array.isArray(raw.results)) return found;
-  for (const item of raw.results as unknown[]) {
-    if (!isRecord(item) || item.error !== undefined) continue;
-    const entityId = str(item.entity_id);
-    const history = parseHistory(item, num(item.days) ?? 14);
-    if (entityId !== undefined && history) found.set(entityId, history);
+  // A larger call would be refused whole, so it goes in batches.
+  for (let start = 0; start < requests.length; start += HISTORIES_BATCH) {
+    const batch = requests.slice(start, start + HISTORIES_BATCH);
+    const raw = await hass.callWS<unknown>({
+      type: 'pulse_check/histories',
+      requests: batch.map((r) => ({ entity_id: r.entityId, days: r.days })),
+    });
+    if (!isRecord(raw) || !Array.isArray(raw.results)) continue;
+    for (const item of raw.results as unknown[]) {
+      if (!isRecord(item) || item.error !== undefined) continue;
+      const entityId = str(item.entity_id);
+      const history = parseHistory(item, num(item.days) ?? 14);
+      if (entityId !== undefined && history) found.set(entityId, history);
+    }
   }
   return found;
 }

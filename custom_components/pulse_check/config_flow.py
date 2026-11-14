@@ -56,6 +56,7 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_BATTERY_CRITICAL,
     CONF_BATTERY_WARNING,
+    CONF_CHARGING_QUIET_FACTOR,
     CONF_CLEAR_RESOLVED,
     CONF_CONFIRM_MINUTES,
     CONF_DIGEST_TIME,
@@ -87,6 +88,7 @@ from .const import (
     DATA_COORDINATOR,
     DEFAULT_BATTERY_CRITICAL,
     DEFAULT_BATTERY_WARNING,
+    DEFAULT_CHARGING_QUIET_FACTOR,
     DEFAULT_CLEAR_RESOLVED,
     DEFAULT_CONFIRM_MINUTES,
     DEFAULT_DIGEST_TIME,
@@ -104,7 +106,9 @@ from .const import (
     DEFAULT_STARTUP_GRACE_MINUTES,
     DEFAULT_WATCH_NON_DEVICES,
     DOMAIN,
+    MAX_CHARGING_QUIET_FACTOR,
     MAX_MAINTENANCE_HOURS,
+    MAX_QUIET_HOURS,
     NOTIFY_POLICIES,
     QUIET_SCOPES,
     WEEKDAYS,
@@ -136,6 +140,7 @@ THRESHOLD_KEYS = (
     CONF_QUIET_THRESHOLD_HOURS,
     CONF_QUIET_SCOPE,
     CONF_PING_QUIET,
+    CONF_CHARGING_QUIET_FACTOR,
     CONF_INTEGRATION_THRESHOLDS,
 )
 FILTER_KEYS = (
@@ -170,8 +175,6 @@ SECTIONS = {
     SECTION_NOTIFICATIONS: NOTIFICATION_KEYS,
     SECTION_ENTITIES: ENTITY_KEYS,
 }
-
-MAX_QUIET_HOURS = 24 * 365
 
 
 class PulseCheckConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -274,6 +277,17 @@ def _options_schema(platforms: list[str], notify_targets: list[str]) -> probatio
                 )
             ),
             probatio.Required(CONF_PING_QUIET, default=DEFAULT_PING_QUIET): BooleanSelector(),
+            probatio.Required(
+                CONF_CHARGING_QUIET_FACTOR, default=DEFAULT_CHARGING_QUIET_FACTOR
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=1,
+                    max=MAX_CHARGING_QUIET_FACTOR,
+                    step=0.5,
+                    unit_of_measurement="×",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
             probatio.Optional(CONF_INTEGRATION_THRESHOLDS): ObjectSelector(
                 ObjectSelectorConfig(
                     multiple=True,

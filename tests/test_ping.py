@@ -10,8 +10,10 @@ import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from icmplib import SocketPermissionError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.pulse_check import ping
 from custom_components.pulse_check.const import CONF_PING_QUIET
 from custom_components.pulse_check.coordinator import MAX_CONCURRENT_PINGS, PulseCheckCoordinator
 from custom_components.pulse_check.ping import async_ping_device, device_address
@@ -280,3 +282,54 @@ async def test_only_a_few_devices_are_asked_at_once(
         await _later(hass, coordinator, freezer, 25)
     assert asked == MAX_CONCURRENT_PINGS + 5
     assert most == MAX_CONCURRENT_PINGS
+
+
+async def test_the_entry_address_comes_before_an_entitys(hass: HomeAssistant) -> None:
+    device = _device(hass, _owner(hass, "shelly", host="192.168.1.60"), "plant")
+    er.async_get(hass).async_get_or_create(
+        "sensor", "shelly", "plant_ip", suggested_object_id="plant_ip", device_id=device.id
+    )
+    hass.states.async_set("sensor.plant_ip", "10.0.0.7")
+    assert device_address(hass, device) == "192.168.1.60"
+
+
+@pytest.mark.parametrize(
+    "object_id", ["plant_gateway_ip", "plant_dns_ip_address", "plant_wan_ip", "plant_status"]
+)
+async def test_another_hosts_address_is_not_the_devices(
+    hass: HomeAssistant, object_id: str
+) -> None:
+    """Pinging the router would always get an answer."""
+    device = _device(hass, _owner(hass, "esphome"), "plant")
+    er.async_get(hass).async_get_or_create(
+        "sensor", "esphome", object_id, suggested_object_id=object_id, device_id=device.id
+    )
+    hass.states.async_set(f"sensor.{object_id}", "192.168.1.1")
+    assert device_address(hass, device) is None
+
+
+async def test_a_system_that_forbids_pings_says_so_once(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ping, "_warned_no_icmp", False)
+    with patch(
+        "custom_components.pulse_check.ping.async_ping",
+        AsyncMock(side_effect=SocketPermissionError(False)),
+    ):
+        assert not await ping._ping_address("192.168.1.50")
+        assert not await ping._ping_address("192.168.1.51")
+    assert caplog.text.count("does not allow network pings") == 1
+
+
+async def test_a_reload_does_not_ask_again(
+    hass: HomeAssistant, config_entry: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    """Saving the options reloads Pulse Check; the quiet devices were asked already."""
+    coordinator, _device_entry = await _set_up(hass, config_entry)
+    with patch(PING_ADDRESS, AsyncMock(return_value=False)) as asked:
+        await _later(hass, coordinator, freezer, 25)
+        assert asked.await_count == 1
+        assert await hass.config_entries.async_reload(config_entry.entry_id)
+        await hass.async_block_till_done()
+        await _later(hass, config_entry.runtime_data, freezer, 0.1)
+    assert asked.await_count == 1

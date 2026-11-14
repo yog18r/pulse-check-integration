@@ -22,8 +22,8 @@ updates:
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
 
-  # Python development tools: Home Assistant's test package, ruff and mypy.
-  # The integration itself has no Python dependencies.
+  # Python development tools: Home Assistant's test package, ruff and mypy,
+  # and icmplib, the integration's one requirement (manifest.json).
   - package-ecosystem: pip
     directory: /
     schedule:

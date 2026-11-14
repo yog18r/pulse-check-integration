@@ -24,6 +24,8 @@ from .const import (
     DEFAULT_MAINTENANCE_HOURS,
     DOMAIN,
     MAX_MAINTENANCE_HOURS,
+    MAX_QUIET_HOURS,
+    MAX_SNOOZE_DAYS,
     NOTIFY_POLICIES,
 )
 from .core.group import ORPHAN_PREFIX
@@ -75,7 +77,7 @@ SNOOZE_SCHEMA = probatio.Schema(
     {
         **DEVICE_SCHEMA,
         probatio.Optional(ATTR_DAYS): probatio.All(
-            probatio.Coerce(float), probatio.Range(min=0.01)
+            probatio.Coerce(float), probatio.Range(min=0.01, max=MAX_SNOOZE_DAYS)
         ),
         probatio.Optional(ATTR_UNTIL): cv.datetime,
     }
@@ -87,7 +89,9 @@ SET_DEVICE_SETTINGS_SCHEMA = probatio.Schema(
         probatio.Optional("name"): _text_or_clear,
         probatio.Optional("area"): _text_or_clear,
         probatio.Optional("quiet_threshold_hours"): probatio.Any(
-            None, "", probatio.All(probatio.Coerce(float), probatio.Range(min=0.01))
+            None,
+            "",
+            probatio.All(probatio.Coerce(float), probatio.Range(min=0.01, max=MAX_QUIET_HOURS)),
         ),
         probatio.Optional("battery_type"): _text_or_clear,
         probatio.Optional("battery_count"): probatio.Any(
@@ -106,7 +110,9 @@ SET_DEVICE_SETTINGS_SCHEMA = probatio.Schema(
         ),
     }
 )
-MARK_SCHEMA = probatio.Schema({**DEVICE_SCHEMA, probatio.Optional(ATTR_BATTERY_TYPE): cv.string})
+MARK_SCHEMA = probatio.Schema(
+    {**DEVICE_SCHEMA, probatio.Optional(ATTR_BATTERY_TYPE): _text_or_clear}
+)
 REFRESH_SCHEMA = probatio.Schema({})
 DEVICE_ONLY_SCHEMA = probatio.Schema(DEVICE_SCHEMA)
 MAINTENANCE_SCHEMA = probatio.Schema(
@@ -195,7 +201,7 @@ async def _mark_replaced(call: ServiceCall) -> None:
     coordinator = _coordinator(call.hass)
     device_id = resolve_device_id(coordinator, call.data[ATTR_DEVICE_ID])
     coordinator.replacements.record(
-        device_id, "replaced", dt_util.utcnow(), call.data.get(ATTR_BATTERY_TYPE)
+        device_id, "replaced", dt_util.utcnow(), call.data.get(ATTR_BATTERY_TYPE) or None
     )
     await coordinator.async_refresh()
 

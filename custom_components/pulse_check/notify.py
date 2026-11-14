@@ -5,7 +5,7 @@ when it *enters* a state (goes offline, goes quiet, drops to warning or
 critical), never on every recompute. Which states each device is in is
 remembered in the store, so a restart does not re-notify either.
 
-Two guards keep restarts and hiccups quiet:
+Four guards keep restarts and hiccups quiet:
 
 - Nothing is evaluated until Home Assistant has finished starting plus a
   grace period (integrations load one after another, and most entities
@@ -118,6 +118,7 @@ from .const import (
     INTEGRATION_LIMIT_WINDOW,
     WEEKDAYS,
 )
+from .core.group import ORPHAN_PREFIX
 from .core.models import as_utc, to_iso
 from .core.settings import is_charged
 from .core.thresholds import battery_severity
@@ -214,16 +215,19 @@ def log_transition(hass: HomeAssistant, device_id: str, name: str, message: str)
     and its own, so this line shows there whichever integration owns the
     device. The logbook shows the name beside the message, so the message
     leaves it out ("Weather" "offline", not "Weather" "Weather: offline").
+    An entity with no device (`entity:<entity id>`) gets the line on its
+    own logbook instead, by its entity id.
     """
-    hass.bus.async_fire(
-        EVENT_LOGBOOK_ENTRY,
-        {
-            "name": name,
-            "message": without_name(name, message),
-            "domain": DOMAIN,
-            "device_id": device_id,
-        },
-    )
+    data: dict[str, str] = {
+        "name": name,
+        "message": without_name(name, message),
+        "domain": DOMAIN,
+    }
+    if device_id.startswith(ORPHAN_PREFIX):
+        data["entity_id"] = device_id.removeprefix(ORPHAN_PREFIX)
+    else:
+        data["device_id"] = device_id
+    hass.bus.async_fire(EVENT_LOGBOOK_ENTRY, data)
 
 
 def _hours_since(moment: datetime | None, now: datetime) -> int:
@@ -322,6 +326,8 @@ class Notifier:
         # One evaluation or digest at a time: each awaits slow notify calls
         # while it changes the stored records.
         self._lock = asyncio.Lock()
+        # Failed attempts at each kind of digest, until one gets through.
+        self._digest_attempts: dict[str, int] = {}
         # When evaluation may begin: Home Assistant started + the grace period.
         self.ready_at: datetime | None = None
         # When a device not yet seen working counts as offline after all.
@@ -1012,7 +1018,10 @@ class Notifier:
         """One message listing every confirmed, unresolved issue on that policy.
 
         The slot counts as judged whether or not there was anything to say,
-        so catching up after a restart never repeats it.
+        so catching up after a restart never repeats it. A digest that no
+        target accepts is tried again after `SEND_RETRY`, `SEND_ATTEMPTS`
+        times in all, and its slot counts as judged only then; a restart in
+        between sends it when the grace period ends, as a missed slot.
         """
         if not self._is_ready():
             return
@@ -1033,9 +1042,31 @@ class Notifier:
             body = (
                 "\n".join(f"- {line}" for line in lines) if lines else self.text("digest_all_clear")
             )
-            await self._send(f"{heading}\n{body}")
+            if not await self._send(f"{heading}\n{body}"):
+                attempts = self._digest_attempts.get(kind, 0) + 1
+                if attempts < SEND_ATTEMPTS:
+                    self._digest_attempts[kind] = attempts
+
+                    @callback
+                    def _retry(_now: datetime) -> None:
+                        self._handle_digest_retry(kind)
+
+                    self.entry.async_on_unload(async_call_later(self.hass, SEND_RETRY, _retry))
+                    return
+                _LOGGER.warning("Giving up on the %s digest after %d attempts", kind, attempts)
+        self._digest_attempts.pop(kind, None)
         self.store.digests[kind] = to_iso(now)
         self.store.async_save()
+
+    @callback
+    def _handle_digest_retry(self, kind: DigestKind) -> None:
+        self.entry.async_create_task(
+            self.hass, self._retry_digest(kind), f"pulse_check {kind} digest retry"
+        )
+
+    async def _retry_digest(self, kind: DigestKind) -> None:
+        async with self._lock:
+            await self.async_send_digest(kind, dt_util.utcnow())
 
     # -- sending -------------------------------------------------------------
 

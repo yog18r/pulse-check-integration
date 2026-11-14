@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Pulse Check",
-        "description": "Pulse Check surveille la batterie et la connectivité de chaque appareil à partir de l'état dont Home Assistant dispose déjà. Il ne contacte jamais les appareils eux-mêmes. Les seuils, filtres et notifications se règlent ensuite avec Configurer."
+        "description": "Pulse Check surveille la batterie et la connectivité de chaque appareil à partir de l'état dont Home Assistant dispose déjà. Il ne contacte un appareil qu'une fois, par un ping avant de le marquer silencieux, ce qui peut être désactivé. Les seuils, filtres et notifications se règlent ensuite avec Configurer."
       }
     },
     "abort": {
@@ -31,6 +31,7 @@
               "quiet_threshold_hours": "Silencieux après",
               "quiet_scope": "Appareils pouvant être silencieux",
               "ping_quiet": "Pinger avant de marquer silencieux",
+              "charging_quiet_factor": "Délai de silence plus long en charge",
               "integration_thresholds": "Seuil de silence par intégration"
             },
             "data_description": {
@@ -39,6 +40,7 @@
               "quiet_threshold_hours": "Heures sans aucun rapport avant qu'un appareil soit considéré comme silencieux.",
               "quiet_scope": "Les appareils sur batterie se signalent d'eux-mêmes ; les appareils sur secteur deviennent plutôt indisponibles.",
               "ping_quiet": "Quand le délai de silence d'un appareil expire, lui demander une fois s'il est toujours là : un nœud Z-Wave par un ping, tout autre appareil dont l'adresse IP locale est connue par un ping réseau. Un appareil qui répond n'est pas silencieux. La demande peut vider une batterie un peu plus vite.",
+              "charging_quiet_factor": "Un appareil qui signale être en charge ou sur sa base reçoit ce multiple de son délai de silence habituel, par exemple 2 ou 3 pour un robot aspirateur muet sur sa base. 1 le traite comme tout autre appareil.",
               "integration_thresholds": "Les intégrations dont les appareils se signalent moins souvent, comme les appareils Z-Wave en veille ou les stores, peuvent avoir un seuil plus long."
             }
           },

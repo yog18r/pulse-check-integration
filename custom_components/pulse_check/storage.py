@@ -11,6 +11,10 @@ delayed by a couple of seconds so a burst of changes costs one save.
 Nothing in it grows without end: each device keeps its most recent
 replacements and cycles only, and what was kept for a device or entity
 that has left Home Assistant is dropped a week after it went (`prune`).
+
+What is loaded is checked first (`normalise`): a record that cannot be
+read is left out with a warning, so a damaged file never stops the
+integration starting.
 """
 
 from __future__ import annotations
@@ -21,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN
+from .const import DOMAIN, MAX_QUIET_HOURS
 from .core.models import as_utc, to_iso
 
 if TYPE_CHECKING:
@@ -130,6 +134,35 @@ def _usable_history(entry: object) -> dict[str, Any] | None:
     }
 
 
+def _usable_levels(record: dict[str, Any]) -> bool:
+    """A device's observed battery record, with readable times where it has them."""
+    for key in ("charging_seen_at", "sudden_drop_at"):
+        if record.get(key) is not None and not _is_timestamp(record[key]):
+            return False
+    jump = record.get("jump")
+    return jump is None or (
+        isinstance(jump, dict)
+        and _is_timestamp(jump.get("at"))
+        and isinstance(jump.get("from"), int | float)
+    )
+
+
+def _usable_notify(record: object) -> bool:
+    """One issue's notification state, with readable times."""
+    if not isinstance(record, dict) or not _is_timestamp(record.get("since")):
+        return False
+    for key in ("notified_at", "retry_at"):
+        if record.get(key) is not None and not _is_timestamp(record[key]):
+            return False
+    held = record.get("held")
+    return held is None or (
+        isinstance(held, dict)
+        and _is_timestamp(held.get("at"))
+        and isinstance(held.get("integration"), str)
+        and (held.get("retry_at") is None or _is_timestamp(held["retry_at"]))
+    )
+
+
 def normalise(loaded: Mapping[str, Any]) -> dict[str, Any]:
     """The stored data with anything unreadable left out, record by record.
 
@@ -154,6 +187,21 @@ def normalise(loaded: Mapping[str, Any]) -> dict[str, Any]:
         good = {k: v for k, v in data[section].items() if isinstance(v, dict)}
         dropped += len(data[section]) - len(good)
         data[section] = good
+    # Levels are derived again from the next readings, so a bad one goes whole.
+    good = {k: v for k, v in data["levels"].items() if _usable_levels(v)}
+    dropped += len(data["levels"]) - len(good)
+    data["levels"] = good
+    for device_id, issues in list(data["notify"].items()):
+        good = {k: v for k, v in issues.items() if _usable_notify(v)}
+        dropped += len(issues) - len(good)
+        data["notify"][device_id] = good
+    for settings in data["device_settings"].values():
+        hours = settings.get("quiet_threshold_hours")
+        if hours is not None and not (
+            isinstance(hours, int | float) and 0 < hours <= MAX_QUIET_HOURS
+        ):
+            del settings["quiet_threshold_hours"]
+            dropped += 1
     history: dict[str, Any] = {}
     for device_id, entry in data["history"].items():
         usable = _usable_history(entry)
@@ -163,7 +211,10 @@ def normalise(loaded: Mapping[str, Any]) -> dict[str, Any]:
             history[device_id] = usable
     data["history"] = history
     # A maintenance window that does not say when it ends is no window.
-    if data["maintenance"] and not _is_timestamp(data["maintenance"].get("until")):
+    window = data["maintenance"]
+    if window and not (
+        _is_timestamp(window.get("until")) and _is_timestamp(window.get("started_at"))
+    ):
         data["maintenance"] = {}
         dropped += 1
     # Sections from a newer version are kept for it.

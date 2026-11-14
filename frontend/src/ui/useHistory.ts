@@ -22,6 +22,8 @@ import type { HassBox } from '../core/types';
 export type HistoryMap = ReadonlyMap<string, BatteryHistory>;
 
 export const REFRESH_MS = 6 * 60 * 60 * 1000;
+/** After a failed fetch (Home Assistant restarting, say), try again this soon. */
+export const RETRY_MS = 2 * 60 * 1000;
 
 export type { HistoryRequest };
 
@@ -42,6 +44,10 @@ export function useHistory(
   });
   // Requests fetched or in flight, so a battery is not asked for twice.
   const fetched = useRef(new Set<string>());
+  // The retry waiting after a failed fetch, if any, and a count that
+  // moves when one is due, so the effect for missing batteries runs again.
+  const retry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [retries, setRetries] = useState(0);
 
   // Stable key: the entity ids and their windows decide *when* to look for new ones.
   const key = requests.map(requestKey).sort().join('|');
@@ -66,13 +72,26 @@ export function useHistory(
           setHistories((previous) => new Map([...(previous ?? []), ...found]));
         },
         (err: unknown) => {
-          // Keep what is on screen; forget these so a later change retries them.
+          // Keep what is on screen; forget these and try what is still
+          // missing again shortly, rather than at the next refresh.
           console.warn('Pulse Check: could not load battery history', err);
           for (const k of keys) fetched.current.delete(k);
+          retry.current ??= setTimeout(() => {
+            retry.current = undefined;
+            setRetries((n) => n + 1);
+          }, RETRY_MS);
         },
       );
     },
     [hassBox],
+  );
+
+  // No retry outlives the card.
+  useEffect(
+    () => () => {
+      clearTimeout(retry.current);
+    },
+    [],
   );
 
   // Every sparkline on screen, now and every few hours (batteries drain).
@@ -89,11 +108,12 @@ export function useHistory(
     };
   }, [canFetch, load]);
 
-  // Between refreshes, only the batteries that are not loaded yet.
+  // Between refreshes, only the batteries that are not loaded yet: those
+  // that appeared, and after a failed fetch, those it was for.
   useEffect(() => {
     if (!canFetch) return;
     load(latest.current.filter((r) => !fetched.current.has(requestKey(r))));
-  }, [key, canFetch, load]);
+  }, [key, canFetch, load, retries]);
 
   return histories;
 }

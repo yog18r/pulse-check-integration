@@ -153,7 +153,8 @@ def detect_charging(states: Sequence[EntityState]) -> bool:
     Integrations spell this many ways; these cover the common ones:
 
     - binary_sensor with device_class battery_charging (the HA standard)
-    - a "battery state" sensor reading charging/full (companion app)
+    - a "battery state" sensor reading charging/full (companion app; the
+      iOS app writes "Charging" and "Full", so case is ignored)
     - a vacuum that is docked
     - boolean attributes: is_charging, charging, battery_charging
     - a battery_state attribute reading charging
@@ -168,13 +169,13 @@ def detect_charging(states: Sequence[EntityState]) -> bool:
             if value == "on":
                 return True
             continue
-        if domain == "sensor" and "battery" in entity_id and value in _CHARGING_STATES:
+        if domain == "sensor" and "battery" in entity_id and value.lower() in _CHARGING_STATES:
             return True
         if domain == "vacuum" and value == "docked":
             return True
         if any(attributes.get(key) is True for key in _CHARGING_ATTRIBUTES):
             return True
         battery_state = attributes.get("battery_state")
-        if isinstance(battery_state, str) and battery_state in _CHARGING_STATES:
+        if isinstance(battery_state, str) and battery_state.lower() in _CHARGING_STATES:
             return True
     return False
