@@ -15,6 +15,12 @@ updates:
     groups:
       card-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 (the native compiler) is not supported by typescript-eslint
+      # yet: 8.x requires typescript <6.1, so npm ci fails. Remove this once a
+      # typescript-eslint release lists typescript 7 in its peer dependencies.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   # Python development tools: Home Assistant's test package, ruff and mypy.
   # The integration itself has no Python dependencies.
