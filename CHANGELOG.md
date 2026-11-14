@@ -4,7 +4,7 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
-## Unreleased
+## 0.2.19 - 2026-11-14
 
 ### Changed
 - **Charging devices can be quiet again, with an option to give them
