@@ -4,7 +4,7 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
-## Unreleased
+## 0.2.18 - 2026-11-14
 
 ### Fixed
 - **Pings go only to a device's own address.** Self-assigned (169.254.x.x,
