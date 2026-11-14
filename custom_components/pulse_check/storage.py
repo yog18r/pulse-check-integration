@@ -15,6 +15,7 @@ that has left Home Assistant is dropped a week after it went (`prune`).
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -97,6 +98,81 @@ class _Store(Store[dict[str, Any]]):
         return old_data
 
 
+_LOGGER = logging.getLogger(__name__)
+# Sections whose values are each an ISO timestamp.
+_TIMESTAMP_SECTIONS = ("snoozes", "gone", "heard", "digests")
+
+
+def _is_timestamp(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        as_utc(datetime.fromisoformat(value))
+    except TypeError, ValueError:
+        return False
+    return True
+
+
+def _usable_history(entry: object) -> dict[str, Any] | None:
+    """A device's replacement history with its unreadable events left out."""
+    if not isinstance(entry, dict):
+        return None
+    events = entry.get("events")
+    cycles = entry.get("cycles")
+    return {
+        **entry,
+        "events": [
+            e
+            for e in (events if isinstance(events, list) else [])
+            if isinstance(e, dict) and _is_timestamp(e.get("at"))
+        ],
+        "cycles": [c for c in (cycles if isinstance(cycles, list) else []) if isinstance(c, dict)],
+    }
+
+
+def normalise(loaded: Mapping[str, Any]) -> dict[str, Any]:
+    """The stored data with anything unreadable left out, record by record.
+
+    Pulse Check writes the file itself, so this only matters after a hand
+    edit or a damaged disk. One bad record (a snooze that is not a time, a
+    device's settings that are not a mapping) then costs that record, not
+    the whole integration failing to start.
+    """
+    data = _empty()
+    dropped = 0
+    for section, default in data.items():
+        value = loaded.get(section, default)
+        if not isinstance(value, dict):
+            dropped += 1
+            continue
+        data[section] = value
+    for section in _TIMESTAMP_SECTIONS:
+        good = {k: v for k, v in data[section].items() if _is_timestamp(v)}
+        dropped += len(data[section]) - len(good)
+        data[section] = good
+    for section in ("device_settings", "notify", "levels"):
+        good = {k: v for k, v in data[section].items() if isinstance(v, dict)}
+        dropped += len(data[section]) - len(good)
+        data[section] = good
+    history: dict[str, Any] = {}
+    for device_id, entry in data["history"].items():
+        usable = _usable_history(entry)
+        if usable is None or usable != entry:
+            dropped += 1
+        if usable is not None:
+            history[device_id] = usable
+    data["history"] = history
+    # A maintenance window that does not say when it ends is no window.
+    if data["maintenance"] and not _is_timestamp(data["maintenance"].get("until")):
+        data["maintenance"] = {}
+        dropped += 1
+    # Sections from a newer version are kept for it.
+    data.update({k: v for k, v in loaded.items() if k not in data})
+    if dropped:
+        _LOGGER.warning("Left out %d unreadable records of Pulse Check's saved data", dropped)
+    return data
+
+
 def _empty() -> dict[str, Any]:
     return {
         "device_settings": {},  # device id -> settings dict
@@ -128,7 +204,7 @@ class PulseCheckStore:
         """Read the file, keeping defaults for any section it lacks."""
         loaded = await self._store.async_load()
         if loaded:
-            self.data = {**_empty(), **loaded}
+            self.data = normalise(loaded)
 
     def async_save(self) -> None:
         """Write soon (delayed and coalesced)."""

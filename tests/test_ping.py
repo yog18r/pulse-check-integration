@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -12,7 +13,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.pulse_check.const import CONF_PING_QUIET
-from custom_components.pulse_check.coordinator import PulseCheckCoordinator
+from custom_components.pulse_check.coordinator import MAX_CONCURRENT_PINGS, PulseCheckCoordinator
 from custom_components.pulse_check.ping import async_ping_device, device_address
 
 from .helpers import BATTERY
@@ -69,6 +70,13 @@ def _owner(hass: HomeAssistant, domain: str = "shelly", **data: str) -> MockConf
         ("http://8.8.8.8", None),
         ("http://shelly-ht.local", None),
         ("homeassistant://config/zwave_js", None),
+        # Private to Python, but not one device on the network.
+        ("http://169.254.169.254", None),
+        ("http://[fe80::1]/", None),
+        ("http://255.255.255.255", None),
+        ("http://224.0.0.1", None),
+        ("http://127.0.0.1", None),
+        ("http://0.0.0.0", None),
     ],
 )
 async def test_the_configuration_link_gives_a_private_address(
@@ -139,10 +147,32 @@ async def test_a_zwave_node_gets_zwave_js_s_ping(hass: HomeAssistant, answers: b
     ping.assert_not_awaited()
 
 
-async def test_a_ping_that_fails_is_no_answer(hass: HomeAssistant) -> None:
+async def test_a_ping_that_fails_unexpectedly_is_no_answer_and_a_warning(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A bug must not pass for a device that did not answer."""
     device = _device(hass, _owner(hass), "sensor", url="http://192.168.1.50")
     with patch(PING_ADDRESS, AsyncMock(side_effect=RuntimeError("boom"))):
         assert not await async_ping_device(hass, device.id)
+    assert "Pinging Sensor failed unexpectedly" in caplog.text
+
+
+class FailedZWaveCommand(Exception):
+    """Stands in for the Z-Wave JS client library's own error."""
+
+
+FailedZWaveCommand.__module__ = "zwave_js_server.exceptions"
+
+
+async def test_a_node_z_wave_js_cannot_ping_is_no_answer(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
+    device = _device(hass, _owner(hass, "zwave_js"), "lock")
+    node = MagicMock()
+    node.async_ping = AsyncMock(side_effect=FailedZWaveCommand("not connected"))
+    with patch(ZWAVE_NODE, return_value=node):
+        assert not await async_ping_device(hass, device.id)
+    assert "unexpectedly" not in caplog.text
 
 
 # -- in the coordinator -------------------------------------------------------
@@ -222,3 +252,31 @@ async def test_nothing_is_asked_when_turned_off(
         await _later(hass, coordinator, freezer, 25)
     assert coordinator.data.by_id[device.id].is_quiet
     ping.assert_not_awaited()
+
+
+async def test_only_a_few_devices_are_asked_at_once(
+    hass: HomeAssistant, config_entry: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    """After an outage many devices can run out of time together."""
+    for number in range(MAX_CONCURRENT_PINGS + 5):
+        _device(hass, _owner(hass), f"sensor{number}")
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator: PulseCheckCoordinator = config_entry.runtime_data
+    running = 0
+    most = 0
+    asked = 0
+
+    async def ping(_hass: HomeAssistant, _device_id: str) -> bool:
+        nonlocal running, most, asked
+        running += 1
+        asked += 1
+        most = max(most, running)
+        await asyncio.sleep(0)
+        running -= 1
+        return False
+
+    with patch("custom_components.pulse_check.coordinator.async_ping_device", ping):
+        await _later(hass, coordinator, freezer, 25)
+    assert asked == MAX_CONCURRENT_PINGS + 5
+    assert most == MAX_CONCURRENT_PINGS

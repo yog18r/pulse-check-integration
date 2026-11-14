@@ -4,6 +4,22 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Fixed
+- **Pings go only to a device's own address.** Self-assigned (169.254.x.x,
+  fe80::) and broadcast addresses are no longer pinged, and at most ten
+  devices are asked at once.
+- **A damaged saved file no longer stops Pulse Check starting.** An
+  unreadable snooze, setting or history entry is left out, with a warning
+  in the log, instead of failing the whole load.
+- A ping that fails because of a bug is now logged as a warning, not
+  hidden among devices that did not answer.
+- Battery history reads no longer overlap, so a full read cannot drop
+  what a catch-up read just found.
+- `pulse_check.set_device_settings` refuses a name, area or battery type
+  that is not text, or is longer than 100 characters.
+
 ## 0.2.17 - 2026-11-14
 
 ### Added

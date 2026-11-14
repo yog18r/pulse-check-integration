@@ -67,7 +67,10 @@ async def async_ping_device(hass: HomeAssistant, device_id: str) -> bool:
     except TimeoutError:
         _LOGGER.debug("%s did not answer within %s s", device.name, PING_TIMEOUT)
     except Exception:
-        _LOGGER.debug("Pinging %s failed", device.name, exc_info=True)
+        # Not a device that failed to answer (those are handled where they
+        # are asked) but a bug, or Home Assistant or Z-Wave JS changing.
+        # The device is still judged, as one that cannot be asked.
+        _LOGGER.warning("Pinging %s failed unexpectedly", device.name, exc_info=True)
     return False
 
 
@@ -88,7 +91,15 @@ async def _ping_zwave(hass: HomeAssistant, device_id: str) -> bool:
     node = _zwave_node(hass, device_id)
     if node is None:
         return False
-    return bool(await node.async_ping())
+    try:
+        return bool(await node.async_ping())
+    except Exception as err:
+        # The client library's own errors (not connected, the command
+        # failed) are a node that could not be asked; anything else is not.
+        if not type(err).__module__.startswith("zwave_js_server"):
+            raise
+        _LOGGER.debug("Z-Wave JS could not ping %s: %s", device_id, err)
+        return False
 
 
 def _zwave_node(hass: HomeAssistant, device_id: str) -> _ZwaveNode | None:
@@ -148,14 +159,28 @@ def _entry_address(hass: HomeAssistant, device: dr.DeviceEntry) -> str | None:
 
 
 def _private_ip(value: object) -> str | None:
-    """`value` as an IP address on a local network, or None."""
+    """`value` as one device's address on a local network, or None.
+
+    Private ranges only (192.168.x.x, 10.x.x.x, fd00::/8 and the like), less
+    the special ones Python also counts as private: this machine (loopback),
+    no address (unspecified), self-assigned link-local addresses
+    (169.254.x.x, fe80::), which are also where cloud hosts keep their
+    metadata service, and the broadcast address (reserved).
+    """
     if not isinstance(value, str):
         return None
     try:
         address = ipaddress.ip_address(value.strip().strip("[]"))
     except ValueError:
         return None
-    if not address.is_private or address.is_loopback or address.is_unspecified:
+    if (
+        not address.is_private
+        or address.is_loopback
+        or address.is_unspecified
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_reserved
+    ):
         return None
     return str(address)
 

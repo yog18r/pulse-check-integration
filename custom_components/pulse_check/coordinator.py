@@ -109,6 +109,9 @@ _WATCHED_ATTRIBUTES = (
 # only its availability matters (a power sensor's watts never do).
 _VALUE_DEVICE_CLASSES = frozenset({"battery", "battery_charging"})
 
+# Quiet devices asked at the same time, at most.
+MAX_CONCURRENT_PINGS = 10
+
 # Registry changes (a renamed device, a new area) also change the result.
 _REGISTRY_EVENTS = (
     er.EVENT_ENTITY_REGISTRY_UPDATED,
@@ -167,6 +170,10 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         # but no insight after that has appeared since, and is caught up.
         self._history_loaded = False
         self._catch_up_cancel: CALLBACK_TYPE | None = None
+        # One history read at a time. The timer, the refresh service, the
+        # start and a catch-up can each ask for one; a full read finishing
+        # after a catch-up would otherwise drop what the catch-up found.
+        self._history_lock = asyncio.Lock()
         # Quiet devices already asked whether they are there, and silent.
         # Each is asked once when its timer runs out, not on every run.
         self._asked: set[str] = set()
@@ -246,7 +253,8 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         logged and the previous estimates (if any) are kept.
         """
         try:
-            await self.history.async_refresh(self.data.devices, self.store, self.core_config)
+            async with self._history_lock:
+                await self.history.async_refresh(self.data.devices, self.store, self.core_config)
         except Exception:
             _LOGGER.warning("Reading battery history from the recorder failed", exc_info=True)
             return
@@ -262,9 +270,10 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         """
         _LOGGER.debug("Reading history for batteries that appeared since: %s", entity_ids)
         try:
-            await self.history.async_refresh(
-                self.data.devices, self.store, self.core_config, only=entity_ids
-            )
+            async with self._history_lock:
+                await self.history.async_refresh(
+                    self.data.devices, self.store, self.core_config, only=entity_ids
+                )
         except Exception:
             _LOGGER.warning("Reading battery history from the recorder failed", exc_info=True)
             return
@@ -389,9 +398,15 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         if not to_ask:
             return set()
         self._asked.update(to_ask)
-        results = await asyncio.gather(
-            *(async_ping_device(self.hass, device_id) for device_id in to_ask)
-        )
+        # A few at a time: after a long outage many devices can run out of
+        # time together, and each ping can take a while to give up.
+        limit = asyncio.Semaphore(MAX_CONCURRENT_PINGS)
+
+        async def ask(device_id: str) -> bool:
+            async with limit:
+                return await async_ping_device(self.hass, device_id)
+
+        results = await asyncio.gather(*(ask(device_id) for device_id in to_ask))
         answered = {device_id for device_id, ok in zip(to_ask, results, strict=True) if ok}
         self._asked -= answered
         if answered:

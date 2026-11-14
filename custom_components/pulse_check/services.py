@@ -50,11 +50,23 @@ ATTR_HOURS = "hours"
 DEFAULT_SNOOZE_DAYS = 7
 
 
+# Longest name, area or battery type a service call may set.
+MAX_TEXT_LENGTH = 100
+
+
 def _text_or_clear(value: object) -> str | None:
-    """A text setting; empty text means "clear it"."""
+    """A text setting; empty text means "clear it".
+
+    A number is taken as its text (YAML reads a battery type of 2032 as
+    one); anything else, such as a list or a mapping, is refused.
+    """
     if value is None:
         return None
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
+        raise probatio.Invalid("expected text")
     text = str(value).strip()
+    if len(text) > MAX_TEXT_LENGTH:
+        raise probatio.Invalid(f"longer than {MAX_TEXT_LENGTH} characters")
     return text or ""
 
 

@@ -518,7 +518,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (351 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
+The test suite (373 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
 
 `tests/fixtures/card_contract.json` pins what the integration sends the card: a device with every optional field, a summary and a history result. Python fails if it emits something different, and the card's `contract.test.ts` fails if it stops reading a field. After a deliberate change, regenerate it with `PULSE_CHECK_UPDATE_CONTRACT=1 pytest tests/test_card_contract.py` and update the card to match.
 
