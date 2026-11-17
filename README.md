@@ -14,7 +14,7 @@ It brings entities, notifications, services, a blueprint and a **dashboard card*
 
 [![CI](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml)
 
-> **Status: feature complete.** Everything in the [plan](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) is built: detection rules, entities, options, notifications, services, replacement tracking and the card. Issues and ideas are welcome; see [Reporting a problem](#reporting-a-problem) and the [Roadmap](#roadmap).
+Issues and ideas are welcome: see [Reporting a problem](#reporting-a-problem) and the [Roadmap](#roadmap).
 
 ---
 
@@ -56,8 +56,6 @@ Since 2026.11, community integrations install from **Settings → Marketplace**,
 
 HACS still works on versions before 2026.11. Open HACS, search for **Pulse Check**, download it and restart Home Assistant. When you move to 2026.11, Home Assistant carries it over to the Marketplace.
 
-If you added this repository to HACS as a custom repository before it was listed, nothing needs to change: updates arrive the same way.
-
 ### Option 3: manual
 
 Download `pulse_check.zip` from the [latest release](https://github.com/yog18r/pulse-check-integration/releases/latest), unzip it into `config/custom_components/pulse_check/` and restart. The zip already contains the card.
@@ -85,14 +83,14 @@ type: custom:pulse-check-card
 
 ### How the card gets onto your dashboards
 
-A *dashboard resource* (Settings → Dashboards → ⋮ → Resources) is a script every dashboard loads. On each start the integration serves its card at `/pulse_check/pulse-check-card.js` and makes sure there is exactly one resource for it, of type *JavaScript module*, with the integration's version on the end (`?v=0.2.18`). After an update the version changes, the resource is updated with it, and browsers fetch the new card instead of a cached old one. Removing the integration removes the resource.
+A *dashboard resource* (Settings → Dashboards → ⋮ → Resources) is a script every dashboard loads. On each start the integration serves its card at `/pulse_check/pulse-check-card.js` and makes sure there is exactly one resource for it, of type *JavaScript module*, with the integration's version on the end (`?v=<version>`). After an update the version changes, the resource is updated with it, and browsers fetch the new card instead of a cached old one. Removing the integration removes the resource.
 
 If your resources are defined in YAML (`lovelace: resource_mode: yaml`), an integration must not edit them, so Pulse Check logs the line to add instead:
 
 ```yaml
 lovelace:
   resources:
-    - url: /pulse_check/pulse-check-card.js?v=0.2.18
+    - url: /pulse_check/pulse-check-card.js?v=<version>
       type: module
 ```
 
@@ -215,7 +213,7 @@ sparkline_days: 14 # 1 to 365
 | `show_tabs` | `[batteries, connectivity]` | Any of `batteries`, `connectivity`, `actions` |
 | `default_tab` | `batteries` | Must be in `show_tabs` |
 | `max_rows` | `12` | Or `all`. A "show more" control reveals the rest |
-| `sort` | `level` | Inside each severity band: `level` (lowest first), `name`, or `replace_soon`, "Soonest to replace first" (batteries with a replacement estimate first, fewest days left first, then the rest by level; charge estimates do not count). `battery_sort` still works, and the visual editor switches it to `sort` |
+| `sort` | `level` | Inside each severity band: `level` (lowest first), `name`, or `replace_soon`, "Soonest to replace first" (batteries with a replacement estimate first, fewest days left first, then the rest by level; charge estimates do not count) |
 | `group_by` | `none` | `none`, `area`, `integration` or `device_type` |
 | `areas`, `integrations`, `device_types` | `[]` | Show only these. Device types: `lock`, `cover`, `vacuum`, `phone`, `media`, `remote`, `climate`, `motion`, `contact`, `light`, `switch`, `other` |
 | `problems_only` | `false` | Batteries tab shows only warning and critical rows |
@@ -237,7 +235,7 @@ The YAML in the code editor holds only what differs from the defaults: an untouc
 | `sensor.pulse_check_critical_batteries` | Battery devices at or below the critical level, or reporting "low" | |
 | `sensor.pulse_check_offline` | Devices with every primary entity unavailable, and services or entities with no device that are unavailable | |
 | `sensor.pulse_check_quiet` | Devices not heard from within their threshold | |
-| `sensor.pulse_check_next_to_replace` | *Next to replace*: the replaceable battery with the fewest days left, "more than a year" included, the lower level first on a tie (`unknown` until there is enough history). Batteries that get charged are left out. Installs from before 0.2.11 keep the entity id `sensor.pulse_check_next_to_run_out` | `days_left`, `more_than_a_year`, `device_id`, `entity_id`, `level` |
+| `sensor.pulse_check_next_to_replace` | *Next to replace*: the replaceable battery with the fewest days left, "more than a year" included, the lower level first on a tie (`unknown` until there is enough history). Batteries that get charged are left out | `days_left`, `more_than_a_year`, `device_id`, `entity_id`, `level` |
 | `binary_sensor.pulse_check_problem` | On when anything needs attention | |
 | `switch.pulse_check_maintenance_mode` | On while maintenance mode holds notifications back. Turn it on to start a window of the default length, off to end it now | `until`: when it ends |
 
@@ -258,7 +256,7 @@ This is the contract between the integration and the card. The card, or anything
   "device_settings": { "<device id>": { "battery_type": "CR2450", "battery_count": 2, "notify_policy": "weekly" } },
   "computed_at": "2026-10-15T10:00:00.000Z",
   "maintenance_until": null,
-  "version": "0.2.18"
+  "version": "0.2.20"
 }
 ```
 
@@ -319,13 +317,13 @@ A target that is a companion-app service (`notify.mobile_app_<phone>`, iOS or An
 | Battery low or critical | **Mark replaced** (or **Mark charged** for a battery that gets charged, such as a phone), **Remind me later** |
 | Offline, unavailable, quiet or not provided | **Snooze 1 day** |
 
-Pressing one does what the service of the same name does, for that device, without opening the app. **Remind me later** changes nothing: the reminder comes when it was due anyway, so it is only offered when another reminder will actually follow. Digests and the maintenance summary cover many devices and have no buttons. Every other target (notify entities, e-mail, Telegram, a notify group) gets the plain message as before.
+Pressing one does what the service of the same name does, for that device, without opening the app. **Remind me later** changes nothing: the reminder comes when it was due anyway, so it is only offered when another reminder will actually follow. Digests and the maintenance summary cover many devices and have no buttons. Every other target (notify entities, e-mail, Telegram, a notify group) gets the plain message.
 
 The buttons follow the companion app's [actionable notifications](https://companion.home-assistant.io/docs/notifications/actionable-notifications/): each has an `action` identifier of the form `PULSE_CHECK_SNOOZE_DAY:<device id>`, and the app fires `mobile_app_notification_action` with it when pressed. Your own automations can listen for the same event.
 
 ### Cleared once resolved
 
-On a companion-app target, each problem's notification carries a tag (`pulse_check:<device id>:<issue>`). A reminder uses the same tag, so it replaces the earlier notification instead of piling up beside it. When the problem goes away (the device is back, the battery replaced, or the device snoozed), Pulse Check sends the companion app's `clear_notification` with that tag, and the notification disappears from the phone: a weather service that drops out for an hour overnight leaves nothing behind by morning. Turn **Clear phone notifications once resolved** off under Notifications to keep them as a record. Digests, grouped messages and the maintenance summary are not cleared, and other targets cannot take a message back. Notifications sent before this version have no tag and stay.
+On a companion-app target, each problem's notification carries a tag (`pulse_check:<device id>:<issue>`). A reminder uses the same tag, so it replaces the earlier notification instead of piling up beside it. When the problem goes away (the device is back, the battery replaced, or the device snoozed), Pulse Check sends the companion app's `clear_notification` with that tag, and the notification disappears from the phone: a weather service that drops out for an hour overnight leaves nothing behind by morning. Turn **Clear phone notifications once resolved** off under Notifications to keep them as a record. Digests, grouped messages and the maintenance summary are not cleared, and other targets cannot take a message back.
 
 ### In the logbook
 
@@ -396,7 +394,7 @@ actions:
 
 ## How detection works
 
-These rules are shared with the card and checked against the same test fixture (see [Architecture](#architecture)).
+The integration applies these rules; the card only shows the result. They are checked against a fixed test fixture (see [Architecture](#architecture)).
 
 **Battery.** A `sensor` with `device_class: battery` and a numeric state; a `binary_sensor` with `device_class: battery` (on = low); or any entity with a numeric `battery_level` attribute. Entities marked `entity_category: config` are never batteries (an inverter's "minimum state of charge" setting is not a battery). Per device, a sensor reading is preferred over an attribute over a binary sensor, the lowest numeric level wins, and any binary "low" flags the device.
 
@@ -430,7 +428,7 @@ It then pings mains devices itself and marks a battery device unavailable after 
 
 **Grouping.** By device registry entry, child devices (Home Assistant 2026.10) included as devices of their own. Entities with no device get a synthetic id `entity:<entity_id>` each. Disabled devices are skipped, and Pulse Check's own entities, including the per-device sensors it adds to devices, never count towards any device. The device's integration is the most common platform among its entities.
 
-**Services and entities with no device.** A service device (Sun, AdGuard Home, Backup, a cloud integration) has no hardware, and an entity with no device (a template sensor, an automation, a helper) has nothing behind it, but either can stop working. They follow the offline rule above and read as *unavailable*: on the card, in the messages ("AdGuard Home: unavailable", then "available again") and as a critical problem. They count toward the offline sensor and keep the `offline` issue key, so automations see one name. They are never quiet: Sun's next setting changes once a day and an automation may not run for weeks. One made only of settings and buttons is left out, as is Pulse Check itself. The card receives them only while they are unavailable, snoozed or carry a battery, so hundreds of working automations cost nothing. Turn the option off to go back to watching them for batteries only.
+**Services and entities with no device.** A service device (Sun, AdGuard Home, Backup, a cloud integration) has no hardware, and an entity with no device (a template sensor, an automation, a helper) has nothing behind it, but either can stop working. They follow the offline rule above and read as *unavailable*: on the card, in the messages ("AdGuard Home: unavailable", then "available again") and as a critical problem. They count toward the offline sensor and keep the `offline` issue key, so automations see one name. They are never quiet: Sun's next setting changes once a day and an automation may not run for weeks. One made only of settings and buttons is left out, as is Pulse Check itself. The card receives them only while they are unavailable, snoozed or carry a battery, so hundreds of working automations cost nothing. Turn *Watch services and entities with no device* off to watch them for batteries only.
 
 Entities without a `unique_id`, such as YAML template sensors and some MQTT entities, never reach the entity registry and exist only as a state. They are treated the same way: `entity:<entity_id>`, unavailable when their state is, never quiet. Their integration shows as `unknown`, because a state does not say which integration made it. "Ignore these entities" leaves one out, and so do the integration and area filters (with no area, an area allow list leaves them out). Having no registry entry they have no entity category, so the config-entity rule cannot apply to them.
 
@@ -463,7 +461,7 @@ One repository, two halves that meet at the websocket API above:
 - **`custom_components/pulse_check/`**, the integration in Python, does all the work: detection, history, notifications, storage, services.
 - **`frontend/`**, the card in TypeScript and React, built with Vite into one JavaScript file inside the integration folder. It renders the `pulse_check/subscribe` snapshot, fetches sparklines with `pulse_check/histories` and calls the `pulse_check.*` services. See [frontend/README.md](https://github.com/yog18r/pulse-check-integration/blob/main/frontend/README.md).
 
-The card used to be a separate repository; it moved here with its history so a single install, from the Marketplace or HACS, delivers both, and so the two can never be installed at mismatched versions. `manifest.json` holds the one version number; the card's build reads it from there.
+A single install, from the Marketplace or HACS, delivers both, so the two can never be at mismatched versions. `manifest.json` holds the one version number; the card's build reads it from there.
 
 ```
 custom_components/pulse_check/
@@ -505,7 +503,7 @@ custom_components/pulse_check/
 └── __init__.py       setup and unload
 ```
 
-**The core began as a port of the card's TypeScript `src/core`** and is tested against two frozen files: `tests/fixtures/hass.json`, a mock Home Assistant with 16 devices covering every rule, and `tests/fixtures/golden.json`, the expected output for seven configurations, generated by the original TypeScript implementation before the card became a renderer. A rule change here must come with a deliberate change to the golden file.
+**The core is tested against two frozen files**: `tests/fixtures/hass.json`, a mock Home Assistant with 16 devices covering every rule, and `tests/fixtures/golden.json`, the expected output for seven configurations. A rule change must come with a deliberate change to the golden file.
 
 **The coordinator** is Home Assistant's `DataUpdateCoordinator`. It listens to `state_changed`, but only a change that can alter the result gets through: an entity of an analysed device appearing, disappearing or changing availability, a battery or charging value changing, a Z-Wave node status, or a `battery_level` attribute. A new battery entity appearing counts too, since one with no registry entry brings no registry event. A power sensor reporting every second never causes a run. Relevant changes are debounced to at most one recompute every ten seconds, and a timer recomputes every five minutes so time-based transitions (quiet devices, expiring snoozes) happen on their own. Nothing time-stamped is written to entity attributes, so a recompute that changes no count leaves no new row in the recorder. Set the logger to debug to see which entity triggered each run. It copies the state machine and registries into plain dicts in the event loop, then runs the analysis in a worker thread. The analysis is pure, so it is tested without Home Assistant; the coordinator and sensor are tested with the JSON fixture loaded into a real test instance.
 
@@ -550,7 +548,7 @@ It leaves out anything that identifies your home or the people in it. Devices ar
 
 ## Roadmap
 
-Everything in the original plan is built; [PLAN.md](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) records how the design got here. Next, roughly in order:
+Planned next, roughly in order:
 
 - **Ask now from the card.** A button on a quiet device's row that runs `pulse_check.ping` and shows the answer, so you can tell a dead device from a quiet one without leaving the dashboard.
 - **Batteries to buy as a to-do list.** A to-do entity listing the batteries due for replacement, by type and count, so they show up in Home Assistant's to-do lists and can be ticked off when bought.
