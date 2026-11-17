@@ -4,7 +4,7 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
-## Unreleased
+## 0.2.20 - 2026-11-18
 
 ### Added
 - **Download diagnostics.** Settings → Devices & services → Pulse Check →
