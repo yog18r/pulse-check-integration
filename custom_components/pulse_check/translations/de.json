@@ -336,6 +336,16 @@
           "description": "Wie lange, ab jetzt. 0 beendet den Wartungsmodus sofort. Weglassen für den Standard aus den Optionen."
         }
       }
+    },
+    "ping": {
+      "name": "Gerät anpingen",
+      "description": "Fragt ein Gerät, ob es noch da ist, so wie Pulse Check fragt, bevor es ein Gerät als still markiert: mit dem Ping von Z-Wave JS bei einem Z-Wave-Knoten, mit einem Netzwerk-Ping bei einem Gerät mit bekannter lokaler IP-Adresse. Ein Gerät, das antwortet, gilt als jetzt gehört. Gibt zurück, ob es geantwortet hat, wie es gefragt wurde und welche Adresse angepingt wurde.",
+      "fields": {
+        "device_id": {
+          "name": "Gerät",
+          "description": "Das zu fragende Gerät."
+        }
+      }
     }
   },
   "exceptions": {
@@ -350,6 +360,9 @@
     },
     "critical_above_warning": {
       "message": "Die kritische Stufe darf nicht höher als die Warnstufe sein."
+    },
+    "not_pingable": {
+      "message": "„{device_id}“ ist kein Gerät in der Geräteverwaltung von Home Assistant und kann daher nicht angepingt werden."
     }
   },
   "entity": {

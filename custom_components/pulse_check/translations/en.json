@@ -336,6 +336,16 @@
           "description": "How long, from now. 0 ends maintenance mode now. Leave out for the default in the options."
         }
       }
+    },
+    "ping": {
+      "name": "Ping a device",
+      "description": "Ask a device whether it is still there, the way Pulse Check asks before marking it quiet: Z-Wave JS's ping for a Z-Wave node, a network ping for a device whose local IP address is known. A device that answers counts as heard from now. Returns whether it answered, how it was asked and the address pinged.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The device to ask."
+        }
+      }
     }
   },
   "exceptions": {
@@ -350,6 +360,9 @@
     },
     "critical_above_warning": {
       "message": "The critical level must not be higher than the warning level."
+    },
+    "not_pingable": {
+      "message": "\"{device_id}\" is not a device in Home Assistant's device registry, so it cannot be pinged."
     }
   },
   "entity": {

@@ -32,7 +32,7 @@ from custom_components.pulse_check.const import (
 )
 from custom_components.pulse_check.coordinator import build_snapshot
 from custom_components.pulse_check.core import CoreConfig, analyse_devices
-from custom_components.pulse_check.notify import DATA_RUNTIME, SEND_RETRY
+from custom_components.pulse_check.notify import DATA_RUNTIME, SEND_RETRY, repair_id
 from tests.helpers import (
     BATTERY,
     NOTIFY_OPTIONS,
@@ -110,7 +110,7 @@ async def test_a_failed_send_is_retried_and_raises_a_repair_issue(
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
     await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
     issues = ir.async_get(hass)
-    issue = issues.async_get_issue(DOMAIN, f"notify_failed_{TARGET}")
+    issue = issues.async_get_issue(DOMAIN, repair_id("notify_failed", TARGET))
     assert issue is not None
     assert issue.translation_placeholders == {"target": TARGET, "error": "phone unreachable"}
 
@@ -118,7 +118,7 @@ async def test_a_failed_send_is_retried_and_raises_a_repair_issue(
     working = True
     await advance(hass, freezer, SEND_RETRY + timedelta(minutes=5))
     assert sent == ["Kitchen H&T: battery critical (5 %)"]
-    assert issues.async_get_issue(DOMAIN, f"notify_failed_{TARGET}") is None
+    assert issues.async_get_issue(DOMAIN, repair_id("notify_failed", TARGET)) is None
 
 
 async def test_a_missing_target_raises_a_repair_issue(
@@ -132,7 +132,9 @@ async def test_a_missing_target_raises_a_repair_issue(
     await past_grace(hass, freezer)
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
     await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
-    issue = ir.async_get(hass).async_get_issue(DOMAIN, "notify_target_missing_notify.old_phone")
+    issue = ir.async_get(hass).async_get_issue(
+        DOMAIN, repair_id("notify_target_missing", "notify.old_phone")
+    )
     assert issue is not None
     assert issue.translation_key == "notify_target_missing"
 
@@ -308,7 +310,7 @@ async def test_a_timeout_names_itself_in_the_repair(
     hass.services.async_register("notify", "mobile_app_test", hangs)
     hass.states.async_set("sensor.kitchen_ht_battery", "5", BATTERY)
     await advance(hass, freezer, timedelta(seconds=DEBOUNCE_SECONDS + 1))
-    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"notify_failed_{TARGET}")
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, repair_id("notify_failed", TARGET))
     assert issue is not None
     assert issue.translation_placeholders == {"target": TARGET, "error": "TimeoutError"}
 
@@ -322,14 +324,17 @@ async def test_removing_a_broken_target_clears_its_repair(
     ir.async_create_issue(
         hass,
         DOMAIN,
-        "notify_failed_notify.old_phone",
+        repair_id("notify_failed", "notify.old_phone"),
         is_fixable=False,
         severity=ir.IssueSeverity.WARNING,
         translation_key="notify_failed",
         translation_placeholders={"target": "notify.old_phone", "error": "gone"},
     )
     await set_up_notify(hass, fixture_snapshot, freezer, fixed_now)  # targets: mobile_app_test only
-    assert ir.async_get(hass).async_get_issue(DOMAIN, "notify_failed_notify.old_phone") is None
+    assert (
+        ir.async_get(hass).async_get_issue(DOMAIN, repair_id("notify_failed", "notify.old_phone"))
+        is None
+    )
 
 
 async def test_a_snooze_just_before_a_reload_is_kept(
@@ -392,7 +397,7 @@ async def test_removing_the_integration_cleans_up(
     ir.async_create_issue(
         hass,
         DOMAIN,
-        f"notify_failed_{TARGET}",
+        repair_id("notify_failed", TARGET),
         is_fixable=False,
         severity=ir.IssueSeverity.WARNING,
         translation_key="notify_failed",
@@ -402,4 +407,4 @@ async def test_removing_the_integration_cleans_up(
     await hass.async_block_till_done()
     assert "pulse_check.data" not in hass_storage
     assert DATA_RUNTIME not in hass.data
-    assert ir.async_get(hass).async_get_issue(DOMAIN, f"notify_failed_{TARGET}") is None
+    assert ir.async_get(hass).async_get_issue(DOMAIN, repair_id("notify_failed", TARGET)) is None

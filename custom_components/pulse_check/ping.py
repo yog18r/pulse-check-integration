@@ -14,6 +14,9 @@ A device that answers counts as heard from, and its quiet timer starts
 again. One that does not answer, or cannot be asked, is quiet. Nothing is
 looked up by name: an address must be a private IP address, so a cloud
 service's server is never taken for the device.
+
+The `pulse_check.ping` action asks one device on demand and says how it
+was asked and what came back (`PingResult`).
 """
 
 from __future__ import annotations
@@ -23,7 +26,8 @@ import importlib
 import ipaddress
 import logging
 import re
-from typing import TYPE_CHECKING, Protocol, cast
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal, Protocol, cast
 from urllib.parse import urlsplit
 
 from homeassistant.const import CONF_HOST, CONF_IP_ADDRESS
@@ -49,6 +53,42 @@ _ZWAVE = "zwave_js"
 # Whether the system's refusal to ping has been logged yet.
 _warned_no_icmp = False
 
+# How a device was asked.
+PingMethod = Literal["zwave_js", "network", "none"]
+# What came of it. Everything but "answered" leaves a device quiet.
+PingOutcome = Literal[
+    "answered",
+    # Asked, and nothing came back in time.
+    "no_answer",
+    # Nothing says what its address is, and it is not a Z-Wave node.
+    "no_address",
+    # Part of another device (Home Assistant 2026.10's child devices).
+    "part_of_another_device",
+    # Z-Wave JS is not running, or could not send the ping.
+    "zwave_unavailable",
+    # This system forbids network pings (see the warning it logs).
+    "pings_not_allowed",
+    # A bug, or Home Assistant or Z-Wave JS changing: logged as a warning.
+    "failed",
+]
+# Where a device's address was found, most reliable first.
+AddressSource = Literal["configuration_url", "integration", "entity"]
+
+
+@dataclass(frozen=True, slots=True)
+class PingResult:
+    """How a device was asked whether it is there, and what came of it."""
+
+    outcome: PingOutcome
+    method: PingMethod = "none"
+    # The address pinged, for a network ping.
+    address: str | None = None
+
+    @property
+    def answered(self) -> bool:
+        """Whether the device answered."""
+        return self.outcome == "answered"
+
 
 class _ZwaveNode(Protocol):
     """The part of a Z-Wave JS node used here."""
@@ -59,27 +99,66 @@ class _ZwaveNode(Protocol):
 
 async def async_ping_device(hass: HomeAssistant, device_id: str) -> bool:
     """Whether the device answered. False when it did not or cannot be asked."""
+    return (await async_ask_device(hass, device_id)).answered
+
+
+async def async_ask_device(hass: HomeAssistant, device_id: str) -> PingResult:
+    """Ask a device in the device registry whether it is there.
+
+    The caller makes sure the device exists; an unknown id cannot be asked
+    and comes back as "no_address".
+    """
     device = dr.async_get(hass).async_get(device_id)
+    if device is None:
+        return PingResult("no_address")
     # A child device (Home Assistant 2026.10) is part of its parent, and
     # has no address or integration of its own to ask.
     if not isinstance(device, dr.DeviceEntry):
-        return False
+        return PingResult("part_of_another_device")
+    method: PingMethod = "none"
+    address: str | None = None
+    outcome: PingOutcome
     try:
+        if _belongs_to(hass, device, _ZWAVE):
+            method = "zwave_js"
+        elif (found := find_address(hass, device)) is not None:
+            method, address = "network", found[0]
+        else:
+            return PingResult("no_address")
         async with asyncio.timeout(PING_TIMEOUT):
-            if _belongs_to(hass, device, _ZWAVE):
-                return await _ping_zwave(hass, device_id)
-            address = device_address(hass, device)
             if address is None:
-                return False
-            return await _ping_address(address)
+                outcome = await _ping_zwave(hass, device_id)
+            else:
+                outcome = _network_outcome(await _ping_address(address))
     except TimeoutError:
         _LOGGER.debug("%s did not answer within %s s", device.name, PING_TIMEOUT)
+        outcome = "no_answer"
     except Exception:
         # Not a device that failed to answer (those are handled where they
         # are asked) but a bug, or Home Assistant or Z-Wave JS changing.
         # The device is still judged, as one that cannot be asked.
         _LOGGER.warning("Pinging %s failed unexpectedly", device.name, exc_info=True)
-    return False
+        outcome = "failed"
+    return PingResult(outcome, method, address)
+
+
+def _network_outcome(answered: bool | None) -> PingOutcome:
+    if answered is None:
+        return "pings_not_allowed"
+    return "answered" if answered else "no_answer"
+
+
+def ping_method(hass: HomeAssistant, device_id: str) -> tuple[PingMethod, AddressSource | None]:
+    """How a device would be asked, and where its address comes from, without asking it."""
+    device = dr.async_get(hass).async_get(device_id)
+    if not isinstance(device, dr.DeviceEntry):
+        return "none", None
+    if _belongs_to(hass, device, _ZWAVE):
+        return "zwave_js", None
+    found = find_address(hass, device)
+    if found is None:
+        return "none", None
+    return "network", found[1]
 
 
 def _entry_ids(device: dr.DeviceEntry) -> list[str]:
@@ -102,7 +181,7 @@ def _belongs_to(hass: HomeAssistant, device: dr.DeviceEntry, domain: str) -> boo
     return False
 
 
-async def _ping_zwave(hass: HomeAssistant, device_id: str) -> bool:
+async def _ping_zwave(hass: HomeAssistant, device_id: str) -> PingOutcome:
     """Z-Wave JS's ping, through its own helper.
 
     Its ping button would do the same, but a button press does not say
@@ -110,16 +189,16 @@ async def _ping_zwave(hass: HomeAssistant, device_id: str) -> bool:
     """
     node = _zwave_node(hass, device_id)
     if node is None:
-        return False
+        return "zwave_unavailable"
     try:
-        return bool(await node.async_ping())
+        return "answered" if await node.async_ping() else "no_answer"
     except Exception as err:
         # The client library's own errors (not connected, the command
         # failed) are a node that could not be asked; anything else is not.
         if not type(err).__module__.startswith("zwave_js_server"):
             raise
         _LOGGER.debug("Z-Wave JS could not ping %s: %s", device_id, err)
-        return False
+        return "zwave_unavailable"
 
 
 def _zwave_node(hass: HomeAssistant, device_id: str) -> _ZwaveNode | None:
@@ -136,7 +215,13 @@ def _zwave_node(hass: HomeAssistant, device_id: str) -> _ZwaveNode | None:
 
 
 def device_address(hass: HomeAssistant, device: dr.DeviceEntry) -> str | None:
-    """The device's own private IP address, when anything says what it is.
+    """The device's own private IP address, when anything says what it is."""
+    found = find_address(hass, device)
+    return found[0] if found is not None else None
+
+
+def find_address(hass: HomeAssistant, device: dr.DeviceEntry) -> tuple[str, AddressSource] | None:
+    """The device's own private IP address, and where it was found.
 
     Most reliable first: its configuration link, then the address its
     integration connects to, then an entity of its own. An entity's state
@@ -146,10 +231,10 @@ def device_address(hass: HomeAssistant, device: dr.DeviceEntry) -> str | None:
     """
     address = _private_ip(urlsplit(device.configuration_url or "").hostname)
     if address is not None:
-        return address
+        return address, "configuration_url"
     address = _entry_address(hass, device)
     if address is not None:
-        return address
+        return address, "integration"
     for entity in er.async_entries_for_device(er.async_get(hass), device.id):
         state = hass.states.get(entity.entity_id)
         if state is None:
@@ -161,7 +246,7 @@ def device_address(hass: HomeAssistant, device: dr.DeviceEntry) -> str | None:
         for value in values:
             address = _private_ip(value)
             if address is not None:
-                return address
+                return address, "entity"
     return None
 
 
@@ -219,8 +304,11 @@ def _private_ip(value: object) -> str | None:
     return str(address)
 
 
-async def _ping_address(address: str) -> bool:
-    """An ICMP ping, without root where the system allows it (Home Assistant OS does)."""
+async def _ping_address(address: str) -> bool | None:
+    """An ICMP ping, without root where the system allows it (Home Assistant OS does).
+
+    None when the system allows neither.
+    """
     for privileged in (False, True):
         try:
             host = await async_ping(address, count=2, interval=1, timeout=2, privileged=privileged)
@@ -237,4 +325,4 @@ async def _ping_address(address: str) -> bool:
             "are marked quiet (only Z-Wave nodes are). Allow unprivileged ICMP "
             "(net.ipv4.ping_group_range) or turn off Ping before marking quiet"
         )
-    return False
+    return None

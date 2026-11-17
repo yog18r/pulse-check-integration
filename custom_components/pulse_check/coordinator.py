@@ -426,6 +426,23 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             _LOGGER.debug("Answered a ping, so not quiet: %s", sorted(answered))
         return answered
 
+    @property
+    def history_loaded(self) -> bool:
+        """Whether a full history read has finished since setup."""
+        return self._history_loaded
+
+    @property
+    def silent_after_asking(self) -> int:
+        """How many quiet devices were asked and did not answer."""
+        return len(self._asked)
+
+    async def async_note_answer(self, device_id: str) -> None:
+        """A device answered the ping action: heard from now, and judged again."""
+        now = dt_util.utcnow()
+        self.store.note_heard([(device_id, now)], now)
+        self._asked.discard(device_id)
+        await self.async_refresh()
+
     def _adopt_entity_settings(self, snapshot: Snapshot) -> bool:
         """Move what was saved for a lone entity onto the device it now belongs to.
 

@@ -71,6 +71,7 @@ everything runs as usual.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from collections import deque
 from dataclasses import dataclass
@@ -201,8 +202,19 @@ def notification_tag(device_id: str, issue: str) -> str:
 # restart of Home Assistant: when it started, which devices have been seen
 # working since, and the per-integration send times.
 DATA_RUNTIME = f"{DOMAIN}_notify_runtime"
-# Repair issue ids are one of these followed by the notify target.
-REPAIR_PREFIXES = ("notify_target_missing_", "notify_failed_")
+# Repair issue ids are one of these followed by a hash of the notify target.
+REPAIR_KINDS = ("notify_target_missing", "notify_failed")
+REPAIR_PREFIXES = tuple(f"{kind}_" for kind in REPAIR_KINDS)
+
+
+def repair_id(kind: str, target: str) -> str:
+    """The repair issue id for a target.
+
+    The target itself (`notify.mobile_app_<a person's phone>`) stays out of
+    the id: Home Assistant lists the ids in a diagnostics download, which
+    people post publicly. The issue still names it, in its text.
+    """
+    return f"{kind}_{hashlib.sha256(target.encode()).hexdigest()[:12]}"
 
 
 @callback
@@ -1191,11 +1203,11 @@ class Notifier:
             else:
                 _LOGGER.warning("Sending to %s failed", target, exc_info=err)
         other = "notify_failed" if issue == "notify_target_missing" else "notify_target_missing"
-        ir.async_delete_issue(self.hass, DOMAIN, f"{other}_{target}")
+        ir.async_delete_issue(self.hass, DOMAIN, repair_id(other, target))
         ir.async_create_issue(
             self.hass,
             DOMAIN,
-            f"{issue}_{target}",
+            repair_id(issue, target),
             is_fixable=False,
             severity=ir.IssueSeverity.WARNING,
             translation_key=issue,
@@ -1213,14 +1225,16 @@ class Notifier:
         Taking a broken target out of the options is a fix too, and the
         issue says it goes away once resolved.
         """
-        configured = set(self.targets)
+        # Ids from before 0.2.20 hold the target itself, and never match.
+        configured = {repair_id(kind, target) for target in self.targets for kind in REPAIR_KINDS}
         registry = ir.async_get(self.hass)
         for domain, issue_id in list(registry.issues):
-            if domain != DOMAIN:
-                continue
-            for prefix in REPAIR_PREFIXES:
-                if issue_id.startswith(prefix) and issue_id[len(prefix) :] not in configured:
-                    ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+            if (
+                domain == DOMAIN
+                and issue_id.startswith(REPAIR_PREFIXES)
+                and issue_id not in configured
+            ):
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)
 
     @callback
     def _target_works(self, target: str) -> None:
@@ -1228,5 +1242,5 @@ class Notifier:
         if target in self._failing:
             self._failing.discard(target)
             _LOGGER.info("Notify target %s works again", target)
-        for issue in ("notify_target_missing", "notify_failed"):
-            ir.async_delete_issue(self.hass, DOMAIN, f"{issue}_{target}")
+        for kind in REPAIR_KINDS:
+            ir.async_delete_issue(self.hass, DOMAIN, repair_id(kind, target))

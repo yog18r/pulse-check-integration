@@ -336,6 +336,16 @@
           "description": "从现在起持续多久。0 表示立即结束维护模式。留空则使用选项中的默认值。"
         }
       }
+    },
+    "ping": {
+      "name": "Ping 设备",
+      "description": "询问设备是否仍然在线，方式与 Pulse Check 在将设备标记为静默前的询问相同：Z-Wave 节点使用 Z-Wave JS 的 ping，已知本地 IP 地址的设备使用网络 ping。作出应答的设备视为刚刚有过消息。返回是否应答、询问方式以及 ping 的地址。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "要询问的设备。"
+        }
+      }
     }
   },
   "exceptions": {
@@ -350,6 +360,9 @@
     },
     "critical_above_warning": {
       "message": "严重电量不能高于警告电量。"
+    },
+    "not_pingable": {
+      "message": "“{device_id}”不是 Home Assistant 设备注册表中的设备，因此无法 ping。"
     }
   },
   "entity": {

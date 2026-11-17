@@ -9,12 +9,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from icmplib import SocketPermissionError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.pulse_check import ping
-from custom_components.pulse_check.const import CONF_PING_QUIET
+from custom_components.pulse_check.const import CONF_PING_QUIET, DOMAIN
 from custom_components.pulse_check.coordinator import MAX_CONCURRENT_PINGS, PulseCheckCoordinator
 from custom_components.pulse_check.ping import async_ping_device, device_address
 
@@ -333,3 +334,74 @@ async def test_a_reload_does_not_ask_again(
         await hass.async_block_till_done()
         await _later(hass, config_entry.runtime_data, freezer, 0.1)
     assert asked.await_count == 1
+
+
+# -- the ping action ----------------------------------------------------------
+
+
+async def _ping_action(hass: HomeAssistant, device_id: str) -> dict[str, object]:
+    response = await hass.services.async_call(
+        DOMAIN, "ping", {"device_id": device_id}, blocking=True, return_response=True
+    )
+    assert response is not None
+    return dict(response)
+
+
+async def test_the_action_says_how_the_device_was_asked(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    _coordinator, device = await _set_up(hass, config_entry)
+    with patch(PING_ADDRESS, AsyncMock(return_value=False)):
+        assert await _ping_action(hass, device.id) == {
+            "answered": False,
+            "outcome": "no_answer",
+            "method": "network",
+            "address": "192.168.1.50",
+        }
+
+
+async def test_an_answer_to_the_action_counts_as_heard(
+    hass: HomeAssistant, config_entry: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    coordinator, device = await _set_up(hass, config_entry, **{CONF_PING_QUIET: False})
+    await _later(hass, coordinator, freezer, 25)
+    assert coordinator.data.by_id[device.id].is_quiet
+    with patch(PING_ADDRESS, AsyncMock(return_value=True)):
+        assert (await _ping_action(hass, device.id))["answered"] is True
+    health = coordinator.data.by_id[device.id]
+    assert not health.is_quiet
+    assert health.last_heard is not None
+    assert abs(health.last_heard - coordinator.data.computed_at) < timedelta(milliseconds=1)
+
+
+async def test_the_action_says_why_a_device_cannot_be_asked(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    await _set_up(hass, config_entry)
+    robot = _device(hass, _owner(hass, "ecovacs"), "robot", url="https://www.ecovacs.com")
+    assert await _ping_action(hass, robot.id) == {
+        "answered": False,
+        "outcome": "no_address",
+        "method": "none",
+        "address": None,
+    }
+
+
+async def test_the_action_says_when_the_system_forbids_pings(
+    hass: HomeAssistant, config_entry: MockConfigEntry, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ping, "_warned_no_icmp", True)
+    _coordinator, device = await _set_up(hass, config_entry)
+    with patch(
+        "custom_components.pulse_check.ping.async_ping",
+        AsyncMock(side_effect=SocketPermissionError(False)),
+    ):
+        assert (await _ping_action(hass, device.id))["outcome"] == "pings_not_allowed"
+
+
+async def test_the_action_refuses_what_is_not_a_device(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    await _set_up(hass, config_entry)
+    with pytest.raises(ServiceValidationError):
+        await _ping_action(hass, "sensor.sensor_battery")

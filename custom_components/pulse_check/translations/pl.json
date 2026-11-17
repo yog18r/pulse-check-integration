@@ -336,6 +336,16 @@
           "description": "Jak długo, licząc od teraz. 0 kończy tryb konserwacji od razu. Pomiń, aby użyć wartości domyślnej z opcji."
         }
       }
+    },
+    "ping": {
+      "name": "Pinguj urządzenie",
+      "description": "Pyta urządzenie, czy nadal jest dostępne, tak jak Pulse Check pyta przed oznaczeniem go jako cichego: pingiem Z-Wave JS w przypadku węzła Z-Wave, pingiem sieciowym w przypadku urządzenia o znanym lokalnym adresie IP. Urządzenie, które odpowie, liczy się jako słyszane teraz. Zwraca, czy odpowiedziało, jak zostało zapytane i jaki adres pingowano.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Urządzenie, które należy zapytać."
+        }
+      }
     }
   },
   "exceptions": {
@@ -350,6 +360,9 @@
     },
     "critical_above_warning": {
       "message": "Poziom krytyczny nie może być wyższy niż poziom ostrzeżenia."
+    },
+    "not_pingable": {
+      "message": "„{device_id}” nie jest urządzeniem w rejestrze urządzeń Home Assistant, więc nie można go pingować."
     }
   },
   "entity": {

@@ -336,6 +336,16 @@
           "description": "Jak dlouho, od teď. 0 ukončí režim údržby hned. Vynechte pro výchozí hodnotu z možností."
         }
       }
+    },
+    "ping": {
+      "name": "Pingnout zařízení",
+      "description": "Zeptá se zařízení, zda je stále dostupné, stejně jako se Pulse Check ptá před označením zařízení jako tichého: pingem Z-Wave JS u uzlu Z-Wave, síťovým pingem u zařízení se známou místní IP adresou. Zařízení, které odpoví, se počítá jako ozvané právě teď. Vrací, zda odpovědělo, jak bylo dotázáno a pingnutou adresu.",
+      "fields": {
+        "device_id": {
+          "name": "Zařízení",
+          "description": "Zařízení, kterého se zeptat."
+        }
+      }
     }
   },
   "exceptions": {
@@ -350,6 +360,9 @@
     },
     "critical_above_warning": {
       "message": "Kritická úroveň nesmí být vyšší než úroveň varování."
+    },
+    "not_pingable": {
+      "message": "„{device_id}“ není zařízení v registru zařízení Home Assistantu, takže ho nelze pingnout."
     }
   },
   "entity": {

@@ -336,6 +336,16 @@
           "description": "Hoe lang, vanaf nu. 0 beëindigt de onderhoudsmodus nu. Weglaten voor de standaard uit de opties."
         }
       }
+    },
+    "ping": {
+      "name": "Apparaat pingen",
+      "description": "Vraagt een apparaat of het er nog is, zoals Pulse Check dat doet voordat het een apparaat als stil markeert: de ping van Z-Wave JS voor een Z-Wave-node, een netwerkping voor een apparaat waarvan het lokale IP-adres bekend is. Een apparaat dat antwoordt, telt als nu gehoord. Geeft terug of het antwoordde, hoe het gevraagd is en welk adres gepingd is.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Het apparaat om te vragen."
+        }
+      }
     }
   },
   "exceptions": {
@@ -350,6 +360,9 @@
     },
     "critical_above_warning": {
       "message": "Het kritieke niveau mag niet hoger zijn dan het waarschuwingsniveau."
+    },
+    "not_pingable": {
+      "message": "‘{device_id}’ is geen apparaat in het apparaatregister van Home Assistant en kan dus niet gepingd worden."
     }
   },
   "entity": {

@@ -336,6 +336,16 @@
           "description": "Durée à partir de maintenant. 0 met fin au mode maintenance immédiatement. Laissez vide pour la valeur par défaut des options."
         }
       }
+    },
+    "ping": {
+      "name": "Pinguer un appareil",
+      "description": "Demande à un appareil s'il est toujours là, comme Pulse Check le fait avant de le marquer silencieux : le ping de Z-Wave JS pour un nœud Z-Wave, un ping réseau pour un appareil dont l'adresse IP locale est connue. Un appareil qui répond compte comme entendu maintenant. Renvoie s'il a répondu, comment il a été interrogé et l'adresse pinguée.",
+      "fields": {
+        "device_id": {
+          "name": "Appareil",
+          "description": "L'appareil à interroger."
+        }
+      }
     }
   },
   "exceptions": {
@@ -350,6 +360,9 @@
     },
     "critical_above_warning": {
       "message": "Le niveau critique ne doit pas être supérieur au niveau d'avertissement."
+    },
+    "not_pingable": {
+      "message": "« {device_id} » n'est pas un appareil du registre des appareils de Home Assistant et ne peut donc pas être pingué."
     }
   },
   "entity": {

@@ -13,9 +13,15 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import probatio
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+    callback,
+)
 from homeassistant.exceptions import ServiceValidationError
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -30,6 +36,7 @@ from .const import (
 )
 from .core.group import ORPHAN_PREFIX
 from .options import levels_clash
+from .ping import async_ask_device
 
 if TYPE_CHECKING:
     from .coordinator import PulseCheckCoordinator
@@ -42,6 +49,7 @@ SERVICE_MARK_CHARGED = "mark_charged"
 SERVICE_UNDO_MARK = "undo_mark"
 SERVICE_REFRESH = "refresh"
 SERVICE_MAINTENANCE_MODE = "maintenance_mode"
+SERVICE_PING = "ping"
 
 ATTR_DEVICE_ID = "device_id"
 ATTR_DAYS = "days"
@@ -232,6 +240,32 @@ async def _refresh(call: ServiceCall) -> None:
     await coordinator.async_refresh_history()
 
 
+async def _ping(call: ServiceCall) -> ServiceResponse:
+    """Ask one device whether it is there, the way it is asked before it is marked quiet.
+
+    One that answers counts as heard from now, as it would then. Works with
+    "Ping before marking quiet" turned off: that option only stops the
+    automatic asking.
+    """
+    coordinator = _coordinator(call.hass)
+    raw = call.data[ATTR_DEVICE_ID]
+    if dr.async_get(call.hass).async_get(raw) is None:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="not_pingable",
+            translation_placeholders={"device_id": raw},
+        )
+    result = await async_ask_device(call.hass, raw)
+    if result.answered and raw in coordinator.data.by_id:
+        await coordinator.async_note_answer(raw)
+    return {
+        "answered": result.answered,
+        "outcome": result.outcome,
+        "method": result.method,
+        "address": result.address,
+    }
+
+
 async def async_set_maintenance(coordinator: PulseCheckCoordinator, hours: float) -> None:
     """Start (or move the end of) a maintenance window `hours` from now; 0 ends it.
 
@@ -271,3 +305,10 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_MAINTENANCE_MODE, _maintenance_mode, MAINTENANCE_SCHEMA),
     ):
         hass.services.async_register(DOMAIN, name, handler, schema=schema)
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PING,
+        _ping,
+        schema=DEVICE_ONLY_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )

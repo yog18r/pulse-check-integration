@@ -4,6 +4,27 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Added
+- **Download diagnostics.** Settings → Devices & services → Pulse Check →
+  ⋮ → Download diagnostics now gives a file to attach to a bug report. It
+  is made to be posted in public: devices are numbered instead of named,
+  and it holds no entity or device ids, area names, IP addresses,
+  notification targets or text typed into a setting. See *Reporting a
+  problem* in the README.
+- **`pulse_check.ping`** asks a device now whether it is there, the way it
+  is asked before it is marked quiet, and responds with whether it
+  answered, how it was asked (Z-Wave JS or a network ping) and the address
+  pinged, or why it could not be asked. A device that answers counts as
+  heard from. Try it under Developer tools → Actions.
+
+### Changed
+- The repair issue for a notify target that fails or no longer exists no
+  longer has the target's name in its id, which Home Assistant includes in
+  a diagnostics download. The issue still names the target. One raised by
+  an earlier version is cleared and raised again under its new id.
+
 ## 0.2.19 - 2026-11-14
 
 ### Changed

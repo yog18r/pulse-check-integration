@@ -375,6 +375,11 @@ entities with no device.
 
 ## Still open
 
+- Ask now from the card: a button on a quiet device's row that runs
+  `pulse_check.ping` and shows the answer.
+- Batteries to buy as a to-do entity, by type and count.
+- Repair issues, with the fix, when the system forbids network pings and
+  when Zigbee2MQTT's availability feature is off.
 - A native-speaker review of the translations.
 
 Listing in the Marketplace catalog is done. Home Assistant 2026.11 replaced

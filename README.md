@@ -14,7 +14,7 @@ It brings entities, notifications, services, a blueprint and a **dashboard card*
 
 [![CI](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/yog18r/pulse-check-integration/actions/workflows/ci.yml)
 
-> **Status: feature complete, lightly tested.** Everything in the [plan](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) is built: detection rules, entities, options, notifications, services, replacement tracking and the card. It has run on one real instance. Expect rough edges; issues are welcome. See [Roadmap](#roadmap).
+> **Status: feature complete.** Everything in the [plan](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) is built: detection rules, entities, options, notifications, services, replacement tracking and the card. Issues and ideas are welcome; see [Reporting a problem](#reporting-a-problem) and the [Roadmap](#roadmap).
 
 ---
 
@@ -35,7 +35,7 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 - Everything grouped by **device**, not entity, so each physical thing appears once
 - In **ten languages**: English, German, French, Spanish, Dutch, Italian, Brazilian Portuguese, Polish, Simplified Chinese and Czech
 
-It reads what Home Assistant already knows: the state machine and the registries. **The one time it contacts a device** is when the device is about to be marked quiet: it is asked once whether it is still there, which you can turn off (see [Asking before quiet](#how-detection-works)).
+It reads what Home Assistant already knows: the state machine and the registries. **It contacts a device only** when the device is about to be marked quiet, to ask once whether it is still there (which you can turn off; see [Asking before quiet](#how-detection-works)), and when you ask it yourself with `pulse_check.ping`.
 
 <!-- ha-marketplace:exclude-start -->
 ## Installation
@@ -359,6 +359,9 @@ Every transition also fires a `pulse_check_transition` event with `device_id`, `
 | `pulse_check.undo_mark` | Take back the most recent replacement or charge, with the cycle it closed: one recorded by hand, or one detected from a rise in level that was not a new battery after all |
 | `pulse_check.refresh` | Recompute now and re-read battery history |
 | `pulse_check.maintenance_mode` | Hold every notification back for `hours` (default from the options; 0 ends it now). See [Maintenance mode](#maintenance-mode) |
+| `pulse_check.ping` | Ask a device now whether it is there, the way it is asked before it is marked quiet (see [Asking before quiet](#how-detection-works)). It responds with `answered`, `method` (`zwave_js`, `network` or `none`), `address` (the address pinged) and `outcome`: `answered`, `no_answer`, `no_address` (nothing says where it is), `part_of_another_device`, `zwave_unavailable`, `pings_not_allowed` (the system forbids network pings) or `failed` (see the log). A device that answers counts as heard from now. It works with *Ping before marking quiet* turned off, and takes a device from the device registry only |
+
+To try `pulse_check.ping`, open **Developer tools → Actions**, pick *Pulse Check: Ping a device*, choose the device and select **Perform action**; the response shows below. In an automation, `response_variable` holds it.
 
 `device_id` is the device registry id, or the entity id of an entity that has no device (`sensor.remote_battery_template` or `entity:sensor.remote_battery_template`). Everything is stored in `.storage/pulse_check.data`. It does not grow without end: each device keeps its newest 200 replacements and charges, and the history and snooze of a device or entity that has left Home Assistant are dropped once it has been gone for a week. Per-device settings stay until you clear them (they are listed with ⚠). A damaged record in the file is left out, with a warning in the log, rather than stopping Pulse Check.
 
@@ -482,7 +485,7 @@ custom_components/pulse_check/
 ├── card.py           serves the card and keeps its dashboard resource current
 ├── frontend/         the built card, pulse-check-card.js (not in git; built from /frontend)
 ├── coordinator.py    when to recompute; builds the snapshot from HA
-├── ping.py           asks a device about to be quiet whether it is there
+├── ping.py           asks a device whether it is there: before it is quiet, or when asked
 ├── history.py        battery history from the recorder, for days-left
 ├── notify.py         transitions, policies, reminders, digests, maintenance mode, the event
 ├── notify_actions.py buttons on companion-app notifications, and what they do
@@ -491,6 +494,7 @@ custom_components/pulse_check/
 ├── replacements.py   replacement and charge history, cycles, unusual drain
 ├── storage.py        the .storage file: settings, snoozes, notify state, history
 ├── services.py       the pulse_check.* services
+├── diagnostics.py    the diagnostics download, built from an allowlist so it is safe to post
 ├── options.py        entry.options -> the core's configuration
 ├── entity.py         the base entity (one "Pulse Check" service device)
 ├── sensor.py         the sensors
@@ -505,7 +509,7 @@ custom_components/pulse_check/
 
 **The coordinator** is Home Assistant's `DataUpdateCoordinator`. It listens to `state_changed`, but only a change that can alter the result gets through: an entity of an analysed device appearing, disappearing or changing availability, a battery or charging value changing, a Z-Wave node status, or a `battery_level` attribute. A new battery entity appearing counts too, since one with no registry entry brings no registry event. A power sensor reporting every second never causes a run. Relevant changes are debounced to at most one recompute every ten seconds, and a timer recomputes every five minutes so time-based transitions (quiet devices, expiring snoozes) happen on their own. Nothing time-stamped is written to entity attributes, so a recompute that changes no count leaves no new row in the recorder. Set the logger to debug to see which entity triggered each run. It copies the state machine and registries into plain dicts in the event loop, then runs the analysis in a worker thread. The analysis is pure, so it is tested without Home Assistant; the coordinator and sensor are tested with the JSON fixture loaded into a real test instance.
 
-**Nothing is polled from devices**, apart from the one ping before a device is marked quiet (`ping.py`). `last_reported` is Home Assistant's own record of when an entity last pushed a value. Drain estimates read the recorder's database, which already holds the history; those queries run in the recorder's own worker thread.
+**Nothing is polled from devices**, apart from the one ping before a device is marked quiet and the `pulse_check.ping` action (`ping.py`). `last_reported` is Home Assistant's own record of when an entity last pushed a value. Drain estimates read the recorder's database, which already holds the history; those queries run in the recorder's own worker thread.
 
 ## Development
 
@@ -519,7 +523,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (399 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
+The test suite (408 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
 
 `tests/fixtures/card_contract.json` pins what the integration sends the card: a device with every optional field, a summary and a history result. Python fails if it emits something different, and the card's `contract.test.ts` fails if it stops reading a field. After a deliberate change, regenerate it with `PULSE_CHECK_UPDATE_CONTRACT=1 pytest tests/test_card_contract.py` and update the card to match.
 
@@ -538,11 +542,20 @@ CI runs ruff, mypy, pytest, the card's checks and build, [hassfest](https://deve
 
 To try a development build on a live instance, run `npm run build` in `frontend/`, delete any `__pycache__` folders, copy `custom_components/pulse_check` into `/config/custom_components/`, restart Home Assistant and refresh the browser. The card is served without long-lived cache headers, so a rebuilt card with the same version is picked up on a normal reload.
 
+## Reporting a problem
+
+Open an [issue](https://github.com/yog18r/pulse-check-integration/issues) and attach Pulse Check's diagnostics: **Settings → Devices & services → Pulse Check → ⋮ → Download diagnostics**. The file is made to be posted in public. It holds the options, a count of what is saved, and for each device what Pulse Check made of it: its verdict, battery, when it was last heard from (as hours ago), which of its settings are set, and how it would be pinged.
+
+It leaves out anything that identifies your home or the people in it. Devices are numbered (`device_1`) instead of named, and there are no entity or device ids, area names, IP addresses or notification targets. Text you typed into a setting (a name, an area, a battery type) shows only as `(set)`, and a list such as the excluded areas only as how many it holds. Integration names (`zha`, `shelly`) and option values are kept, since they say nothing about a home. Home Assistant adds its own section around it, with its version, installation type and time zone, the custom integrations installed, and the ids of Pulse Check's repair issues, which hold no target names.
+
 ## Roadmap
 
-Everything planned is built; [PLAN.md](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) records how the design got here. Still to come:
+Everything in the original plan is built; [PLAN.md](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) records how the design got here. Next, roughly in order:
 
-- Native-speaker review of the machine-made translations
+- **Ask now from the card.** A button on a quiet device's row that runs `pulse_check.ping` and shows the answer, so you can tell a dead device from a quiet one without leaving the dashboard.
+- **Batteries to buy as a to-do list.** A to-do entity listing the batteries due for replacement, by type and count, so they show up in Home Assistant's to-do lists and can be ticked off when bought.
+- **Repairs instead of log lines.** A repair issue, with the fix, when the system does not allow network pings, and when Zigbee2MQTT's availability feature is off, which leaves an offline Zigbee device looking quiet instead of unavailable.
+- **Native-speaker review** of the machine-made translations.
 
 ## License
 
