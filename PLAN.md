@@ -376,9 +376,10 @@ entities with no device.
 ## Still open
 
 - A native-speaker review of the translations.
-- Listing in the Marketplace catalog. Home Assistant 2026.11 replaced HACS
-  with a built-in Marketplace that reads the same catalog, `hacs/default`,
-  and the same `hacs.json`. Submission is a pull request adding
-  `yog18r/pulse-check-integration` to its integration list, with links to
-  the latest release and to passing HACS action and hassfest runs. Reviews
-  take months. Submitted on 2026-11-08 as hacs/default#13657.
+
+Listing in the Marketplace catalog is done. Home Assistant 2026.11 replaced
+HACS with a built-in Marketplace that reads the same catalog,
+`hacs/default`, and the same `hacs.json`. The submission (a pull request
+adding `yog18r/pulse-check-integration` to its integration list, with links
+to the latest release and to passing HACS action and hassfest runs) went in
+on 2026-11-08 as hacs/default#13657 and was merged on 2026-11-17.

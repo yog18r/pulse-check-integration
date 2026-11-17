@@ -46,18 +46,17 @@ Requires Home Assistant 2026.9 or newer.
 
 ### Option 1: the Marketplace (Home Assistant 2026.11 and newer)
 
-Since 2026.11, community integrations install from **Settings → Marketplace**, which replaced HACS. Select the button above, or add the repository by hand:
+Since 2026.11, community integrations install from **Settings → Marketplace**, which replaced HACS. Pulse Check is in its catalog. Select the button above, or:
 
 1. Go to **Settings → Marketplace**.
-2. In the upper-right corner, select **Add from link**.
-3. Enter `yog18r/pulse-check-integration` and select **Add**.
-4. Open **Pulse Check**, select **Install**, and restart Home Assistant.
-
-Adding from a link needs the Marketplace's GitHub connection, which it asks you to set up the first time. Pulse Check is not in the Marketplace catalog yet; once it is, you can find it by searching under **Settings → Marketplace** instead.
+2. Search for **Pulse Check** and open it.
+3. Select **Install**, and restart Home Assistant.
 
 ### Option 2: HACS (Home Assistant 2026.9 and 2026.10)
 
-HACS still works on versions before 2026.11. Add `https://github.com/yog18r/pulse-check-integration` as a custom repository in HACS (category: Integration), install it and restart Home Assistant. When you move to 2026.11, Home Assistant carries it over to the Marketplace.
+HACS still works on versions before 2026.11. Open HACS, search for **Pulse Check**, download it and restart Home Assistant. When you move to 2026.11, Home Assistant carries it over to the Marketplace.
+
+If you added this repository to HACS as a custom repository before it was listed, nothing needs to change: updates arrive the same way.
 
 ### Option 3: manual
 
@@ -544,7 +543,6 @@ To try a development build on a live instance, run `npm run build` in `frontend/
 Everything planned is built; [PLAN.md](https://github.com/yog18r/pulse-check-integration/blob/main/PLAN.md) records how the design got here. Still to come:
 
 - Native-speaker review of the machine-made translations
-- Listing in the Marketplace catalog: submitted to [hacs/default](https://github.com/hacs/default/pull/13657) and waiting for review
 
 ## License
 
