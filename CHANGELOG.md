@@ -4,6 +4,50 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Added
+- **Snooze indefinitely.** The card's 💤 menu has *Indefinitely* after 1, 7
+  and 30 days, and `pulse_check.snooze` takes `indefinitely: true`. The
+  device stays snoozed until it is unsnoozed, and shows as "💤
+  indefinitely". Afterwards the card points out that ignoring the device
+  in Pulse Check's per-device settings leaves it out altogether, snoozed
+  list included, with a link to the settings for administrators.
+
+### Changed
+- **Actions check who is calling them.** Changing a device's settings
+  (`set_device_settings`), re-reading history (`refresh`) and pinging a
+  device (`ping`) are for administrators only, like the integration's
+  options. Snoozing, marking a battery replaced or charged and maintenance
+  mode need permission to control Pulse Check's entities, so a read-only
+  user can no longer call them; every other user still can, from the card
+  and the phone buttons. Automations are not affected.
+- **The card's data follows each user's entity permissions**, as Home
+  Assistant's states and history do. Home Assistant's own user groups can
+  read every entity, so nothing changes for them; a user limited to some
+  entities sees only the devices made of those.
+- `set_device_settings` refuses a `battery_count` above 20, as the settings
+  form already did.
+- **One history request reads the recorder at most twice**, once in hours
+  and once in days, however many batteries and window lengths it asks for.
+- A notification that cannot be sent is logged without its text, which
+  names devices and rooms.
+- An IPv4 address written as IPv6 (`::ffff:192.168.1.50`) is judged and
+  pinged as the IPv4 address it is.
+- The card cuts a name, area, model or label from another integration to
+  200 characters.
+- The release and CI workflows run every action pinned to a commit, and
+  leave no token in git's configuration.
+- The README has a *Permissions and privacy* section.
+
+### Fixed
+- **The card works better with a screen reader and the keyboard.** A row
+  is named by what it shows (the device, or on the Actions tab the
+  instruction) and described by its battery level, last heard and
+  details, which a screen reader used to skip. The tabs are one Tab stop,
+  with the arrow keys, Home and End moving between them, and the snooze
+  menu is named after its button.
+
 ## 0.2.20 - 2026-11-18
 
 ### Added

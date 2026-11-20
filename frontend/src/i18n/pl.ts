@@ -83,7 +83,6 @@ export const pl: Catalog = {
   'empty.online_detail': 'Żadne urządzenie nie jest offline ani nie milczy zbyt długo.',
   'empty.actions': 'Nic do zrobienia',
 
-  'row.open': '{name}, otwórz w Home Assistant',
   'row.offline': 'Offline',
   'row.unavailable': 'Niedostępne',
   'row.not_provided': 'Niedostarczane',
@@ -112,7 +111,6 @@ export const pl: Catalog = {
 
   'battery.low': 'Słaba',
   'battery.ok': 'OK',
-  'battery.level': 'Poziom baterii',
 
   'snooze.title': 'Wycisz: ukryj to urządzenie na jakiś czas',
   'snooze.label': 'Wycisz {name}',
@@ -124,6 +122,12 @@ export const pl: Catalog = {
     many: '{count} dni',
     other: '{count} dnia',
   },
+  'snooze.indefinitely': 'Bezterminowo',
+  'snooze.indefinitely_title': 'Wyciszone bezterminowo. Kliknij, aby przywrócić.',
+  'row.snoozed_indefinitely': 'bezterminowo',
+  'hint.snoozed_indefinitely':
+    '{name} pozostanie wyciszone, dopóki tego nie cofniesz. Jeśli nie chcesz go w ogóle widzieć w Pulse Check, zignoruj je w ustawieniach urządzeń Pulse Check.',
+  'hint.dismiss': 'Rozumiem',
 
   'rows.show_more': {
     one: 'Pokaż jeszcze {count}',

@@ -18,6 +18,7 @@
  */
 import {
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -28,6 +29,9 @@ import { useT } from './i18n';
 
 /** Options offered in the menu, in days. */
 export const SNOOZE_CHOICES_DAYS = [1, 7, 30] as const;
+
+/** A number of days, or no end: snoozed until it is unsnoozed. */
+export type SnoozeChoice = number | 'indefinitely';
 
 /** Space between the button and the menu, and the menu and the window edge. */
 const GAP = 4;
@@ -44,7 +48,8 @@ const SUPPORTS_POPOVER =
 interface Props {
   deviceName: string;
   snoozedUntil?: Date | undefined;
-  onSnooze: (days: number) => void;
+  snoozedIndefinitely?: boolean | undefined;
+  onSnooze: (choice: SnoozeChoice) => void;
   onUnsnooze: () => void;
 }
 
@@ -115,9 +120,16 @@ function moveFocus(menu: HTMLElement | null, key: string): boolean {
   return true;
 }
 
-export function SnoozeMenu({ deviceName, snoozedUntil, onSnooze, onUnsnooze }: Props) {
+export function SnoozeMenu({
+  deviceName,
+  snoozedUntil,
+  snoozedIndefinitely,
+  onSnooze,
+  onUnsnooze,
+}: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const buttonId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLSpanElement>(null);
   usePlacement(open, menuRef, buttonRef);
@@ -142,7 +154,11 @@ export function SnoozeMenu({ deviceName, snoozedUntil, onSnooze, onUnsnooze }: P
       <button
         type="button"
         className="snooze"
-        title={t.t('snooze.until_title', { date: snoozedUntil.toLocaleDateString(t.language) })}
+        title={
+          snoozedIndefinitely
+            ? t.t('snooze.indefinitely_title')
+            : t.t('snooze.until_title', { date: snoozedUntil.toLocaleDateString(t.language) })
+        }
         aria-label={t.t('snooze.unsnooze_label', { name: deviceName })}
         onClick={onUnsnooze}
       >
@@ -162,6 +178,7 @@ export function SnoozeMenu({ deviceName, snoozedUntil, onSnooze, onUnsnooze }: P
     >
       <button
         ref={buttonRef}
+        id={buttonId}
         type="button"
         className="snooze"
         title={t.t('snooze.title')}
@@ -179,6 +196,7 @@ export function SnoozeMenu({ deviceName, snoozedUntil, onSnooze, onUnsnooze }: P
           ref={menuRef}
           className="menu"
           role="menu"
+          aria-labelledby={buttonId}
           popover={SUPPORTS_POPOVER ? 'manual' : undefined}
         >
           {SNOOZE_CHOICES_DAYS.map((days) => (
@@ -194,6 +212,16 @@ export function SnoozeMenu({ deviceName, snoozedUntil, onSnooze, onUnsnooze }: P
               {t.tn('snooze.days', days)}
             </button>
           ))}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onSnooze('indefinitely');
+            }}
+          >
+            {t.t('snooze.indefinitely')}
+          </button>
         </span>
       )}
     </span>

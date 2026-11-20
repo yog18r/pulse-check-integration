@@ -39,6 +39,7 @@ describe('the contract device', () => {
         'name',
         'quietThresholdHours',
         'severity',
+        'snoozedIndefinitely',
         'snoozedUntil',
         'source',
         'unavailableParts',
@@ -77,7 +78,8 @@ describe('the contract device', () => {
         isCharging: true,
       },
       lastHeard: new Date('2026-10-15T10:00:00.000Z'),
-      snoozedUntil: new Date('2026-10-16T10:00:00.000Z'),
+      snoozedUntil: new Date('9999-12-31T00:00:00.000Z'),
+      snoozedIndefinitely: true,
       daysLeft: 400,
       estimate: {
         daysLeft: 400,

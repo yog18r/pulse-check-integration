@@ -31,7 +31,7 @@ Home Assistant has all the data to spot this, but it is spread across hundreds o
 - **Actions**: "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", and a to-buy total per battery type
 - **Notifications** once per transition, not once per update: a device goes offline, goes quiet, or drops to warning or critical. Instant with reminders, or collected into a daily or weekly digest, chosen per device. A limit per integration keeps an outage to a few messages, failed sends are retried, and a broken notify target shows up under Repairs. Every transition is also written to the device's logbook
 - **Days left** from the recorder's history (hours for a battery charged every day, with the level it usually falls to), **replacement tracking** with cycle statistics, and a flag when a battery drains much faster than it used to
-- **Snooze** a device for a while; snoozes are shared across every browser and user
+- **Snooze** a device for a while, or until you unsnooze it; snoozes are shared across every browser and user
 - Everything grouped by **device**, not entity, so each physical thing appears once
 - In **ten languages**: English, German, French, Spanish, Dutch, Italian, Brazilian Portuguese, Polish, Simplified Chinese and Czech
 
@@ -183,7 +183,7 @@ Settings saved for something that is no longer found are listed with ⚠, so the
 - **🔋 Batteries**: every battery-powered device, lowest first (or soonest to run out), with a coloured bar, a trend sparkline, "~12d left" (for a battery charged every day, "charge in ~6h · usually lowest 24%", or just "usually lowest 47%" when it never runs down to the warning level, like a home battery topped up by solar), and a note when a battery is draining much faster than it used to
 - **📡 Connectivity**: anything offline, not heard from within its threshold, or no longer provided by its integration, and services or entities with no device that have stopped working (shown as *Unavailable*). Underneath, **🔍 to look at** lists working devices with a part that has stopped, such as a Hydrawise controller whose daily watering time is unavailable. They are only listed: no alert, no notification, and they never count as needing attention
 - **🛠️ Actions** (optional tab): "Replace 2 × AA in Kitchen Mini Switch", "Charge Office Tablet", a to-buy total, and a **Done** button that records the replacement. For ten seconds afterwards an **Undo** takes a mistaken tap back
-- **Snooze** a device for 1, 7 or 30 days. Snoozes live in the integration, so every dashboard, phone and notification agrees
+- **Snooze** a device for 1, 7 or 30 days, or indefinitely. Snoozes live in the integration, so every dashboard, phone and notification agrees. An indefinitely snoozed device stays on the snoozed list; after snoozing one, the card points out that ignoring it in the per-device settings leaves it out altogether (with a link to them for administrators)
 - **Group by** area, integration or device type. Tap a row to open the device in Home Assistant
 - A line under the header while **maintenance mode** holds notifications back, with its end time
 - A **Refresh** prompt after Pulse Check is updated, since a browser tab keeps running the card it loaded
@@ -272,6 +272,8 @@ This is the contract between the integration and the card. The card, or anything
 
 All three return the error `not_loaded` when the integration is not set up.
 
+Each answers within the user's own entity permissions, as Home Assistant's states and history do. Home Assistant's user groups (administrators, users, read-only users) can read every entity, so they all see everything. A user given a policy that limits which entities they may read gets only the devices whose entities they may all read, with the counts and the replace and charge lists worked out from those; a battery they may not read answers `unknown_entity`, the same as one that is not watched.
+
 Each device entry uses the card's `DeviceHealth` shape:
 
 ```yaml
@@ -292,7 +294,7 @@ Each device entry uses the card's `DeviceHealth` shape:
   entityIds: [binary_sensor.living_room_motion_occupancy, sensor.living_room_motion_battery, …]
 ```
 
-Each device entry also carries `deviceType` (lock, cover, vacuum, phone, media, remote, climate, motion, contact, light, switch or other); `daysLeft`, `estimate`, `batteryKind`, `usualLow`, `lastReplaced` and `unusual` when known; `batteryWarning` and `batteryCritical` when the device has levels of its own; `snoozedUntil` while snoozed; `isNotProvided: true` for leftovers an integration no longer provides; `unavailableParts` (each `{ entityId, name }`) for a working device whose main entities have been unavailable a while; and `source` (`service` or `entity`) for a service or an entity with no device, which reads as unavailable rather than offline.
+Each device entry also carries `deviceType` (lock, cover, vacuum, phone, media, remote, climate, motion, contact, light, switch or other); `daysLeft`, `estimate`, `batteryKind`, `usualLow`, `lastReplaced` and `unusual` when known; `batteryWarning` and `batteryCritical` when the device has levels of its own; `snoozedUntil` while snoozed, with `snoozedIndefinitely: true` when the snooze has no end (`snoozedUntil` is then 31 December 9999); `isNotProvided: true` for leftovers an integration no longer provides; `unavailableParts` (each `{ entityId, name }`) for a working device whose main entities have been unavailable a while; and `source` (`service` or `entity`) for a service or an entity with no device, which reads as unavailable rather than offline.
 
 Every device is in the list, except services and entities with no device that are working: those appear only while they are unavailable or not provided, snoozed, or carry a battery, so hundreds of working automations and helpers do not travel to every dashboard.
 
@@ -347,11 +349,16 @@ Every transition also fires a `pulse_check_transition` event with `device_id`, `
 
 ## Services
 
+Who may call them, when a person calls one (automations always may):
+
+- `snooze`, `unsnooze`, `mark_replaced`, `mark_charged`, `undo_mark` and `maintenance_mode`, which the card and the phone buttons offer the household: anyone who may control Pulse Check's entities. A read-only user may not.
+- `set_device_settings`, `refresh` and `ping`: administrators only, like the integration's options.
+
 | Service | What it does |
 | --- | --- |
-| `pulse_check.snooze` | Mute a device for `days` (default 7, at most 3650) or `until` a time. Its facts are still reported but it counts as ok and sends nothing |
+| `pulse_check.snooze` | Mute a device for `days` (default 7, at most 3650), `until` a time, or with `indefinitely: true` until it is unsnoozed (days and until are then ignored). Its facts are still reported but it counts as ok and sends nothing |
 | `pulse_check.unsnooze` | Lift a snooze early |
-| `pulse_check.set_device_settings` | `name`, `area`, `quiet_threshold_hours`, `battery_type`, `battery_count`, `rechargeable` (true: charged, false: replaced, empty: work it out), `battery_warning`, `battery_critical`, `notify_policy`, `sparkline_days`. Only given fields change; an empty value clears one. `name`, `area` and `battery_type` must be text of at most 100 characters, and `quiet_threshold_hours` at most a year (8760). Settings saved for an id that is no longer watched can still be cleared |
+| `pulse_check.set_device_settings` | `name`, `area`, `quiet_threshold_hours`, `battery_type`, `battery_count`, `rechargeable` (true: charged, false: replaced, empty: work it out), `battery_warning`, `battery_critical`, `notify_policy`, `sparkline_days`. Only given fields change; an empty value clears one. `name`, `area` and `battery_type` must be text of at most 100 characters, `battery_count` at most 20, and `quiet_threshold_hours` at most a year (8760). Settings saved for an id that is no longer watched can still be cleared |
 | `pulse_check.mark_replaced` | Record a replacement now (optional `battery_type`, text of at most 100 characters), closing the current cycle |
 | `pulse_check.mark_charged` | The same for a charge |
 | `pulse_check.undo_mark` | Take back the most recent replacement or charge, with the cycle it closed: one recorded by hand, or one detected from a rise in level that was not a new battery after all |
@@ -521,7 +528,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (408 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
+The test suite (439 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
 
 `tests/fixtures/card_contract.json` pins what the integration sends the card: a device with every optional field, a summary and a history result. Python fails if it emits something different, and the card's `contract.test.ts` fails if it stops reading a field. After a deliberate change, regenerate it with `PULSE_CHECK_UPDATE_CONTRACT=1 pytest tests/test_card_contract.py` and update the card to match.
 
@@ -531,7 +538,7 @@ The test suite (408 tests) runs in about a minute and a half. `tests/core/` test
 cd frontend
 npm ci
 npm run dev      # demo page with a fake subscription, no Home Assistant needed
-npm run check    # typecheck, lint, format check, tests (170), build
+npm run check    # typecheck, lint, format check, tests (178), build
 ```
 
 With the demo running, `python frontend/docs/screenshots.py` retakes the README screenshots from it.
@@ -539,6 +546,20 @@ With the demo running, `python frontend/docs/screenshots.py` retakes the README 
 CI runs ruff, mypy, pytest, the card's checks and build, [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest/) (on the integration with the built card inside) and the HACS validation action on every push to `main` and every pull request. Pushing a `v*` tag that matches `manifest.json` builds the card and publishes `pulse_check.zip` as a release.
 
 To try a development build on a live instance, run `npm run build` in `frontend/`, delete any `__pycache__` folders, copy `custom_components/pulse_check` into `/config/custom_components/`, restart Home Assistant and refresh the browser. The card is served without long-lived cache headers, so a rebuilt card with the same version is picked up on a normal reload.
+
+## Permissions and privacy
+
+Pulse Check needs no accounts, passwords or keys of its own, and talks to no outside service: what leaves Home Assistant is the notifications you set up.
+
+- **Signing in.** The card's data and every action go through Home Assistant's own websocket and actions, so only signed-in users reach them.
+- **Reading.** What the card is sent follows each user's entity permissions (see [Websocket API](#websocket-api)). Hiding a card or a dashboard does not hide the data: any signed-in user who may read the entities can ask for it, as they can for the entities' own states and history.
+- **Everyday actions** (snooze, mark replaced or charged, maintenance mode) need permission to control Pulse Check's entities, which every user but a read-only one has.
+- **Settings.** The options, the per-device settings and the `set_device_settings`, `refresh` and `ping` actions are for administrators only (see [Services](#services)).
+- **Notifications** name the device, its area and the problem. They go only to the targets you choose, and through whatever those use: a phone's notification goes via Apple's or Google's push service, an e-mail via your mail provider. If a message cannot be sent, the log says so without its text.
+- **The network.** A device is pinged only at a private address Home Assistant already holds for it (see [Asking before quiet](#how-detection-works)), never one looked up by name, and only when it is about to be marked quiet or an administrator asks.
+- **What is stored** in `.storage/pulse_check.data`: per-device settings, snoozes, when each device was last heard from, notification state, and battery replacements and charges. It is included in Home Assistant's backups like the rest of `.storage`, and deleted when Pulse Check is removed.
+- **Diagnostics** leave out names, ids, addresses and anything typed in (see [Reporting a problem](#reporting-a-problem)).
+- **Releases** are built by GitHub Actions from the tagged commit, with every action pinned to a commit.
 
 ## Reporting a problem
 

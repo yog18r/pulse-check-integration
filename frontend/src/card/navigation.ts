@@ -11,6 +11,9 @@
  */
 import { ORPHAN_PREFIX, type DeviceHealth } from '../core/types';
 
+/** Pulse Check's page under Settings → Devices & services. */
+export const INTEGRATION_PAGE = '/config/integrations/integration/pulse_check';
+
 /**
  * Go to a page of Home Assistant without reloading it, the way HA's own
  * frontend does: change the URL, then tell HA's router to look at it.

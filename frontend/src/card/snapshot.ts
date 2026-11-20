@@ -90,6 +90,21 @@ function str(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+/**
+ * Longest name, label or model shown, in characters. Names come from other
+ * integrations and their devices; React shows any text as text, but one of
+ * thousands of characters would still swamp a row.
+ */
+export const MAX_TEXT = 200;
+
+/** A string to show: `str`, cut to `MAX_TEXT` with an ellipsis. */
+function text(value: unknown): string | undefined {
+  const found = str(value);
+  return found !== undefined && found.length > MAX_TEXT
+    ? `${found.slice(0, MAX_TEXT - 1)}…`
+    : found;
+}
+
 function num(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
@@ -125,8 +140,8 @@ function parseExtras(raw: unknown): EnhancerExtra[] {
   const extras: EnhancerExtra[] = [];
   for (const item of raw) {
     if (!isRecord(item)) continue;
-    const label = str(item.label);
-    const value = str(item.value);
+    const label = text(item.label);
+    const value = text(item.value);
     if (label === undefined || value === undefined) continue;
     const extra: EnhancerExtra = { label, value };
     const sev = severity(item.severity);
@@ -163,7 +178,7 @@ export function parseEstimate(raw: unknown): Estimate | undefined {
 export function parseDevice(raw: unknown): DeviceHealth | undefined {
   if (!isRecord(raw)) return undefined;
   const deviceId = str(raw.deviceId);
-  const name = str(raw.name);
+  const name = text(raw.name);
   const integration = str(raw.integration);
   const sev = severity(raw.severity);
   if (deviceId === undefined || name === undefined || integration === undefined || !sev) {
@@ -185,11 +200,11 @@ export function parseDevice(raw: unknown): DeviceHealth | undefined {
   };
   if (raw.isNotProvided === true) device.isNotProvided = true;
   if (raw.source === 'service' || raw.source === 'entity') device.source = raw.source;
-  const area = str(raw.area);
+  const area = text(raw.area);
   if (area !== undefined) device.area = area;
-  const manufacturer = str(raw.manufacturer);
+  const manufacturer = text(raw.manufacturer);
   if (manufacturer !== undefined) device.manufacturer = manufacturer;
-  const model = str(raw.model);
+  const model = text(raw.model);
   if (model !== undefined) device.model = model;
   const battery = parseBattery(raw.battery);
   if (battery) device.battery = battery;
@@ -197,6 +212,7 @@ export function parseDevice(raw: unknown): DeviceHealth | undefined {
   if (lastHeard) device.lastHeard = lastHeard;
   const snoozedUntil = date(raw.snoozedUntil);
   if (snoozedUntil) device.snoozedUntil = snoozedUntil;
+  if (snoozedUntil && raw.snoozedIndefinitely === true) device.snoozedIndefinitely = true;
   const daysLeft = num(raw.daysLeft);
   if (daysLeft !== undefined) device.daysLeft = daysLeft;
   const estimate = parseEstimate(raw.estimate);
@@ -213,7 +229,7 @@ export function parseDevice(raw: unknown): DeviceHealth | undefined {
   }
   const lastReplaced = date(raw.lastReplaced);
   if (lastReplaced) device.lastReplaced = lastReplaced;
-  const unusual = str(raw.unusual);
+  const unusual = text(raw.unusual);
   if (unusual !== undefined) device.unusual = unusual;
   const parts = parseUnavailableParts(raw.unavailableParts);
   if (parts.length > 0) device.unavailableParts = parts;
@@ -228,7 +244,7 @@ function parseUnavailableParts(raw: unknown): UnavailablePart[] {
     if (!isRecord(item)) continue;
     const entityId = str(item.entityId);
     if (entityId === undefined) continue;
-    parts.push({ entityId, name: str(item.name) ?? entityId });
+    parts.push({ entityId, name: text(item.name) ?? entityId });
   }
   return parts;
 }
@@ -246,9 +262,9 @@ function parseActionItem(raw: unknown): ActionItem | undefined {
   if (!isRecord(raw)) return undefined;
   const kind = raw.kind === 'charge' ? 'charge' : raw.kind === 'replace' ? 'replace' : undefined;
   const deviceId = str(raw.deviceId);
-  const name = str(raw.name);
+  const name = text(raw.name);
   const sev = severity(raw.severity);
-  const label = str(raw.label);
+  const label = text(raw.label);
   if (!kind || deviceId === undefined || name === undefined || !sev || label === undefined) {
     return undefined;
   }
@@ -257,7 +273,7 @@ function parseActionItem(raw: unknown): ActionItem | undefined {
     deviceId,
     name,
     severity: sev,
-    batteryType: str(raw.batteryType) ?? 'Unknown type',
+    batteryType: text(raw.batteryType) ?? 'Unknown type',
     count: num(raw.count) ?? 1,
     label,
   };
@@ -272,7 +288,7 @@ function parseActions(raw: unknown): ActionList {
   const shopping: ShoppingLine[] = Array.isArray(raw.shopping)
     ? raw.shopping.flatMap((line: unknown) => {
         if (!isRecord(line)) return [];
-        const batteryType = str(line.batteryType);
+        const batteryType = text(line.batteryType);
         if (batteryType === undefined) return [];
         return [{ batteryType, count: num(line.count) ?? 0, devices: num(line.devices) ?? 0 }];
       })
@@ -300,13 +316,13 @@ function parseRules(raw: unknown): RuleConfig {
 export function parseDeviceSettings(raw: unknown): DeviceSettings {
   if (!isRecord(raw)) return {};
   const settings: DeviceSettings = {};
-  const name = str(raw.name);
+  const name = text(raw.name);
   if (name !== undefined) settings.name = name;
-  const area = str(raw.area);
+  const area = text(raw.area);
   if (area !== undefined) settings.area = area;
   const quiet = num(raw.quiet_threshold_hours);
   if (quiet !== undefined) settings.quiet_threshold_hours = quiet;
-  const type = str(raw.battery_type);
+  const type = text(raw.battery_type);
   if (type !== undefined) settings.battery_type = type;
   const count = num(raw.battery_count);
   if (count !== undefined) settings.battery_count = count;

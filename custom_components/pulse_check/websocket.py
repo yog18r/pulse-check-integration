@@ -15,6 +15,13 @@ The snapshot is the same data the sensors are built from, serialised in
 the card's `DeviceHealth` shape. Keeping it off the sensor's attributes
 means the state machine and the recorder are not carrying a large,
 frequently changing payload.
+
+Each command answers within the user's own entity permissions, as Home
+Assistant's states and history do: a user who may not read every entity
+gets only the devices whose entities they may all read, with the counts
+and the to-do lists worked out from those, and history only for a battery
+they may read. Everyone else (every user Home Assistant's own user groups
+make) shares one payload per recompute.
 """
 
 from __future__ import annotations
@@ -22,6 +29,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import probatio
+from homeassistant.auth.permissions.const import POLICY_READ
 from homeassistant.components.websocket_api import async_register_command
 from homeassistant.components.websocket_api.connection import ActiveConnection
 from homeassistant.components.websocket_api.decorators import async_response, websocket_command
@@ -31,9 +39,12 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
 from .const import DATA_COORDINATOR, DATA_VERSION, SIGNAL_SNAPSHOT
+from .core import action_list, summarise
 from .core.models import to_iso
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .coordinator import PulseCheckCoordinator, PulseCheckData
     from .core.drain import DrainPoint
     from .core.models import DeviceHealth
@@ -72,13 +83,26 @@ def _worth_showing(device: DeviceHealth) -> bool:
     )
 
 
-def snapshot_payload(coordinator: PulseCheckCoordinator) -> dict[str, Any]:
+def _readable(connection: ActiveConnection) -> Callable[[str], bool] | None:
+    """What the user may read: None for every entity, else a check per entity."""
+    permissions = connection.user.permissions
+    if permissions.access_all_entities(POLICY_READ):
+        return None
+    return lambda entity_id: permissions.check_entity(entity_id, POLICY_READ)
+
+
+def snapshot_payload(
+    coordinator: PulseCheckCoordinator, readable: Callable[[str], bool] | None = None
+) -> dict[str, Any]:
     """Everything the card needs, JSON-ready.
 
-    Built once per recompute and shared by every subscriber (each open
-    dashboard), instead of once per subscriber.
+    For a user who may read every entity it is built once per recompute and
+    shared by every subscriber (each open dashboard). For one who may not,
+    it is built for them alone, from the devices they may read.
     """
     data: PulseCheckData = coordinator.data
+    if readable is not None:
+        return _build_payload(coordinator, data, readable)
     cached = coordinator.payload_cache
     if cached is not None and cached[0] is data:
         return cached[1]
@@ -87,17 +111,31 @@ def snapshot_payload(coordinator: PulseCheckCoordinator) -> dict[str, Any]:
     return payload
 
 
-def _build_payload(coordinator: PulseCheckCoordinator, data: PulseCheckData) -> dict[str, Any]:
+def _build_payload(
+    coordinator: PulseCheckCoordinator,
+    data: PulseCheckData,
+    readable: Callable[[str], bool] | None = None,
+) -> dict[str, Any]:
     store = coordinator.store
     until = store.maintenance_until if store.in_maintenance(dt_util.utcnow()) else None
+    devices = data.devices
+    summary = data.summary
+    actions = data.actions
+    settings = store.device_settings
+    if readable is not None:
+        devices = [d for d in devices if d.entity_ids and all(map(readable, d.entity_ids))]
+        summary = summarise(devices, data.config)
+        actions = action_list(devices, data.config)
+        shown = {d.device_id for d in devices}
+        settings = {key: value for key, value in settings.items() if key in shown}
     return {
-        "devices": [device.to_dict() for device in data.devices if _worth_showing(device)],
-        "summary": data.summary.to_dict(),
-        "actions": data.actions.to_dict(),
+        "devices": [device.to_dict() for device in devices if _worth_showing(device)],
+        "summary": summary.to_dict(),
+        "actions": actions.to_dict(),
         "config": data.config.to_dict(),
         # The raw per-device settings, including notify_policy, which the
         # core does not use but the card's editor shows.
-        "device_settings": coordinator.store.device_settings,
+        "device_settings": settings,
         "computed_at": to_iso(data.computed_at),
         # When maintenance mode ends, while it holds notifications back.
         "maintenance_until": to_iso(until) if until is not None else None,
@@ -121,7 +159,9 @@ def ws_subscribe(hass: HomeAssistant, connection: ActiveConnection, msg: dict[st
         current = _coordinator(hass)
         if current is None or current.data is None:
             return  # mid-reload: the next recompute will send
-        connection.send_message(event_message(msg["id"], snapshot_payload(current)))
+        connection.send_message(
+            event_message(msg["id"], snapshot_payload(current, _readable(connection)))
+        )
 
     # The signal is sent after every recompute and after every (re)load, so
     # a subscription outlives an options save.
@@ -149,6 +189,7 @@ async def ws_history(
         connection.send_error(msg["id"], ERR_NOT_LOADED, "Pulse Check is not set up")
         return
     entity_id: str = msg["entity_id"]
+    readable = _readable(connection)
     battery = next(
         (
             device.battery
@@ -157,7 +198,9 @@ async def ws_history(
         ),
         None,
     )
-    if battery is None:
+    # One the user may not read is answered as one that is not watched, so
+    # the answer says nothing about it.
+    if battery is None or (readable is not None and not readable(entity_id)):
         connection.send_error(
             msg["id"], ERR_UNKNOWN_ENTITY, f"{entity_id} is not a watched battery"
         )
@@ -198,10 +241,11 @@ async def ws_histories(
     if coordinator is None:
         connection.send_error(msg["id"], ERR_NOT_LOADED, "Pulse Check is not set up")
         return
+    readable = _readable(connection)
     sources = {
         device.battery.entity_id: device.battery.source
         for device in coordinator.data.devices
-        if device.battery is not None
+        if device.battery is not None and (readable is None or readable(device.battery.entity_id))
     }
     requests: list[dict[str, Any]] = msg["requests"]
     wanted = [

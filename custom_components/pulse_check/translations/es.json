@@ -226,6 +226,10 @@
         "until": {
           "name": "Hasta",
           "description": "Una hora de fin exacta en lugar de un número de días."
+        },
+        "indefinitely": {
+          "name": "Indefinidamente",
+          "description": "Silenciarlo hasta que lo reactives. Los días y el final se ignoran entonces."
         }
       }
     },

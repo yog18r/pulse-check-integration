@@ -226,6 +226,10 @@
         "until": {
           "name": "Bis",
           "description": "Ein genauer Endzeitpunkt statt einer Anzahl von Tagen."
+        },
+        "indefinitely": {
+          "name": "Unbegrenzt",
+          "description": "Stummschalten, bis du es wieder aufhebst. Tage und Ende werden dann ignoriert."
         }
       }
     },

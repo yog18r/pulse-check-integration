@@ -106,6 +106,7 @@ from .const import (
     DEFAULT_STARTUP_GRACE_MINUTES,
     DEFAULT_WATCH_NON_DEVICES,
     DOMAIN,
+    MAX_BATTERY_COUNT,
     MAX_CHARGING_QUIET_FACTOR,
     MAX_MAINTENANCE_HOURS,
     MAX_QUIET_HOURS,
@@ -678,7 +679,9 @@ def _device_schema(hass: HomeAssistant) -> probatio.Schema:
                 )
             ),
             probatio.Optional("battery_count"): NumberSelector(
-                NumberSelectorConfig(min=1, max=20, step=1, mode=NumberSelectorMode.BOX)
+                NumberSelectorConfig(
+                    min=1, max=MAX_BATTERY_COUNT, step=1, mode=NumberSelectorMode.BOX
+                )
             ),
             probatio.Required(CONF_BATTERY_KIND, default=KIND_AUTO): SelectSelector(
                 SelectSelectorConfig(

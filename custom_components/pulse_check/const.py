@@ -73,6 +73,8 @@ DEFAULT_QUIET_THRESHOLD_HOURS = 24
 MAX_QUIET_HOURS = 24 * 365
 # The longest snooze, in days.
 MAX_SNOOZE_DAYS = 3650
+# Most batteries one device may be set to take.
+MAX_BATTERY_COUNT = 20
 DEFAULT_QUIET_SCOPE = "battery"
 QUIET_SCOPES = ("battery", "all")
 # Before a device is marked quiet, ask it once whether it is still there

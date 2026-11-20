@@ -52,7 +52,6 @@ export const ptBR: Catalog = {
   'empty.online_detail': 'Nenhum dispositivo está offline ou inativo além do normal.',
   'empty.actions': 'Nada a fazer',
 
-  'row.open': '{name}, abrir no Home Assistant',
   'row.offline': 'Offline',
   'row.unavailable': 'Indisponível',
   'row.not_provided': 'Não fornecido',
@@ -81,13 +80,18 @@ export const ptBR: Catalog = {
 
   'battery.low': 'Baixa',
   'battery.ok': 'OK',
-  'battery.level': 'Nível da bateria',
 
   'snooze.title': 'Silenciar: ocultar este dispositivo por um tempo',
   'snooze.label': 'Silenciar {name}',
   'snooze.until_title': 'Silenciado até {date}. Clique para cancelar.',
   'snooze.unsnooze_label': 'Cancelar silenciamento de {name}',
   'snooze.days': { one: '{count} dia', other: '{count} dias' },
+  'snooze.indefinitely': 'Indefinidamente',
+  'snooze.indefinitely_title': 'Silenciado indefinidamente. Clique para reativar.',
+  'row.snoozed_indefinitely': 'indefinidamente',
+  'hint.snoozed_indefinitely':
+    '{name} fica silenciado até você reativá-lo. Para não vê-lo mais no Pulse Check, ignore-o nas configurações por dispositivo do Pulse Check.',
+  'hint.dismiss': 'Entendi',
 
   'rows.show_more': { one: 'Mostrar mais {count}', other: 'Mostrar mais {count}' },
   'rows.show_less': 'Mostrar menos',

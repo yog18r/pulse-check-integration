@@ -47,7 +47,6 @@ export const zhHans: Catalog = {
   'empty.online_detail': '没有设备离线或异常久未上报。',
   'empty.actions': '无需操作',
 
-  'row.open': '{name}，在 Home Assistant 中打开',
   'row.offline': '离线',
   'row.unavailable': '不可用',
   'row.not_provided': '未提供',
@@ -76,13 +75,18 @@ export const zhHans: Catalog = {
 
   'battery.low': '低',
   'battery.ok': '正常',
-  'battery.level': '电池电量',
 
   'snooze.title': '静音：暂时隐藏此设备',
   'snooze.label': '静音 {name}',
   'snooze.until_title': '静音至 {date}。点击取消静音。',
   'snooze.unsnooze_label': '取消静音 {name}',
   'snooze.days': { other: '{count} 天' },
+  'snooze.indefinitely': '无限期',
+  'snooze.indefinitely_title': '已无限期暂停提醒。点击取消。',
+  'row.snoozed_indefinitely': '无限期',
+  'hint.snoozed_indefinitely':
+    '{name} 将保持暂停提醒，直到你手动取消。如果完全不想在 Pulse Check 中看到它，请改为在 Pulse Check 的单设备设置中忽略它。',
+  'hint.dismiss': '知道了',
 
   'rows.show_more': { other: '再显示 {count} 个' },
   'rows.show_less': '收起',

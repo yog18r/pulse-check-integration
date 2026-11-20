@@ -292,6 +292,10 @@ def _private_ip(value: object) -> str | None:
         address = ipaddress.ip_address(value.strip().strip("[]"))
     except ValueError:
         return None
+    # An IPv4 address written as IPv6 (::ffff:192.168.1.50) is that IPv4
+    # address: judged, and pinged, as one.
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
     if (
         not address.is_private
         or address.is_loopback

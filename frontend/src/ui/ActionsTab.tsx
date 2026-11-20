@@ -18,6 +18,7 @@ import {
 import { batteryTypeLabel } from '../core/batteryTypes';
 import type { DeviceHealth } from '../core/types';
 import { DeviceRow } from './DeviceRow';
+import type { SnoozeChoice } from './SnoozeMenu';
 import { EmptyState } from './EmptyState';
 import { useT } from './i18n';
 
@@ -26,7 +27,7 @@ interface Props {
   devices: ReadonlyMap<string, DeviceHealth>;
   now: Date;
   onOpen?: ((device: DeviceHealth) => void) | undefined;
-  onSnooze?: ((device: DeviceHealth, days: number) => void) | undefined;
+  onSnooze?: ((device: DeviceHealth, choice: SnoozeChoice) => void) | undefined;
   onUnsnooze?: ((device: DeviceHealth) => void) | undefined;
   /** "I did it": records a replacement or charge with the integration. */
   onDone?: ((device: DeviceHealth, kind: ActionKind) => void) | undefined;

@@ -58,7 +58,6 @@ export const de: Catalog = {
   'empty.actions': 'Nichts zu tun',
 
   // -- one device row ---------------------------------------------------------
-  'row.open': '{name}, in Home Assistant öffnen',
   'row.offline': 'Offline',
   'row.unavailable': 'Nicht verfügbar',
   'row.not_provided': 'Nicht bereitgestellt',
@@ -87,13 +86,18 @@ export const de: Catalog = {
 
   'battery.low': 'Schwach',
   'battery.ok': 'OK',
-  'battery.level': 'Batteriestand',
 
   'snooze.title': 'Pausieren: dieses Gerät eine Weile ausblenden',
   'snooze.label': '{name} pausieren',
   'snooze.until_title': 'Pausiert bis {date}. Klicken, um die Pause zu beenden.',
   'snooze.unsnooze_label': 'Pause für {name} beenden',
   'snooze.days': { one: '{count} Tag', other: '{count} Tage' },
+  'snooze.indefinitely': 'Unbegrenzt',
+  'snooze.indefinitely_title': 'Unbegrenzt stummgeschaltet. Klicken zum Aufheben.',
+  'row.snoozed_indefinitely': 'unbegrenzt',
+  'hint.snoozed_indefinitely':
+    '{name} bleibt stummgeschaltet, bis du es aufhebst. Wenn du es in Pulse Check gar nicht mehr sehen willst, ignoriere es stattdessen in den Geräteeinstellungen von Pulse Check.',
+  'hint.dismiss': 'Verstanden',
 
   'rows.show_more': { one: '{count} weitere anzeigen', other: '{count} weitere anzeigen' },
   'rows.show_less': 'Weniger anzeigen',

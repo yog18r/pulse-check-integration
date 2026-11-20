@@ -226,6 +226,10 @@
         "until": {
           "name": "Fino a",
           "description": "Un orario di fine esatto invece di un numero di giorni."
+        },
+        "indefinitely": {
+          "name": "A tempo indeterminato",
+          "description": "Silenziarlo finché non lo riattivi. Giorni e fine vengono allora ignorati."
         }
       }
     },

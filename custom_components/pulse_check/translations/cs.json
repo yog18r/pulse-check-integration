@@ -226,6 +226,10 @@
         "until": {
           "name": "Do",
           "description": "Přesný čas konce místo počtu dní."
+        },
+        "indefinitely": {
+          "name": "Na neurčito",
+          "description": "Uspat, dokud ho sami neprobudíte. Dny a čas konce se pak nepoužijí."
         }
       }
     },

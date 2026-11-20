@@ -294,10 +294,17 @@ function mount(scenario: Scenario) {
       const device = devices.find((d) => d.deviceId === id);
       if (!device) return;
       if (service === 'snooze') {
-        device.snoozedUntil = new Date(Date.now() + Number(data?.days ?? 7) * DAY).toISOString();
+        if (data?.indefinitely === true) {
+          device.snoozedUntil = '9999-12-31T00:00:00.000Z';
+          device.snoozedIndefinitely = true;
+        } else {
+          device.snoozedUntil = new Date(Date.now() + Number(data?.days ?? 7) * DAY).toISOString();
+          delete device.snoozedIndefinitely;
+        }
         device.severity = 'ok';
       } else if (service === 'unsnooze') {
         delete device.snoozedUntil;
+        delete device.snoozedIndefinitely;
       } else if (service === 'mark_replaced' || service === 'mark_charged') {
         device.lastReplaced = new Date().toISOString();
       } else if (service === 'undo_mark') {
@@ -313,6 +320,7 @@ function mount(scenario: Scenario) {
     callWS: fakeCallWS as NonNullable<HassLike['callWS']>,
     callService,
     locale: { language: params.get('lang') ?? 'en' },
+    user: { is_admin: true },
   };
 
   const card = document.createElement('pulse-check-card') as CardLike;

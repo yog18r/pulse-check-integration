@@ -66,6 +66,56 @@ async def test_snooze_mutes_a_device_and_is_persisted(
     assert _device(hass, "Front Door Lock")["severity"] == "critical"
 
 
+async def test_an_indefinite_snooze_lasts_until_unsnoozed(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    device_ids = await _set_up(hass, config_entry, fixture_snapshot, freezer, fixed_now)
+    lock = device_ids["dev_zwave_lock"]
+    # Days are ignored: indefinitely is the one that says "no end".
+    await hass.services.async_call(
+        DOMAIN, "snooze", {"device_id": lock, "indefinitely": True, "days": 2}, blocking=True
+    )
+    await hass.async_block_till_done()
+    snoozed = _device(hass, "Front Door Lock")
+    assert snoozed["severity"] == "ok"
+    assert snoozed["snoozedIndefinitely"] is True
+    assert snoozed["snoozedUntil"].startswith("9999-12-31")
+
+    # Years later it is still snoozed.
+    freezer.tick(timedelta(days=3650))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert _device(hass, "Front Door Lock")["snoozedIndefinitely"] is True
+
+    await hass.services.async_call(DOMAIN, "unsnooze", {"device_id": lock}, blocking=True)
+    await hass.async_block_till_done()
+    unsnoozed = _device(hass, "Front Door Lock")
+    assert "snoozedUntil" not in unsnoozed
+    assert "snoozedIndefinitely" not in unsnoozed
+
+
+async def test_a_snooze_with_an_end_is_not_indefinite(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    fixture_snapshot: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    fixed_now: datetime,
+) -> None:
+    device_ids = await _set_up(hass, config_entry, fixture_snapshot, freezer, fixed_now)
+    await hass.services.async_call(
+        DOMAIN,
+        "snooze",
+        {"device_id": device_ids["dev_zwave_lock"], "days": 3650, "indefinitely": False},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert "snoozedIndefinitely" not in _device(hass, "Front Door Lock")
+
+
 async def test_snooze_expires_on_its_own(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,

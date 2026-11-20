@@ -226,6 +226,10 @@
         "until": {
           "name": "Até",
           "description": "Um horário exato de término em vez de um número de dias."
+        },
+        "indefinitely": {
+          "name": "Indefinidamente",
+          "description": "Silenciar até você reativar. Dias e fim são então ignorados."
         }
       }
     },

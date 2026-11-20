@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -10,10 +11,13 @@ import probatio
 import pytest
 from homeassistant.const import EVENT_LOGBOOK_ENTRY
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_capture_events
+from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.pulse_check.coordinator import PulseCheckCoordinator
 from custom_components.pulse_check.core import CoreConfig
+from custom_components.pulse_check.core.drain import DrainPoint
 from custom_components.pulse_check.core.models import BatteryReading, DeviceHealth
 from custom_components.pulse_check.history import HistoryTracker
 from custom_components.pulse_check.notify import log_transition
@@ -238,3 +242,53 @@ async def test_a_reload_judges_recent_history_again_without_reading_it(
         await tracker.async_refresh([device], store, CoreConfig())
         assert fetch.await_count == 2
     assert "sensor.a" in tracker.insights
+
+
+# -- the recorder's work per request ------------------------------------------
+
+
+async def test_a_history_request_reads_the_recorder_at_most_twice(hass: HomeAssistant) -> None:
+    """Hundreds of different windows in one request cost two reads, not hundreds."""
+    hass.config.components.add("recorder")
+    tracker = HistoryTracker(hass)
+    now = dt_util.utcnow()
+    every_day = [DrainPoint(now - timedelta(days=d), 50.0) for d in range(400)]
+    reads: list[tuple[str, int]] = []
+
+    async def means(
+        _sensors: set[str], _attributes: set[str], days: int, period: str, _hourly: bool
+    ) -> dict[str, list[DrainPoint]]:
+        reads.append((period, days))
+        return {"sensor.a": every_day, "sensor.b": every_day}
+
+    wanted = [("sensor.a" if d % 2 else "sensor.b", d, False) for d in range(1, 366)]
+    with patch.object(tracker, "_means", means):
+        found = await tracker.async_points_many(wanted)
+    assert sorted(reads) == [("day", 365), ("hour", 3)]
+    # Each window gets only its own days from the longer read.
+    assert len(found[("sensor.b", 14)]) == 14
+    assert all(p.time >= now - timedelta(days=14) for p in found[("sensor.b", 14)])
+    assert len(found[("sensor.a", 365)]) == 365
+
+
+# -- the websocket ------------------------------------------------------------
+
+
+async def test_a_message_id_cannot_be_used_twice(
+    hass: HomeAssistant, hass_ws_client: WebSocketGenerator, config_entry: MockConfigEntry
+) -> None:
+    """So a second subscription can never take over the first one's slot.
+
+    Home Assistant refuses an id no higher than the last, before any
+    command runs.
+    """
+    client = await hass_ws_client(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    await client.send_json({"id": 5, "type": "pulse_check/subscribe"})
+    assert (await client.receive_json())["success"] is True
+    await client.receive_json()  # the first snapshot
+    await client.send_json({"id": 5, "type": "pulse_check/subscribe"})
+    again = await client.receive_json()
+    assert again["success"] is False
+    assert again["error"]["code"] == "id_reuse"

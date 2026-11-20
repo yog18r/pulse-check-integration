@@ -4,6 +4,7 @@ import {
   HISTORIES_BATCH,
   loadHistories,
   loadHistory,
+  MAX_TEXT,
   parseDevice,
   parseSnapshot,
   subscribeSnapshots,
@@ -88,6 +89,24 @@ describe('parseSnapshot', () => {
       { entityId: 'sensor.unnamed', name: 'sensor.unnamed' },
     ]);
     expect(parseDevice(deviceEntry('Living Room Motion'))!.unavailableParts).toBeUndefined();
+  });
+  it('cuts a name, area, model or label from another integration to a sensible length', () => {
+    const long = 'x'.repeat(5000);
+    const device = parseDevice({
+      ...deviceEntry('Living Room Motion'),
+      name: long,
+      area: long,
+      model: long,
+      extras: [{ label: long, value: long }],
+    })!;
+    for (const shown of [device.name, device.area, device.model, device.extras[0]?.label]) {
+      expect(shown).toHaveLength(MAX_TEXT);
+      expect(shown?.endsWith('…')).toBe(true);
+    }
+    // Ids are never cut: they must match exactly.
+    expect(parseDevice({ ...deviceEntry('Living Room Motion'), deviceId: long })!.deviceId).toBe(
+      long,
+    );
   });
 });
 

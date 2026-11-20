@@ -226,6 +226,10 @@
         "until": {
           "name": "直到",
           "description": "指定确切的结束时间，而不是天数。"
+        },
+        "indefinitely": {
+          "name": "无限期",
+          "description": "暂停提醒，直到你手动取消。此时将忽略天数和结束时间。"
         }
       }
     },

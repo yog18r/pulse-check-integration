@@ -226,6 +226,10 @@
         "until": {
           "name": "Tot",
           "description": "Een exacte eindtijd in plaats van een aantal dagen."
+        },
+        "indefinitely": {
+          "name": "Voor onbepaalde tijd",
+          "description": "Sluimeren tot je het opheft. Dagen en einde worden dan genegeerd."
         }
       }
     },

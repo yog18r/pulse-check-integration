@@ -26,6 +26,7 @@
     "unusual": "draining 3× faster than usual",
     "batteryWarning": 25,
     "batteryCritical": 10.5,
+    "snoozedIndefinitely": true,
     "battery": {
       "isLow": false,
       "source": "sensor",
@@ -34,7 +35,7 @@
       "isCharging": true
     },
     "lastHeard": "2026-10-15T10:00:00.000Z",
-    "snoozedUntil": "2026-10-16T10:00:00.000Z",
+    "snoozedUntil": "9999-12-31T00:00:00.000Z",
     "daysLeft": 400.0,
     "estimate": {
       "daysLeft": 400.0,

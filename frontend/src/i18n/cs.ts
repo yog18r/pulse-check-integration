@@ -75,7 +75,6 @@ export const cs: Catalog = {
   'empty.actions': 'Není co dělat',
 
   // -- one device row ---------------------------------------------------------
-  'row.open': '{name}, otevřít v Home Assistant',
   'row.offline': 'Offline',
   'row.unavailable': 'Nedostupné',
   'row.not_provided': 'Neposkytováno',
@@ -104,13 +103,18 @@ export const cs: Catalog = {
 
   'battery.low': 'Slabá',
   'battery.ok': 'OK',
-  'battery.level': 'Úroveň baterie',
 
   'snooze.title': 'Ztlumit: na čas skrýt toto zařízení',
   'snooze.label': 'Ztlumit {name}',
   'snooze.until_title': 'Ztlumeno do {date}. Kliknutím ztlumení zrušíte.',
   'snooze.unsnooze_label': 'Zrušit ztlumení {name}',
   'snooze.days': { one: '{count} den', few: '{count} dny', other: '{count} dní' },
+  'snooze.indefinitely': 'Na neurčito',
+  'snooze.indefinitely_title': 'Uspáno na neurčito. Kliknutím probudíte.',
+  'row.snoozed_indefinitely': 'na neurčito',
+  'hint.snoozed_indefinitely':
+    '{name} zůstane uspáno, dokud ho neprobudíte. Pokud ho v Pulse Check nechcete vidět vůbec, ignorujte ho raději v nastavení jednotlivých zařízení Pulse Check.',
+  'hint.dismiss': 'Rozumím',
 
   'rows.show_more': {
     one: 'Zobrazit další {count}',

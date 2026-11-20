@@ -226,6 +226,10 @@
         "until": {
           "name": "Jusqu'à",
           "description": "Une heure de fin précise au lieu d'un nombre de jours."
+        },
+        "indefinitely": {
+          "name": "Indéfiniment",
+          "description": "Le mettre en veille jusqu'à ce que vous l'annuliez. Les jours et la fin sont alors ignorés."
         }
       }
     },

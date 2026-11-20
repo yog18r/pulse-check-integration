@@ -26,7 +26,7 @@ import {
   type SortOrder,
   type TabId,
 } from '../card/config';
-import { navigateTo } from '../card/navigation';
+import { INTEGRATION_PAGE, navigateTo } from '../card/navigation';
 import { DEVICE_TYPES, deviceTypeLabel } from '../core/deviceType';
 import { GROUP_BYS, type GroupBy } from '../core/grouping';
 import { listIntegrations } from '../core/registryOptions';
@@ -43,7 +43,7 @@ interface Props {
 }
 
 /** The Pulse Check integration's page; its Configure dialog has per-device settings. */
-export const INTEGRATION_PAGE = '/config/integrations/integration/pulse_check';
+export { INTEGRATION_PAGE };
 
 function parseNumber(text: string): number | undefined {
   if (text.trim() === '') return undefined;

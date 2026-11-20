@@ -18,7 +18,9 @@
  * recomputes when one of the listed dependencies changes, so sorting a
  * few hundred devices does not happen on every click.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { INTEGRATION_PAGE, navigateTo } from '../card/navigation';
+import type { SnoozeChoice } from './SnoozeMenu';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { ResolvedConfig, TabId } from '../card/config';
 import {
   callPulseCheck,
@@ -112,6 +114,27 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
   const activeTab: TabId = config.show_tabs.includes(selected)
     ? selected
     : (config.show_tabs[0] ?? config.default_tab);
+
+  // The tabs are one stop for Tab; the arrow keys, Home and End move
+  // between them, and selection follows focus, as tabs do.
+  const tabRefs = useRef(new Map<TabId, HTMLButtonElement>());
+  const onTabKeyDown = (e: KeyboardEvent) => {
+    const tabs = config.show_tabs;
+    const at = tabs.indexOf(activeTab);
+    const last = tabs.length - 1;
+    const steps: Record<string, number> = {
+      ArrowRight: at === last ? 0 : at + 1,
+      ArrowLeft: at <= 0 ? last : at - 1,
+      Home: 0,
+      End: last,
+    };
+    const index = steps[e.key];
+    const tab = index === undefined ? undefined : tabs[index];
+    if (tab === undefined) return;
+    e.preventDefault();
+    setSelected(tab);
+    tabRefs.current.get(tab)?.focus();
+  };
 
   // What this card shows: the integration's devices, through the card's
   // own view filters (a per-room card, a locks-only card).
@@ -232,15 +255,26 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
     [hassBox],
   );
 
+  // After an indefinite snooze, a word on the alternative: ignoring the
+  // device leaves it out altogether, snoozed list included. It stays until
+  // dismissed, so there is time to follow its link.
+  const [ignoreHint, setIgnoreHint] = useState<DeviceHealth | null>(null);
   const handleSnooze = useCallback(
-    (device: DeviceHealth, days: number) => {
+    (device: DeviceHealth, choice: SnoozeChoice) => {
+      const indefinitely = choice === 'indefinitely';
+      setIgnoreHint(null);
       runAction(
         'snooze',
-        { device_id: device.deviceId, days },
+        indefinitely
+          ? { device_id: device.deviceId, indefinitely: true }
+          : { device_id: device.deviceId, days: choice },
         t.t('failed.snooze', { name: device.name }),
+        () => {
+          if (indefinitely) setIgnoreHint(device);
+        },
       );
     },
-    [runAction, t],
+    [runAction, t, setIgnoreHint],
   );
   const handleUnsnooze = useCallback(
     (device: DeviceHealth) => {
@@ -371,16 +405,25 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
         )}
 
         {config.show_tabs.length > 1 && (
-          <div className="tabs" role="tablist" aria-label={t.t('app.tabs_label')}>
+          <div
+            className="tabs"
+            role="tablist"
+            aria-label={t.t('app.tabs_label')}
+            onKeyDown={onTabKeyDown}
+          >
             {config.show_tabs.map((tab) => (
               <button
                 key={tab}
+                ref={(element) => {
+                  if (element) tabRefs.current.set(tab, element);
+                  else tabRefs.current.delete(tab);
+                }}
                 type="button"
                 role="tab"
                 className="tab"
                 id={`tab-${tab}`}
                 aria-selected={tab === activeTab}
-                aria-controls={`panel-${tab}`}
+                tabIndex={tab === activeTab ? 0 : -1}
                 onClick={() => {
                   setSelected(tab);
                 }}
@@ -465,6 +508,36 @@ export function App({ hassBox, config, onOpenDevice, onSnapshot }: AppProps) {
               <button type="button" className="noticebutton" onClick={handleUndo}>
                 {t.t('undo.undo')}
               </button>
+            </p>
+          )}
+
+          {ignoreHint && (
+            <p className="notice" role="status">
+              <span>{t.t('hint.snoozed_indefinitely', { name: ignoreHint.name })}</span>
+              <span className="noticebuttons">
+                {hassBox.latest?.user?.is_admin === true && (
+                  <a
+                    className="noticebutton"
+                    href={INTEGRATION_PAGE}
+                    onClick={(e) => {
+                      if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+                      e.preventDefault();
+                      navigateTo(INTEGRATION_PAGE);
+                    }}
+                  >
+                    {t.t('editor.device_settings_link')}
+                  </a>
+                )}
+                <button
+                  type="button"
+                  className="noticebutton"
+                  onClick={() => {
+                    setIgnoreHint(null);
+                  }}
+                >
+                  {t.t('hint.dismiss')}
+                </button>
+              </span>
             </p>
           )}
 

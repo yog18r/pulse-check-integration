@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from custom_components.pulse_check.core.cycles import Estimate
 from custom_components.pulse_check.core.models import (
+    SNOOZED_INDEFINITELY,
     BatteryReading,
     DeviceHealth,
     EnhancerExtra,
@@ -60,7 +61,7 @@ def _kitchen_sink_device() -> dict[str, Any]:
             is_charging=True,
         ),
         last_heard=AT,
-        snoozed_until=datetime(2026, 10, 16, 10, 0, tzinfo=UTC),
+        snoozed_until=SNOOZED_INDEFINITELY,
         days_left=400.04,
         estimate=EstimateInfo(400.04, "until charge needed", "low", "charge", open_ended=True),
         battery_kind="charged",

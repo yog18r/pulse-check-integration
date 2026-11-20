@@ -226,6 +226,10 @@
         "until": {
           "name": "Do",
           "description": "Dokładny czas zakończenia zamiast liczby dni."
+        },
+        "indefinitely": {
+          "name": "Bezterminowo",
+          "description": "Wycisz, dopóki sam tego nie cofniesz. Dni i koniec są wtedy pomijane."
         }
       }
     },

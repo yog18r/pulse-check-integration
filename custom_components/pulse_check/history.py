@@ -317,23 +317,32 @@ class HistoryTracker:
     ) -> dict[tuple[str, int], list[DrainPoint]]:
         """History points for many batteries at once, keyed by (entity id, days).
 
-        `wanted` holds (entity id, days, is an attribute battery). The
-        recorder is asked once per window length, for every battery that
-        shares it, instead of once per battery: a dashboard opening with
-        forty sparklines costs one query, not forty.
+        `wanted` holds (entity id, days, is an attribute battery). However
+        many batteries and window lengths are asked for, the recorder is
+        read at most twice: once in hours for every window of up to
+        `HOURLY_MAX_DAYS`, once in days for the rest, each over the longest
+        window of its kind. Each request gets its own window cut from that.
+        A dashboard opening with forty sparklines costs one read, not forty,
+        and a request with hundreds of different windows costs no more.
         """
         if not self.available:
             return {}
-        windows: dict[int, tuple[set[str], set[str]]] = {}
-        for entity_id, days, attribute in wanted:
-            sensors, attributes = windows.setdefault(days, (set(), set()))
-            (attributes if attribute else sensors).add(entity_id)
+        wanted = list(wanted)
+        now = dt_util.utcnow()
         found: dict[tuple[str, int], list[DrainPoint]] = {}
-        for days, (sensors, attributes) in windows.items():
-            hourly = days <= HOURLY_MAX_DAYS
+        for hourly in (True, False):
+            group = [w for w in wanted if (w[1] <= HOURLY_MAX_DAYS) is hourly]
+            if not group:
+                continue
+            sensors = {entity_id for entity_id, _days, attribute in group if not attribute}
+            attributes = {entity_id for entity_id, _days, attribute in group if attribute}
+            longest = max(days for _entity_id, days, _attribute in group)
             points = await self._means(
-                sensors, attributes, days, "hour" if hourly else "day", hourly
+                sensors, attributes, longest, "hour" if hourly else "day", hourly
             )
-            for entity_id in sensors | attributes:
-                found[(entity_id, days)] = points.get(entity_id, [])
+            for entity_id, days, _attribute in group:
+                start = now - timedelta(days=days)
+                found[(entity_id, days)] = [
+                    point for point in points.get(entity_id, []) if point.time >= start
+                ]
         return found

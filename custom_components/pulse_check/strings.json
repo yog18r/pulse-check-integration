@@ -226,6 +226,10 @@
         "until": {
           "name": "Until",
           "description": "An exact end time instead of a number of days."
+        },
+        "indefinitely": {
+          "name": "Indefinitely",
+          "description": "Snooze it until you unsnooze it. Days and until are then ignored."
         }
       }
     },

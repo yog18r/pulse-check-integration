@@ -42,6 +42,8 @@ export interface FakeHassOptions {
   state?: string;
   /** Answer `pulse_check/history` and each of `pulse_check/histories` with this. */
   history?: (entityId: string, days: number) => unknown;
+  /** Whether the signed-in user is an administrator, `hass.user.is_admin`. Unset by default. */
+  admin?: boolean;
 }
 
 export interface FakeHass {
@@ -104,6 +106,7 @@ export function fakeHass(options: FakeHassOptions = {}): FakeHass {
     ...buildHass(FIXED_NOW),
     connection,
     ...(options.state === undefined ? {} : { config: { state: options.state } }),
+    ...(options.admin === undefined ? {} : { user: { is_admin: options.admin } }),
     callService,
     callWS: <T>(message: Record<string, unknown>) => {
       const one = (entityId: string, days: number) =>

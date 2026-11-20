@@ -311,6 +311,12 @@ class UnavailablePart:
         return {"entityId": self.entity_id, "name": self.name}
 
 
+# A snooze with no end: kept as the last day there is, so it is an ordinary
+# end time to everything that compares one (and to older versions reading
+# the saved file), and never runs out.
+SNOOZED_INDEFINITELY = datetime(9999, 12, 31, tzinfo=UTC)
+
+
 @dataclass(slots=True)
 class DeviceHealth:
     """Everything known about one device's health."""
@@ -338,7 +344,7 @@ class DeviceHealth:
     # The newest report across the device's live entities.
     last_heard: datetime | None = None
     # Set while the user has snoozed this device. Facts are still reported,
-    # but severity is "ok".
+    # but severity is "ok". `SNOOZED_INDEFINITELY` until it is unsnoozed.
     snoozed_until: datetime | None = None
     # Days until empty (or until a charge is needed), when history allows an
     # estimate, with where the number came from and how much to trust it.
@@ -368,6 +374,11 @@ class DeviceHealth:
     # a look, never alerted on.
     unavailable_parts: list[UnavailablePart] = field(default_factory=list)
 
+    @property
+    def snoozed_indefinitely(self) -> bool:
+        """Whether it is snoozed until the user unsnoozes it."""
+        return self.snoozed_until is not None and self.snoozed_until >= SNOOZED_INDEFINITELY
+
     def to_dict(self) -> dict[str, Any]:
         """The card's `DeviceHealth` shape, JSON-ready."""
         out: dict[str, Any] = {
@@ -391,6 +402,7 @@ class DeviceHealth:
             ("unusual", self.unusual),
             ("batteryWarning", _plain_or_none(self.battery_warning)),
             ("batteryCritical", _plain_or_none(self.battery_critical)),
+            ("snoozedIndefinitely", True if self.snoozed_indefinitely else None),
         ):
             if value is not None:
                 out[key] = value

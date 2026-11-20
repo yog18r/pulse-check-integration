@@ -1105,7 +1105,13 @@ class Notifier:
             return True
         attempts = record.get("attempts", 0) + 1
         if attempts >= SEND_ATTEMPTS:
-            _LOGGER.warning("Giving up on a message after %d attempts: %s", attempts, message)
+            # Not the text: it names devices and rooms, and logs get shared
+            # when asking for help, debug logs included.
+            _LOGGER.warning(
+                "Giving up on a message after %d attempts; Settings > Repairs shows "
+                "which notify target is failing",
+                attempts,
+            )
             record.pop("retry_at", None)
             record.pop("attempts", None)
             return True

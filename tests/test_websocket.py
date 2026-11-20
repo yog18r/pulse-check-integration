@@ -256,7 +256,7 @@ async def test_histories_answer_many_batteries_in_one_request(
     await client.close()
 
 
-async def test_histories_ask_the_recorder_once_per_window(
+async def test_histories_ask_the_recorder_once_for_daily_windows(
     hass: HomeAssistant,
     hass_ws_client: WebSocketGenerator,
     config_entry: MockConfigEntry,
@@ -264,7 +264,7 @@ async def test_histories_ask_the_recorder_once_per_window(
     freezer: FrozenDateTimeFactory,
     fixed_now: datetime,
 ) -> None:
-    """Three batteries over two window lengths: two recorder queries, not three."""
+    """Three batteries over two daily windows: one recorder read, over the longer."""
     client = await hass_ws_client(hass)
     await _loaded(hass, config_entry, fixture_snapshot, freezer, fixed_now)
     tracker = type(config_entry.runtime_data.history)
@@ -287,7 +287,13 @@ async def test_histories_ask_the_recorder_once_per_window(
         assert (await client.receive_json())["success"] is True
     asked = sorted((call.args[2], sorted(call.args[0])) for call in means.await_args_list)
     assert asked == [
-        (14, ["sensor.front_door_battery", "sensor.kitchen_ht_battery"]),
-        (30, ["sensor.window_sensor_battery"]),
+        (
+            30,
+            [
+                "sensor.front_door_battery",
+                "sensor.kitchen_ht_battery",
+                "sensor.window_sensor_battery",
+            ],
+        ),
     ]
     await client.close()

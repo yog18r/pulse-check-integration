@@ -5,7 +5,13 @@
  * The main part of the row is a <button>, so it is keyboard reachable and
  * announced as clickable. Tapping it opens the device in Home Assistant.
  * The snooze control sits beside it as a separate button.
+ *
+ * A button's content is flattened for screen readers, so the row names
+ * itself after the text it shows first (the device, or the Actions tab's
+ * instruction) and is described by its status and details: "Kitchen
+ * Mini Switch, button, 12 %, heard 5 min ago, Kitchen, ZHA".
  */
+import { useId } from 'react';
 import { formatDaysLeft, type BatteryHistory } from '../core/drain';
 import { formatHours, formatRelative } from '../core/time';
 import type { DeviceHealth, Severity } from '../core/types';
@@ -15,7 +21,7 @@ import { BatteryBar } from './BatteryBar';
 import { useT } from './i18n';
 import { IntegrationBadge } from './IntegrationBadge';
 import { integrationLabel } from './labels';
-import { SnoozeMenu } from './SnoozeMenu';
+import { SnoozeMenu, type SnoozeChoice } from './SnoozeMenu';
 import { Sparkline } from './Sparkline';
 
 interface Props {
@@ -33,7 +39,7 @@ interface Props {
   /** On the Actions tab: the instruction shown in place of the device name. */
   action?: string | undefined;
   /** Snooze handlers. When absent the 💤 control is not rendered. */
-  onSnooze?: ((device: DeviceHealth, days: number) => void) | undefined;
+  onSnooze?: ((device: DeviceHealth, choice: SnoozeChoice) => void) | undefined;
   onUnsnooze?: ((device: DeviceHealth) => void) | undefined;
   /** On the Actions tab in integration mode: "I did it". Absent otherwise. */
   onDone?: ((device: DeviceHealth) => void) | undefined;
@@ -60,6 +66,7 @@ export function DeviceRow({
   onDone,
 }: Props) {
   const t = useT();
+  const id = useId();
   // The estimate: the fetched history's when it has one, else the device's own.
   const estimate = history?.estimate ?? device.estimate;
   const daysLeft = estimate?.daysLeft ?? device.daysLeft;
@@ -81,15 +88,16 @@ export function DeviceRow({
         type="button"
         className="rowbutton"
         onClick={() => onOpen?.(device)}
-        aria-label={t.t('row.open', { name: device.name })}
+        aria-labelledby={`${id}-name`}
+        aria-describedby={`${id}-status ${id}-meta`}
       >
         <span className="stripe" aria-hidden="true" />
 
         <span className="main">
-          <span className="name" title={device.name}>
+          <span className="name" id={`${id}-name`} title={device.name}>
             {action ?? device.name}
           </span>
-          <span className="meta">
+          <span className="meta" id={`${id}-meta`}>
             {device.area && <span>{device.area}</span>}
             <IntegrationBadge platform={device.integration} />
             {charging && (
@@ -100,9 +108,11 @@ export function DeviceRow({
             {device.snoozedUntil && (
               <span className="badge" data-kind="snoozed">
                 💤{' '}
-                {t.t('row.snoozed_until', {
-                  date: device.snoozedUntil.toLocaleDateString(t.language),
-                })}
+                {device.snoozedIndefinitely
+                  ? t.t('row.snoozed_indefinitely')
+                  : t.t('row.snoozed_until', {
+                      date: device.snoozedUntil.toLocaleDateString(t.language),
+                    })}
               </span>
             )}
             {device.extras.map((extra) => (
@@ -125,7 +135,7 @@ export function DeviceRow({
           </span>
         </span>
 
-        <span className="status">
+        <span className="status" id={`${id}-status`}>
           {mode === 'battery' && device.battery ? (
             <>
               <span className="gauge">
@@ -201,8 +211,9 @@ export function DeviceRow({
         <SnoozeMenu
           deviceName={device.name}
           snoozedUntil={device.snoozedUntil}
-          onSnooze={(days) => {
-            onSnooze(device, days);
+          snoozedIndefinitely={device.snoozedIndefinitely}
+          onSnooze={(choice) => {
+            onSnooze(device, choice);
           }}
           onUnsnooze={() => {
             onUnsnooze(device);

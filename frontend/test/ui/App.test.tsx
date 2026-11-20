@@ -61,7 +61,10 @@ describe('App', () => {
     expect(within(rows[0]!).getByText('Hallway Smoke Alarm')).toBeInTheDocument();
     expect(within(rows[1]!).getByText('TV Remote Battery')).toBeInTheDocument();
 
-    await user().click(screen.getByRole('button', { name: /Living Room Motion, open/ }));
+    // Named by what it shows, described by its status, so the level is read too.
+    const row = screen.getByRole('button', { name: 'Living Room Motion' });
+    expect(row).toHaveAccessibleDescription(/\d+%/);
+    await user().click(row);
     expect(onOpenDevice).toHaveBeenCalledOnce();
     expect(onOpenDevice.mock.calls[0]?.[0]).toMatchObject({ deviceId: 'dev_z2m_motion' });
   });
@@ -343,6 +346,46 @@ describe('App', () => {
     });
   });
 
+  it('snoozes indefinitely, then says the device can be ignored instead', async () => {
+    const { callService } = renderApp({ show_tabs: ['connectivity'] }, { admin: true });
+    await screen.findByText(/devices need attention/);
+
+    await user().click(screen.getByRole('button', { name: 'Snooze Front Door Lock' }));
+    await user().click(screen.getByRole('menuitem', { name: 'Indefinitely' }));
+    expect(callService).toHaveBeenCalledWith('pulse_check', 'snooze', {
+      device_id: 'dev_zwave_lock',
+      indefinitely: true,
+    });
+    const hint = await screen.findByText(/Front Door Lock stays snoozed until you unsnooze it/);
+    const notice = hint.closest('p')!;
+    expect(within(notice).getByRole('link', { name: 'Open Pulse Check settings' })).toHaveAttribute(
+      'href',
+      '/config/integrations/integration/pulse_check',
+    );
+    await user().click(within(notice).getByRole('button', { name: 'Got it' }));
+    expect(screen.queryByText(/stays snoozed until you unsnooze it/)).not.toBeInTheDocument();
+  });
+
+  it('offers the settings link to administrators only', async () => {
+    renderApp({ show_tabs: ['connectivity'] }, { admin: false });
+    await screen.findByText(/devices need attention/);
+    await user().click(screen.getByRole('button', { name: 'Snooze Front Door Lock' }));
+    await user().click(screen.getByRole('menuitem', { name: 'Indefinitely' }));
+    await screen.findByText(/stays snoozed until you unsnooze it/);
+    expect(
+      screen.queryByRole('link', { name: 'Open Pulse Check settings' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows no hint after a snooze with an end', async () => {
+    renderApp({ show_tabs: ['connectivity'] }, { admin: true });
+    await screen.findByText(/devices need attention/);
+    await user().click(screen.getByRole('button', { name: 'Snooze Front Door Lock' }));
+    await user().click(screen.getByRole('menuitem', { name: /7 days/ }));
+    await act(() => Promise.resolve());
+    expect(screen.queryByText(/stays snoozed until you unsnooze it/)).not.toBeInTheDocument();
+  });
+
   it('lists snoozed devices apart and unsnoozes one through the integration service', async () => {
     const { callService, emit } = renderApp({ show_tabs: ['connectivity'] });
     await screen.findByText('⚠️ 7 devices need attention');
@@ -367,6 +410,28 @@ describe('App', () => {
     expect(callService).toHaveBeenCalledWith('pulse_check', 'unsnooze', {
       device_id: 'dev_zwave_lock',
     });
+  });
+
+  it('says a device is snoozed indefinitely rather than until 9999', async () => {
+    const { emit } = renderApp({ show_tabs: ['connectivity'] });
+    await screen.findByText('⚠️ 7 devices need attention');
+    const lock = {
+      ...deviceEntry('Front Door Lock'),
+      severity: 'ok',
+      snoozedUntil: '9999-12-31T00:00:00.000Z',
+      snoozedIndefinitely: true,
+    };
+    const devices = (SNAPSHOT_PAYLOAD.devices as Record<string, unknown>[]).map((d) =>
+      d.deviceId === 'dev_zwave_lock' ? lock : d,
+    );
+    emit({ ...SNAPSHOT_PAYLOAD, devices });
+    await user().click(await screen.findByRole('button', { name: '💤 1 snoozed · show' }));
+    expect(screen.getByText(/💤 indefinitely/)).toBeInTheDocument();
+    expect(screen.queryByText(/9999/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Unsnooze Front Door Lock' })).toHaveAttribute(
+      'title',
+      'Snoozed indefinitely. Click to unsnooze.',
+    );
   });
 
   it('records a charge, not a replacement, for a battery on the Charge list', async () => {
@@ -517,6 +582,49 @@ describe('App, undo', () => {
   });
 });
 
+describe('App, accessible names', () => {
+  it('names an Actions row by the instruction it shows', async () => {
+    renderApp({ show_tabs: ['actions'], default_tab: 'actions' });
+    await screen.findByText(/To buy/);
+    const done = screen.getByRole('button', { name: 'Mark Living Room Motion done' });
+    const row = within(done.closest('li')!).getAllByRole('button')[0]!;
+    // WCAG 2.5.3: the visible text is the name.
+    expect(row).toHaveAccessibleName(within(row).getByText(/Living Room Motion/).textContent);
+  });
+
+  it('names the snooze menu after its button', async () => {
+    renderApp({ show_tabs: ['connectivity'] });
+    await screen.findByText(/devices need attention/);
+    await user().click(screen.getByRole('button', { name: 'Snooze Front Door Lock' }));
+    expect(screen.getByRole('menu', { name: 'Snooze Front Door Lock' })).toBeInTheDocument();
+  });
+});
+
+describe('App, tab keyboard', () => {
+  it('is one Tab stop, and the arrow keys, Home and End move and select', async () => {
+    renderApp({ show_tabs: ['batteries', 'connectivity', 'actions'] });
+    await screen.findByText(/devices need attention/);
+    const [batteries, connectivity, actions] = screen.getAllByRole('tab');
+    expect(batteries).toHaveAttribute('tabindex', '0');
+    expect(connectivity).toHaveAttribute('tabindex', '-1');
+    expect(batteries).not.toHaveAttribute('aria-controls');
+
+    batteries!.focus();
+    await user().keyboard('{ArrowRight}');
+    expect(connectivity).toHaveFocus();
+    expect(connectivity).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tabpanel', { name: /Connectivity/ })).toBeInTheDocument();
+    await user().keyboard('{End}');
+    expect(actions).toHaveFocus();
+    await user().keyboard('{ArrowRight}'); // wraps round
+    expect(batteries).toHaveFocus();
+    await user().keyboard('{ArrowLeft}');
+    expect(actions).toHaveFocus();
+    await user().keyboard('{Home}');
+    expect(batteries).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
 describe('App, snooze menu keyboard', () => {
   it('focuses the first option, moves with the arrow keys and closes on Escape', async () => {
     renderApp({ show_tabs: ['connectivity'] });
@@ -528,11 +636,11 @@ describe('App, snooze menu keyboard', () => {
     await user().keyboard('{ArrowDown}');
     expect(screen.getByRole('menuitem', { name: '7 days' })).toHaveFocus();
     await user().keyboard('{End}');
-    expect(screen.getByRole('menuitem', { name: '30 days' })).toHaveFocus();
+    expect(screen.getByRole('menuitem', { name: 'Indefinitely' })).toHaveFocus();
     await user().keyboard('{ArrowDown}'); // wraps round
     expect(screen.getByRole('menuitem', { name: '1 day' })).toHaveFocus();
     await user().keyboard('{ArrowUp}');
-    expect(screen.getByRole('menuitem', { name: '30 days' })).toHaveFocus();
+    expect(screen.getByRole('menuitem', { name: 'Indefinitely' })).toHaveFocus();
 
     await user().keyboard('{Escape}');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();

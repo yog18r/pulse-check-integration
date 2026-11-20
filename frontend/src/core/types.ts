@@ -103,6 +103,8 @@ export interface HassLike {
   locale?: { language?: string };
   /** The user's language on older Home Assistant versions. */
   language?: string;
+  /** The signed-in user. Only administrators can open the integration's settings. */
+  user?: { is_admin?: boolean };
   /** Call a Home Assistant service (snooze, mark replaced, device settings). */
   callService?: (
     domain: string,
@@ -199,6 +201,8 @@ export interface DeviceHealth {
   quietThresholdHours: number;
   /** Set while the user has snoozed this device; severity is then "ok". */
   snoozedUntil?: Date;
+  /** Snoozed until the user unsnoozes it (`snoozedUntil` is then 31 December 9999). */
+  snoozedIndefinitely?: true;
   severity: Severity;
   /** What kind of thing it is, for grouping: "lock", "motion", "phone"... */
   deviceType: DeviceType;

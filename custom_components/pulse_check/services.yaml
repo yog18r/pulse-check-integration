@@ -18,6 +18,10 @@ snooze:
       example: "2026-11-01 09:00:00"
       selector:
         datetime:
+    indefinitely:
+      example: true
+      selector:
+        boolean:
 
 unsnooze:
   fields:

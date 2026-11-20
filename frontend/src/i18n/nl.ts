@@ -54,7 +54,6 @@ export const nl: Catalog = {
   'empty.actions': 'Niets te doen',
 
   // -- one device row ---------------------------------------------------------
-  'row.open': '{name}, openen in Home Assistant',
   'row.offline': 'Offline',
   'row.unavailable': 'Niet beschikbaar',
   'row.not_provided': 'Niet geleverd',
@@ -83,13 +82,18 @@ export const nl: Catalog = {
 
   'battery.low': 'Laag',
   'battery.ok': 'OK',
-  'battery.level': 'Batterijniveau',
 
   'snooze.title': 'Pauzeren: dit apparaat een tijdje verbergen',
   'snooze.label': '{name} pauzeren',
   'snooze.until_title': 'Gepauzeerd tot {date}. Klik om de pauze te beëindigen.',
   'snooze.unsnooze_label': 'Pauze van {name} beëindigen',
   'snooze.days': { one: '{count} dag', other: '{count} dagen' },
+  'snooze.indefinitely': 'Voor onbepaalde tijd',
+  'snooze.indefinitely_title': 'Sluimert voor onbepaalde tijd. Klik om op te heffen.',
+  'row.snoozed_indefinitely': 'voor onbepaalde tijd',
+  'hint.snoozed_indefinitely':
+    '{name} blijft sluimeren tot je het opheft. Wil je het in Pulse Check helemaal niet meer zien, negeer het dan in de instellingen per apparaat van Pulse Check.',
+  'hint.dismiss': 'Begrepen',
 
   'rows.show_more': { one: 'Nog {count} tonen', other: 'Nog {count} tonen' },
   'rows.show_less': 'Minder tonen',

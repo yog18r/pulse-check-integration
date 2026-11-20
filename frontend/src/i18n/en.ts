@@ -63,7 +63,6 @@ export const en = {
   'empty.actions': 'Nothing to do',
 
   // -- one device row ---------------------------------------------------------
-  'row.open': '{name}, open in Home Assistant',
   'row.offline': 'Offline',
   'row.unavailable': 'Unavailable',
   'row.not_provided': 'Not provided',
@@ -92,13 +91,18 @@ export const en = {
 
   'battery.low': 'Low',
   'battery.ok': 'OK',
-  'battery.level': 'Battery level',
 
   'snooze.title': 'Snooze: hide this device for a while',
   'snooze.label': 'Snooze {name}',
   'snooze.until_title': 'Snoozed until {date}. Click to unsnooze.',
   'snooze.unsnooze_label': 'Unsnooze {name}',
   'snooze.days': { one: '{count} day', other: '{count} days' },
+  'snooze.indefinitely': 'Indefinitely',
+  'snooze.indefinitely_title': 'Snoozed indefinitely. Click to unsnooze.',
+  'row.snoozed_indefinitely': 'indefinitely',
+  'hint.snoozed_indefinitely':
+    "{name} stays snoozed until you unsnooze it. To stop seeing it in Pulse Check at all, ignore it in Pulse Check's per-device settings instead.",
+  'hint.dismiss': 'Got it',
 
   'rows.show_more': { one: 'Show {count} more', other: 'Show {count} more' },
   'rows.show_less': 'Show less',

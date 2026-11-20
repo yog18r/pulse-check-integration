@@ -120,6 +120,40 @@ async def test_the_entry_address_is_only_for_its_only_device(hass: HomeAssistant
     assert device_address(hass, first) is None
 
 
+@pytest.mark.parametrize(
+    ("value", "address"),
+    [
+        # Private ranges, both families.
+        ("10.1.2.3", "10.1.2.3"),
+        ("172.16.0.9", "172.16.0.9"),
+        ("fd12:3456::1", "fd12:3456::1"),
+        ("fc00::5", "fc00::5"),
+        (" [fd00::50] ", "fd00::50"),
+        # IPv4 written as IPv6 is judged as the IPv4 address it is.
+        ("::ffff:192.168.1.5", "192.168.1.5"),
+        ("::ffff:127.0.0.1", None),
+        ("::ffff:8.8.8.8", None),
+        ("::ffff:169.254.169.254", None),
+        # Public, special or not one host.
+        ("100.64.0.1", None),  # carrier-grade NAT: not this home's network
+        ("2606:4700::1111", None),
+        ("::1", None),
+        ("::", None),
+        ("fe80::1%eth0", None),
+        ("ff02::1", None),
+        ("240.0.0.1", None),
+        ("192.168.1.256", None),
+        ("192.168.1", None),
+        ("0x7f000001", None),
+        ("", None),
+        (None, None),
+        (3232235777, None),  # 192.168.1.1 as a number: not text, not taken
+    ],
+)
+def test_only_one_private_host_s_address_is_taken(value: object, address: str | None) -> None:
+    assert ping._private_ip(value) == address
+
+
 # -- asking -------------------------------------------------------------------
 
 

@@ -14,14 +14,17 @@ if (!customElements.get('pulse-check-card-test')) {
 }
 
 function mount(config: unknown) {
-  const el = document.createElement('pulse-check-card-test') as PulseCheckCardElement;
+  const el = document.createElement('pulse-check-card-test');
+  // Checked, not cast: the element registry hands back a plain HTMLElement type.
+  if (!(el instanceof PulseCheckCardElement))
+    throw new Error('pulse-check-card-test is not the card');
   el.setConfig(config);
   document.body.appendChild(el);
   return el;
 }
 
 afterEach(() => {
-  document.body.innerHTML = '';
+  document.body.replaceChildren();
 });
 
 describe('PulseCheckCardElement', () => {

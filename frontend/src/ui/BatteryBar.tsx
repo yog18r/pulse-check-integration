@@ -2,7 +2,8 @@
  * Battery level as a coloured bar plus a percentage. For binary sensors
  * (no percentage) we show the word "Low" or "OK" instead of a bar.
  *
- * Accessibility: the bar is a `meter` so screen readers announce the value.
+ * Accessibility: the bar is decoration; the percentage beside it is the
+ * text screen readers read, as part of the row's description.
  */
 import type { BatteryReading, Severity } from '../core/types';
 import { useT } from './i18n';
@@ -25,14 +26,7 @@ export function BatteryBar({ battery, severity }: Props) {
   const pct = battery.level;
   return (
     <div className="battery">
-      <div
-        className="bar"
-        role="meter"
-        aria-label={t.t('battery.level')}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={pct}
-      >
+      <div className="bar" aria-hidden="true">
         <div className="fill" data-severity={severity} style={{ width: `${String(pct)}%` }} />
       </div>
       <span className="label" data-severity={severity}>
