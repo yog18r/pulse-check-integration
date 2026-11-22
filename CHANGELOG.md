@@ -4,6 +4,20 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Changed
+- **Mark charged means "charging now".** It used to record the charge and
+  nothing more, so a battery charging slowly (a home battery on the grid,
+  an EV) stayed on the Charge list and kept its warning until it had
+  climbed out of the warning range by itself. Now it also counts as
+  charging until the first of: its level is above its warning level (not
+  "full", which many batteries never reach on purpose), its level falls
+  below where it was when marked, or it has not risen for 6 hours. While
+  it does, it is not low, leaves the Charge list, its phone notification is
+  cleared and its row shows ⚡ charging. Undo takes the mark back with the
+  charge. See *Charging now* in the README.
+
 ## 0.2.21 - 2026-11-20
 
 ### Added

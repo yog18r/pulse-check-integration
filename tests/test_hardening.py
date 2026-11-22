@@ -73,6 +73,7 @@ def test_a_good_file_is_read_as_it_is() -> None:
         "maintenance": {"started_at": GOOD_TIME, "until": GOOD_TIME},
         "gone": {"dev_b": GOOD_TIME},
         "heard": {"dev_a": GOOD_TIME},
+        "charging": {"dev_a": {"at": GOOD_TIME, "from": 10, "peak": 12, "peak_at": GOOD_TIME}},
         "from_a_newer_version": {"kept": True},
     }
     assert normalise(saved) == saved
@@ -107,6 +108,20 @@ def test_only_the_bad_records_are_left_out(caplog: pytest.LogCaptureFixture) -> 
     assert data["history"] == {"dev_a": {"events": [{"at": GOOD_TIME}], "cycles": [{"days": 30}]}}
     assert data["maintenance"] == {}
     assert "Left out 7 unreadable records" in caplog.text
+
+
+def test_a_damaged_charging_mark_is_left_out() -> None:
+    data = normalise(
+        {
+            "charging": {
+                "dev_a": {"at": GOOD_TIME, "from": None, "peak": None, "peak_at": GOOD_TIME},
+                "dev_b": {"at": "soon", "from": 10},
+                "dev_c": {"at": GOOD_TIME, "from": "ten"},
+                "dev_d": "charging",
+            }
+        }
+    )
+    assert list(data["charging"]) == ["dev_a"]
 
 
 # -- history reads ------------------------------------------------------------

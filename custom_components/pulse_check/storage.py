@@ -64,7 +64,7 @@ PRUNE_AFTER = timedelta(days=7)
 # Sections keyed by device id that `prune` looks after. Notification state
 # and last levels are already dropped by their owners as soon as a device
 # is no longer watched; per-device settings stay until the user clears them.
-_PRUNED_SECTIONS = ("history", "snoozes", "heard")
+_PRUNED_SECTIONS = ("history", "snoozes", "heard", "charging")
 # Last heard changes with nearly every update; it is written at most this
 # often (and when Home Assistant stops), not every minute.
 HEARD_SAVE_EVERY = timedelta(minutes=15)
@@ -163,6 +163,20 @@ def _usable_notify(record: object) -> bool:
     )
 
 
+def _is_number(value: object) -> bool:
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
+def _usable_charging(mark: object) -> bool:
+    """A charging mark says when it was made; its levels are numbers or unknown."""
+    return (
+        isinstance(mark, dict)
+        and _is_timestamp(mark.get("at"))
+        and all(mark.get(key) is None or _is_number(mark.get(key)) for key in ("from", "peak"))
+        and (mark.get("peak_at") is None or _is_timestamp(mark.get("peak_at")))
+    )
+
+
 def normalise(loaded: Mapping[str, Any]) -> dict[str, Any]:
     """The stored data with anything unreadable left out, record by record.
 
@@ -210,6 +224,9 @@ def normalise(loaded: Mapping[str, Any]) -> dict[str, Any]:
         if usable is not None:
             history[device_id] = usable
     data["history"] = history
+    good = {k: v for k, v in data["charging"].items() if _usable_charging(v)}
+    dropped += len(data["charging"]) - len(good)
+    data["charging"] = good
     # A maintenance window that does not say when it ends is no window.
     window = data["maintenance"]
     if window and not (
@@ -235,6 +252,7 @@ def _empty() -> dict[str, Any]:
         "maintenance": {},  # empty, or the maintenance window (see `start_maintenance`)
         "gone": {},  # device id -> ISO timestamp it was first found missing (see `prune`)
         "heard": {},  # device id -> ISO timestamp it was last heard from (see `note_heard`)
+        "charging": {},  # device id -> the user's "charging now" mark (see core/charging.py)
     }
 
 
@@ -437,6 +455,25 @@ class PulseCheckStore:
             self._heard_dirty = False
             self._heard_saved = now
             self.async_save()
+
+    # -- charging marks ------------------------------------------------------
+
+    @property
+    def charging(self) -> dict[str, dict[str, Any]]:
+        """Devices the user has marked as charging, with each mark (see core/charging.py)."""
+        return self.data["charging"]  # type: ignore[no-any-return]
+
+    def mark_charging(self, device_id: str, mark: dict[str, Any]) -> None:
+        """Mark a device as charging, or replace its mark."""
+        self.data["charging"][device_id] = mark
+        self.async_save()
+
+    def end_charging(self, device_id: str) -> bool:
+        """End a device's charging mark. False when it had none."""
+        removed = self.data["charging"].pop(device_id, None) is not None
+        if removed:
+            self.async_save()
+        return removed
 
     # -- housekeeping --------------------------------------------------------
 

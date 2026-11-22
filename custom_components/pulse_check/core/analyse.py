@@ -41,7 +41,7 @@ from .thresholds import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Collection, Iterable, Mapping
     from datetime import datetime
 
     from .enhancers import Enhancer
@@ -112,6 +112,7 @@ def analyse_devices(
     snoozes: Mapping[str, datetime] | None = None,
     heard: Mapping[str, datetime] | None = None,
     replayed_until: datetime | None = None,
+    charging: Collection[str] = (),
 ) -> list[DeviceHealth]:
     """Analyse every device in the snapshot.
 
@@ -126,6 +127,8 @@ def analyse_devices(
         replayed_until: the end of Home Assistant's start (plus its grace
             period). A report stamped no later than this is a cached value
             written at the start, not the device, for a device in `heard`.
+        charging: devices the user has marked as charging (see `charging.py`):
+            their battery counts as charging whatever it reports.
     """
     now = as_utc(now)
     enhancers = tuple(enhancers)
@@ -141,6 +144,8 @@ def analyse_devices(
             continue
 
         battery = detect_battery(group.states, snapshot["entities"])
+        if battery is not None and group.device_id in charging:
+            battery.is_charging = True
 
         # Services (Sun, AdGuard Home) and entities with no device (template
         # sensors, automations) have no hardware to be quiet, but they can

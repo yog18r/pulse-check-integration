@@ -36,6 +36,7 @@ from .const import (
     MAX_SNOOZE_DAYS,
     NOTIFY_POLICIES,
 )
+from .core.charging import new_mark
 from .core.group import ORPHAN_PREFIX
 from .core.models import SNOOZED_INDEFINITELY
 from .options import levels_clash
@@ -226,21 +227,32 @@ async def _mark_replaced(call: ServiceCall) -> None:
 
 
 async def _mark_charged(call: ServiceCall) -> None:
+    # "I am charging it": recorded as a charge, and the battery counts as
+    # charging until it has climbed out of the warning range (core/charging.py).
     coordinator = _coordinator(call.hass)
     device_id = resolve_device_id(coordinator, call.data[ATTR_DEVICE_ID])
-    coordinator.replacements.record(device_id, "charged", dt_util.utcnow(), None)
+    now = dt_util.utcnow()
+    battery = coordinator.data.by_id[device_id].battery
+    coordinator.replacements.record(device_id, "charged", now, None)
+    coordinator.store.mark_charging(
+        device_id, new_mark(battery.level if battery is not None else None, now)
+    )
     await coordinator.async_refresh()
 
 
 async def _undo_mark(call: ServiceCall) -> None:
     coordinator = _coordinator(call.hass)
     device_id = resolve_device_id(coordinator, call.data[ATTR_DEVICE_ID])
+    last = coordinator.replacements.last_event(device_id)
     if not coordinator.replacements.undo_last(device_id):
         raise ServiceValidationError(
             translation_domain=DOMAIN,
             translation_key="nothing_to_undo",
             translation_placeholders={"device_id": call.data[ATTR_DEVICE_ID]},
         )
+    # Taking back a charge marked by hand takes back its "charging now" too.
+    if last is not None and last.get("kind") == "charged" and not last.get("auto"):
+        coordinator.store.end_charging(device_id)
     await coordinator.async_refresh()
 
 

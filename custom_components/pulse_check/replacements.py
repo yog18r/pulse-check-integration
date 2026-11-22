@@ -169,6 +169,10 @@ class ReplacementTracker:
         the level just fell back from a glitch, and whether an event was
         recorded.
         """
+        # Marked as charging by hand: that charge is recorded already, and
+        # the rise that follows is it, not another one.
+        if device.device_id in self.store.charging:
+            return None, False, False
         previous_level = previous.get("level") if previous else None
         jump: dict[str, Any] | None = previous.get("jump") if previous else None
         if (

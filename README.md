@@ -360,7 +360,7 @@ Who may call them, when a person calls one (automations always may):
 | `pulse_check.unsnooze` | Lift a snooze early |
 | `pulse_check.set_device_settings` | `name`, `area`, `quiet_threshold_hours`, `battery_type`, `battery_count`, `rechargeable` (true: charged, false: replaced, empty: work it out), `battery_warning`, `battery_critical`, `notify_policy`, `sparkline_days`. Only given fields change; an empty value clears one. `name`, `area` and `battery_type` must be text of at most 100 characters, `battery_count` at most 20, and `quiet_threshold_hours` at most a year (8760). Settings saved for an id that is no longer watched can still be cleared |
 | `pulse_check.mark_replaced` | Record a replacement now (optional `battery_type`, text of at most 100 characters), closing the current cycle |
-| `pulse_check.mark_charged` | The same for a charge |
+| `pulse_check.mark_charged` | The same for a charge, meaning "I am charging it now": the battery also counts as charging until it has caught up (see [Charging now](#charging-now)) |
 | `pulse_check.undo_mark` | Take back the most recent replacement or charge, with the cycle it closed: one recorded by hand, or one detected from a rise in level that was not a new battery after all |
 | `pulse_check.refresh` | Recompute now and re-read battery history |
 | `pulse_check.maintenance_mode` | Hold every notification back for `hours` (default from the options; 0 ends it now). See [Maintenance mode](#maintenance-mode) |
@@ -373,6 +373,20 @@ To try `pulse_check.ping`, open **Developer tools → Actions**, pick *Pulse Che
 ## Replacement tracking
 
 `mark_replaced` and `mark_charged` record an event; the cycle that just ended is summarised (how many days it lasted, how fast it drained). A level that rises by 20 points or more in one step is detected as a replacement by itself (a charge for a battery that gets charged, or one that was charging), once the new level has held for an hour; it is dated from the rise. A level that falls straight back was a glitch (some Zigbee and Z-Wave devices report 100 % once on rejoining) and is ignored. `undo_mark` takes back a detected one as well as one recorded by hand. Once a device has completed cycles on record, a current drain rate more than twice its own average is flagged as `unusual: "draining 3× faster than usual"`; a sudden drop of 20 points is flagged for a week. Days left always comes from the current drain estimate.
+
+### Charging now
+
+A battery that gets charged can take hours to climb back out of the warning range: a home battery charging from the grid, an EV, a phone on a slow charger. Many never say they are charging. **Mark charged** (on the Actions tab, a phone notification or `pulse_check.mark_charged`) therefore means "I am charging it now". Besides recording the charge, the battery counts as charging, so it is not low, leaves the Charge list and the low-battery counts, its phone notification is cleared, and its row shows ⚡ charging.
+
+That lasts until the first of:
+
+- its level is above its warning level: it is not low any more. Not "full", since many batteries stop short of it on purpose (an EV set to 80 %);
+- its level falls below where it was when marked: it is being used, not charged (unplugged early, a mistaken tap);
+- its level has not risen for 6 hours: charging never started, or stopped short;
+- for a battery with only a low / not low sensor: it reads not low, or 6 hours have passed;
+- **Undo** (or `undo_mark`), which takes back the charge and the mark together.
+
+Ended any way but the first, it is low again and comes back like any new problem. The mark is saved, so a restart in the middle of a charge keeps it, and a rise of 20 points or more while it stands is the marked charge, not a second one.
 
 ### Automation examples
 
@@ -528,7 +542,7 @@ ruff check . && ruff format --check . && mypy
 pytest
 ```
 
-The test suite (439 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
+The test suite (455 tests) runs in about a minute and a half. `tests/core/` tests the pure rules without Home Assistant; the other tests run the integration in a real test instance and share their setup helpers through `tests/helpers.py`. A test that hangs fails after two minutes.
 
 `tests/fixtures/card_contract.json` pins what the integration sends the card: a device with every optional field, a summary and a history result. Python fails if it emits something different, and the card's `contract.test.ts` fails if it stops reading a field. After a deliberate change, regenerate it with `PULSE_CHECK_UPDATE_CONTRACT=1 pytest tests/test_card_contract.py` and update the card to match.
 

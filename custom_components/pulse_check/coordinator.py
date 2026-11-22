@@ -73,6 +73,7 @@ from .core import (
     analyse_devices,
     summarise,
 )
+from .core.charging import follow_mark
 from .core.enhancers import ENHANCERS
 from .core.group import ORPHAN_PREFIX
 from .core.models import (
@@ -83,6 +84,7 @@ from .core.models import (
     EstimateInfo,
     Snapshot,
 )
+from .core.thresholds import battery_levels
 from .history import HistoryTracker
 from .notify import DATA_RUNTIME
 from .options import core_config_from_options
@@ -351,14 +353,16 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         replayed_until: datetime | None = (
             self.hass.data.get(DATA_RUNTIME, {}).get("ready_at") if self.hass.is_running else now
         )
+        charging = set(self.store.charging)
         devices = await self.hass.async_add_executor_job(
-            _analyse, snapshot, config, now, snoozes, heard, replayed_until
+            _analyse, snapshot, config, now, snoozes, heard, replayed_until, charging
         )
         answered = await self._ask_quiet_devices(devices)
-        if answered:
+        ended = self._follow_charging(devices, config, now)
+        if answered or ended:
             heard = {**heard, **dict.fromkeys(answered, now)}
             devices = await self.hass.async_add_executor_job(
-                _analyse, snapshot, config, now, snoozes, heard, replayed_until
+                _analyse, snapshot, config, now, snoozes, heard, replayed_until, charging - ended
             )
         self.store.note_heard(((d.device_id, d.last_heard) for d in devices), now)
         self._watched = {entity_id for device in devices for entity_id in device.entity_ids}
@@ -442,6 +446,32 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
         self.store.note_heard([(device_id, now)], now)
         self._asked.discard(device_id)
         await self.async_refresh()
+
+    def _follow_charging(
+        self, devices: list[DeviceHealth], config: CoreConfig, now: datetime
+    ) -> set[str]:
+        """Carry each "charging now" mark forward; return the devices whose mark ended.
+
+        A device that is not analysed this time (left out by a filter,
+        snoozed away from the card, gone) keeps its mark until it is, or
+        until housekeeping drops what a removed device left behind.
+        """
+        by_id = {device.device_id: device for device in devices}
+        ended: set[str] = set()
+        for device_id, mark in list(self.store.charging.items()):
+            device = by_id.get(device_id)
+            if device is None:
+                continue
+            warning, _critical = battery_levels(config, device_id)
+            kept = follow_mark(mark, device.battery, warning, now)
+            if kept is None:
+                self.store.end_charging(device_id)
+                ended.add(device_id)
+            elif kept != mark:
+                self.store.mark_charging(device_id, kept)
+        if ended:
+            _LOGGER.debug("Charging marks ended: %s", sorted(ended))
+        return ended
 
     def _adopt_entity_settings(self, snapshot: Snapshot) -> bool:
         """Move what was saved for a lone entity onto the device it now belongs to.
@@ -568,6 +598,7 @@ def _analyse(
     snoozes: dict[str, datetime],
     heard: dict[str, datetime],
     replayed_until: datetime | None,
+    charging: set[str],
 ) -> list[DeviceHealth]:
     return analyse_devices(
         snapshot,
@@ -577,6 +608,7 @@ def _analyse(
         snoozes=snoozes,
         heard=heard,
         replayed_until=replayed_until,
+        charging=charging,
     )
 
 
