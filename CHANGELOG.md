@@ -4,7 +4,7 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
-## Unreleased
+## 0.2.23 - 2026-11-28
 
 ### Fixed
 - **A save made just as the options are saved is no longer lost.** Saving

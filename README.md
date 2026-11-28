@@ -256,7 +256,7 @@ This is the contract between the integration and the card. The card, or anything
   "device_settings": { "<device id>": { "battery_type": "CR2450", "battery_count": 2, "notify_policy": "weekly" } },
   "computed_at": "2026-10-15T10:00:00.000Z",
   "maintenance_until": null,
-  "version": "0.2.22"
+  "version": "0.2.23"
 }
 ```
 
