@@ -40,7 +40,7 @@ from .history import DATA_INSIGHTS, DATA_POINTS
 from .messages import async_load_messages
 from .notify import DATA_RUNTIME, Notifier
 from .services import async_setup_services
-from .storage import PulseCheckStore
+from .storage import DATA_STORE, PulseCheckStore
 from .websocket import async_setup_websocket
 
 if TYPE_CHECKING:
@@ -90,6 +90,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -
     # Compute once before the entities exist, so they never start empty.
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+    # One coordinator for the whole of Home Assistant: services and the
+    # websocket look it up here, not per entry. That holds only because there
+    # can be one Pulse Check entry (`single_config_entry` in manifest.json,
+    # and the unique id in config_flow.py); allowing more would need them to
+    # find the right entry instead.
     hass.data[DATA_COORDINATOR] = coordinator
     _remove_maintenance_binary_sensor(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -144,8 +149,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) 
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         hass.data.pop(DATA_COORDINATOR, None)
-        # A change saved with a delay (a snooze a second ago) must be on disk
-        # before the reload's new store reads the file.
+        # On disk now, not two seconds from now: a restart or a crash right
+        # after unloading must not lose a change (a snooze a second ago).
         await entry.runtime_data.store.async_save_now()
     return unloaded
 
@@ -153,8 +158,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) 
 async def async_remove_entry(hass: HomeAssistant, entry: PulseCheckConfigEntry) -> None:
     """Clean up when the integration is deleted (not on reload or restart)."""
     await async_remove_card_resource(hass)
-    # Its saved state, what it kept in memory, and its repair issues.
-    await PulseCheckStore(hass).async_remove()
+    # Its saved state, what it kept in memory, and its repair issues. The
+    # shared store's own removal also cancels a save still waiting to run,
+    # which would otherwise write the file back.
+    store: PulseCheckStore = hass.data.get(DATA_STORE) or PulseCheckStore(hass)
+    hass.data.pop(DATA_STORE, None)
+    await store.async_remove()
     hass.data.pop(DATA_RUNTIME, None)
     hass.data.pop(DATA_INSIGHTS, None)
     hass.data.pop(DATA_POINTS, None)

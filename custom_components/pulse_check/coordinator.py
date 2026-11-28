@@ -90,7 +90,7 @@ from .notify import DATA_RUNTIME
 from .options import core_config_from_options
 from .ping import async_ping_device
 from .replacements import ReplacementTracker
-from .storage import PulseCheckStore
+from .storage import shared_store
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -162,7 +162,7 @@ class PulseCheckCoordinator(DataUpdateCoordinator[PulseCheckData]):
             update_interval=UPDATE_INTERVAL,
             request_refresh_debouncer=self._refresh_debouncer,
         )
-        self.store = PulseCheckStore(hass)
+        self.store = shared_store(hass)
         # The websocket snapshot for the current `data`, shared by subscribers.
         self.payload_cache: tuple[PulseCheckData, dict[str, Any]] | None = None
         self.core_config = core_config_from_options(entry.options)

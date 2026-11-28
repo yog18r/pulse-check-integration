@@ -37,6 +37,8 @@ STORAGE_VERSION = 1
 # 2 (0.2.14): `rechargeable: false` means "replaceable" rather than "not set".
 STORAGE_MINOR_VERSION = 2
 STORAGE_KEY = f"{DOMAIN}.data"
+# The one store for this run of Home Assistant (see `shared_store`).
+DATA_STORE = f"{DOMAIN}_store"
 SAVE_DELAY_SECONDS = 2.0
 
 # Per-device settings the core understands, plus the notification policy.
@@ -256,6 +258,22 @@ def _empty() -> dict[str, Any]:
     }
 
 
+def shared_store(hass: HomeAssistant) -> PulseCheckStore:
+    """The store, one per run of Home Assistant, kept across reloads.
+
+    Saving the options reloads Pulse Check. Work the old setup had under way
+    (a message being retried, a refresh finishing) can still save after the
+    unload. With a store of its own per setup, that late save would write
+    the old setup's data over the file the new one had just read, and the
+    new one would never see it. With one store, it lands in the data the
+    new setup is using.
+    """
+    store: PulseCheckStore | None = hass.data.get(DATA_STORE)
+    if store is None:
+        store = hass.data[DATA_STORE] = PulseCheckStore(hass)
+    return store
+
+
 class PulseCheckStore:
     """The integration's saved state, with small typed accessors."""
 
@@ -265,15 +283,22 @@ class PulseCheckStore:
             hass, STORAGE_VERSION, STORAGE_KEY, minor_version=STORAGE_MINOR_VERSION
         )
         self.data: dict[str, Any] = _empty()
+        self._loaded = False
         # Last heard changed since it was last written, and when that was.
         self._heard_dirty = False
         self._heard_saved: datetime | None = None
 
     async def async_load(self) -> None:
-        """Read the file, keeping defaults for any section it lacks."""
+        """Read the file, keeping defaults for any section it lacks.
+
+        Once only: after that, what is in memory is the newest there is.
+        """
+        if self._loaded:
+            return
         loaded = await self._store.async_load()
         if loaded:
             self.data = normalise(loaded)
+        self._loaded = True
 
     def async_save(self) -> None:
         """Write soon (delayed and coalesced)."""

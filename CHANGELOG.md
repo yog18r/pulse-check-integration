@@ -4,6 +4,18 @@ What changed in each release of Pulse Check. The section for a version is
 also its release notes on GitHub, which is what HACS shows when it offers
 the update.
 
+## Unreleased
+
+### Fixed
+- **A save made just as the options are saved is no longer lost.** Saving
+  the options reloads Pulse Check. Work the old setup still had under way,
+  such as a message being retried, could save after the reload had read
+  the file, and its change was then written over the new setup's, or lost.
+  Pulse Check now keeps one copy of its saved data across reloads, so such
+  a save lands in the data the new setup uses. Removing Pulse Check also
+  cancels a save still waiting to run, which could otherwise write the
+  file back after it was deleted.
+
 ## 0.2.22 - 2026-11-23
 
 ### Changed
